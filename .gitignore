@@ -1,0 +1,24 @@
+# ── .NET ──────────────────────────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.swp
+
+# Secrets — NEVER commit these
+appsettings.Development.json
+appsettings.Production.json
+*.pfx
+*.p12
+
+# ── Node ──────────────────────────────────────────────────────────
+node_modules/
+frontend/build/
+.env
+.env.local
+.env.development.local
+
+# ── Docker volumes / logs ──────────────────────────────────────────
+*.log
+docker-data/
