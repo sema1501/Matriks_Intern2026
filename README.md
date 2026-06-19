@@ -12,6 +12,11 @@ Full Stack kripto para takip uygulaması.
 - [Node.js 18+](https://nodejs.org/)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
+### Önemli not
+- Komutları depo kökünden başlatın.
+- `backend/src/CryptoTracker.API` klasörüne gidin; `backend/backend/src/...` gibi çift `backend` yolu kullanmayın.
+- SQL Server konteynerini çalıştırmadan önce Docker Desktop açık olmalı.
+
 ### 1. Repoyu klonla
 ```bash
 git clone <repo-url>
@@ -34,6 +39,14 @@ dotnet run
 # → http://localhost:5002
 # → http://localhost:5002/swagger
 ```
+
+Eğer `dotnet run` farklı bir port açarsa, [backend/src/CryptoTracker.API/Properties/launchSettings.json](./backend/src/CryptoTracker.API/Properties/launchSettings.json) dosyasının uygulandığını kontrol edin.
+
+### Yaygın hata nedenleri
+- Docker Desktop kapalıysa `docker-compose up -d db` çalışmaz.
+- Komutlar yanlış klasörde çalıştırılırsa `No project was found` hatası gelir.
+- `dotnet ef database update` için ilk migration'ın repoda bulunması gerekir.
+- `JWT Key is not configured` hatası, temel `appsettings.json` içinde gerekli ayar yoksa oluşur.
 
 ### 4. Frontend'i çalıştır
 ```bash
