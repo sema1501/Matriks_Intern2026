@@ -1,85 +1,157 @@
-# 1. Hafta Görevleri
+# 1. Hafta Görevleri — Crypto Tracker Frontend
 
-Bu dosyadaki 5 görevi ekip arasında bölüştürün.
-Her görev için bir GitHub Issue açın ve PR'ınızda o issue'yu kapatın.
-
----
-
-## Görev 1 — Kayıt & Giriş (Auth)
-
-**Backend:** `AuthService.cs` içindeki `RegisterAsync` ve `LoginAsync` metodlarını implement edin.
-
-Adımlar:
-1. `RegisterAsync`: email/username benzersizliğini kontrol et → BCrypt ile şifrele → User kaydet → varsayılan "User" rolünü ata → JWT token üret ve dön
-2. `LoginAsync`: kullanıcıyı email VEYA username ile bul → BCrypt.Verify → JWT token üret ve dön
-
-**Frontend:** `SignIn.jsx` ve `SignUp.jsx` sayfalarını tamamlayın, `Navbar.jsx`'in auth bölümünü düzeltin.
-
-Beklenen çıktı: Swagger'dan `/api/Auth/register` ve `/api/Auth/login` başarıyla çalışıyor. Tarayıcıda giriş yapılabiliyor.
+Bu hafta hiçbir gerçek API'ye bağlanmıyoruz. Tüm veriler `src/data/mockData.js`
+dosyasından geliyor. Amaç: görsel/UI katmanını sağlam kurmak. API entegrasyonu
+ileride ayrı bir görev olarak gelecek.
 
 ---
 
-## Görev 2 — Kullanıcı Yönetimi
+## mockData.js Nasıl Kullanılır?
 
-**Backend:** `UserService.cs` içindeki tüm metodları implement edin.
+Dosya `src/data/mockData.js` altında ve `mockCoins` adında bir dizi export ediyor.
+30 coin içeriyor, her biri şu alanlara sahip:
 
-Adımlar:
-1. `GetByIdAsync`: User'ı UserRoles + Role ile birlikte çek, UserDto'ya map et
-2. `GetAllAsync`: Tüm kullanıcıları UserRoles + Role ile çek
-3. `UpdateProfileAsync`: username/email güncelle, benzersizlik kontrolü yap
-4. `ChangePasswordAsync`: BCrypt.Verify ile mevcut şifreyi doğrula, yeni şifreyi hashle
+```js
+{
+  id: "bitcoin",                  // benzersiz kimlik -> /coin/:id route'unda kullanılır
+  rank: 1,                        // market cap sıralaması
+  name: "Bitcoin",
+  symbol: "BTC",
+  image: "https://...png",        // gerçek logo görseli (CoinGecko CDN, statik link)
+  currentPrice: 66532.14,         // USD fiyatı
+  priceChangePercentage24h: -2.99,// son 24s yüzde değişim (+ veya -)
+  marketCap: 1292433808489.2,
+  volume24h: 109667322195.82,
+  high24h: 68164.86,
+  low24h: 65820.07,
+  circulatingSupply: 19432156.0,
+  sparkline7d: [66532.14, 63003.27, ...] // 7 günlük SAHTE fiyat serisi (sadece grafik için)
+}
+```
 
-**Frontend:** `Profile.jsx` sayfasını tamamlayın (bilgileri göster + düzenleme formu + şifre değiştirme).
+**Projeye nasıl import edilir:**
 
-Beklenen çıktı: `/api/Auth/me` profil bilgisini döndürüyor. Profil sayfasında kullanıcı bilgileri görünüyor.
+```js
+import mockCoins from '../data/mockData';
+
+function CryptoList() {
+  return (
+    <div>
+      {mockCoins.map(coin => (
+        <CryptoCard key={coin.id} coin={coin} />
+      ))}
+    </div>
+  );
+}
+```
+
+**Önemli noktalar:**
+- `sparkline7d` gerçek fiyat geçmişi değildir, sadece görsel doldurma amaçlıdır. Görev 4'te grafik çizerken bunu kullanın.
+- `id` alanı route'larda kullanılacak (`/coin/bitcoin` gibi), `useParams()` ile `id`'yi alıp `mockCoins.find(c => c.id === id)` şeklinde coin'i bulabilirsiniz.
+- Hiçbir görevde `fetch`, `axios` veya başka bir HTTP isteği YOK. Her şey bu diziden okunuyor.
 
 ---
 
-## Görev 3 — Rol Yönetimi
+## Görev 1 — Mock Veri & Coin Kartı Bileşeni
 
-**Backend:** `RoleService.cs` içindeki tüm metodları implement edin.
+**Açıklama**
+`mockData.js`'teki veriyi kullanarak tek bir coin'i gösteren kart bileşeninin oluşturulması.
 
-Adımlar:
-1. `GetAllAsync`: Tüm rolleri listele
-2. `CreateAsync`: İsim benzersizliğini kontrol et, yeni rol oluştur
-3. `AssignRoleAsync`: Kullanıcı ve rolün varlığını doğrula, zaten atanmış mı kontrol et, UserRole ekle
-4. `RemoveRoleAsync`: UserRole kaydını bul ve sil
-5. `GetUserRolesAsync`: Kullanıcının rol isimlerini döndür
+**Yapılacaklar**
+- `CryptoCard.jsx`: `coin` prop'u alan, tek bir coin'i kart olarak gösteren bileşen
+  - Logo (`coin.image`), isim, sembol, fiyat, 24s değişim (yeşil/kırmızı renk + ok ikonu)
+- `priceChangePercentage24h` pozitifse yeşil + yukarı ok, negatifse kırmızı + aşağı ok
+- Kart hover efekti (hafif büyüme veya kenarlık rengi değişimi)
+- Test için `mockCoins[0]` (Bitcoin) ile kartı tek başına render edip görsel kontrolü yapın
 
-Beklenen çıktı: `/api/Role` endpoint'leri Swagger'da çalışıyor. Admin kullanıcıya role atanabiliyor.
-
----
-
-## Görev 4 — Frontend Temel Yapı & Routing
-
-**Frontend:** Aşağıdaki konuları tamamlayın.
-
-Adımlar:
-1. `Navbar.jsx`: Giriş yapmış kullanıcıya rol rozeti ekle, Admin için Dashboard linki göster, dropdown menü yap
-2. Korumalı rota (PrivateRoute) bileşeni yaz — giriş yapılmamışsa `/signin`'e yönlendir
-3. `Dashboard.jsx` ve `Profile.jsx` sayfalarını PrivateRoute ile koru
-4. Genel hata mesajları için toast/alert mekanizması kur
-
-Beklenen çıktı: Giriş yapılmadan `/profile`'a gidildiğinde login sayfasına yönleniyor. Navbar'da kullanıcı adı ve rol görünüyor.
+**Kabul kriterleri**
+- [ ] Kart, `mockData.js`'ten gelen bir coin objesini prop olarak alıp doğru gösteriyor
+- [ ] Pozitif değişim yeşil, negatif değişim kırmızı renkte
+- [ ] Logo görseli (CoinGecko CDN linki) düzgün yükleniyor
+- [ ] Hover'da görsel bir tepki var
 
 ---
 
-## Görev 5 — Dashboard & Bonus
+## Görev 2 — Grid Layout & Responsive Tasarım
 
-**Backend + Frontend:**
+**Açıklama**
+`mockCoins` dizisinin tamamının kart olarak, düzenli bir grid içinde listelenmesi.
 
-1. `DashboardController.cs`'deki `daily-new-users` endpoint'ini genişlet:
-   - Son 7 günün günlük yeni kullanıcı sayısını döndür (array)
-2. `Dashboard.jsx` sayfasına bu veriyi göster (basit tablo veya liste)
-3. (Bonus) Toplam kullanıcı sayısı ve toplam rol sayısı için 2 ek endpoint yaz
+**Yapılacaklar**
+- `CryptoGrid.jsx`: `mockCoins` dizisini `.map()` ile gezip her biri için `CryptoCard` render et
+- Responsive breakpoint'ler: desktop 4 sütun, tablet 2 sütun, mobil 1 sütun
+- Sayfa genel layout'u: header, ana içerik alanı, footer
+- Koyu/gradient arkaplan ve glassmorphism (yarı şeffaf, blur'lu kart) tasarım dili kur — bu tasarım dili sonraki görevlerde referans olacak
 
-Beklenen çıktı: Admin hesabıyla `/dashboard`'a girince günlük istatistikler görünüyor.
+**Kabul kriterleri**
+- [ ] `mockCoins` dizisindeki 30 coin'in tamamı grid içinde görünüyor
+- [ ] Tarayıcı küçültülünce sütun sayısı düzgün azalıyor, kartlar taşmıyor/bozulmuyor
+- [ ] Header ve footer tüm sayfalarda tutarlı
+- [ ] Görsel tasarım koyu/modern bir his veriyor
+
+---
+
+## Görev 3 — Arama & Sıralama (İstemci Tarafı)
+
+**Açıklama**
+`mockCoins` dizisi üzerinde anlık arama ve sıralama özelliklerinin eklenmesi.
+
+**Yapılacaklar**
+- Arama kutusu: `coin.name` veya `coin.symbol`'a göre anlık filtreleme — `mockCoins.filter(...)` ile, herhangi bir dış istek yok
+- Sıralama dropdown'ı: `currentPrice`, `priceChangePercentage24h`, `marketCap` alanlarına göre artan/azalan sıralama (`.sort()`)
+- Arama sonucu boşsa "sonuç bulunamadı" şeklinde tasarlanmış bir boş durum ekranı
+
+**Kabul kriterleri**
+- [ ] Arama kutusuna yazınca liste anlık filtreleniyor
+- [ ] Sıralama dropdown'ı en az 2 kritere göre çalışıyor (örn. fiyat ve değişim)
+- [ ] Boş arama sonucunda kırık bir görünüm yok, tasarlanmış bir mesaj var
+
+---
+
+## Görev 4 — Coin Detay Sayfası
+
+**Açıklama**
+Bir coin kartına tıklandığında, o coin'in `mockData.js`'teki tüm bilgilerini gösteren bir detay sayfası.
+
+**Yapılacaklar**
+- React Router ile `/coin/:id` route'u kur
+- `CoinDetail.jsx`: `useParams()` ile `id`'yi al, `mockCoins.find(c => c.id === id)` ile coin'i bul
+  - Büyük logo, isim, fiyat, `marketCap`, `volume24h`, `high24h`, `low24h`, `circulatingSupply` göster
+- `sparkline7d` dizisini kullanarak basit bir çizgi grafik çiz (örn. `recharts` ile) — bu veri sahte olsa da görsel olarak tamamlanmış bir grafik oluşturmalı
+- Listeye geri dönüş butonu
+
+**Kabul kriterleri**
+- [ ] Bir coin kartına tıklanınca ilgili coin'in detay sayfası açılıyor
+- [ ] Detay sayfasında liste görünümünden daha fazla bilgi var (high/low, supply, volume)
+- [ ] `sparkline7d` verisiyle bir grafik görünüyor
+- [ ] Detaydan listeye geri dönülebiliyor
+- [ ] `mockCoins` içinde olmayan bir `id` ile gidilirse (örn. `/coin/yokbukoin`) hata mesajı gösteriliyor, sayfa çökmüyor
+
+---
+
+## Görev 5 — Açık/Koyu Tema Sistemi
+
+**Açıklama**
+Kullanıcının açık ve koyu tema arasında geçiş yapabilmesi, tercihin korunması.
+
+**Yapılacaklar**
+- Tema değiştirme butonu (header'da, güneş/ay ikonu ile)
+- CSS değişkenleri (CSS variables) veya Context API ile iki tema setini tanımla — renkler, arkaplan, kart rengi, yazı rengi her iki tema için ayrı ayrı belirlenmeli
+- Açık temada da glassmorphism/modern hissin korunması (sadece renkleri tersine çevirmek yetmez, açık tema kendi başına tutarlı ve göz yormayan olmalı)
+- Seçilen tema `localStorage`'da saklanmalı, sayfa yenilenince korunmalı
+- Tüm sayfalarda (liste, detay, header, footer) tema tutarlı şekilde uygulanmalı
+
+**Kabul kriterleri**
+- [ ] Tema değiştirme butonu çalışıyor, anlık geçiş oluyor
+- [ ] Açık tema okunabilir ve görsel olarak tutarlı (sadece ters renk değil, tasarlanmış bir tema)
+- [ ] Sayfa yenilenince seçilen tema korunuyor
+- [ ] Detay sayfası dahil tüm ekranlarda tema doğru uygulanıyor
 
 ---
 
 ## Genel Kurallar
 
-- Her görev için ayrı bir `feature/gorev-X` branch'i aç
-- PR açmadan önce `dotnet build` ve `npm start` hata vermediğinden emin ol
-- `appsettings.Development.json` dosyasını **kesinlikle** commit etme
-- Takıldığında önce eski projenin ilgili dosyasına bak, sonra sor
+- Hiçbir görevde gerçek bir API çağrısı (`fetch`, `axios`, vb.) yapılmıyor. Tüm veri `src/data/mockData.js`'ten geliyor.
+- Branch kullanmadan sırayla `main`'e push edeceğiz. Push yapmadan önce **mutlaka `git pull` çekin.**
+- Önerilen sıra: Görev 1 → Görev 2 (Görev 2, Görev 1'deki kart bileşenini kullanıyor) → Görev 3 ve 4 paralel → Görev 5 en son (diğer tüm bileşenler tamamlandıktan sonra tema değişkenlerini uygulamak daha kolay).
+- Takıldığında önce `mockData.js`'teki alan adlarını tekrar kontrol et, sonra sor.
