@@ -49,11 +49,11 @@ export const COIN_META = {
     symbol: 'LINK',
     image: 'https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png',
   },
-  MATICUSDT: {
+    POLUSDT: {
     name: 'Polygon',
-    symbol: 'MATIC',
-    image: 'https://assets.coingecko.com/coins/images/4713/large/polygon-matic-logo.png',
-  },
+    symbol: 'POL',
+    image: 'https://cryptologos.cc/logos/polygon-matic-logo.png', 
+    },
   LTCUSDT: {
     name: 'Litecoin',
     symbol: 'LTC',
@@ -67,7 +67,7 @@ export const COIN_META = {
   UNIUSDT: {
     name: 'Uniswap',
     symbol: 'UNI',
-    image: 'https://assets.coingecko.com/coins/images/12504/large/uniswap-uni-logo.png',
+    image: 'https://assets.coingecko.com/coins/images/12504/large/uniswap-logo.png?1720676669',
   },
   XLMUSDT: {
     name: 'Stellar',
