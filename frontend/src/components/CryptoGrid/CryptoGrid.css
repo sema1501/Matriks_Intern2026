@@ -1,0 +1,100 @@
+.crypto-grid-container {
+  width: 100%;
+  padding: 32px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 45%, #ecfeff 100%);
+}
+
+.grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.grid-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.status-dot.connected {
+  background: #22c55e;
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.14);
+}
+
+.status-dot.connecting {
+  background: #f59e0b;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.14);
+}
+
+.status-dot.disconnected {
+  background: #ef4444;
+  box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.14);
+}
+
+.crypto-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  width: 100%;
+}
+
+.crypto-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .crypto-grid-container {
+    padding: 26px;
+  }
+
+  .crypto-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .crypto-grid-container {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .grid-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .grid-header h2 {
+    font-size: 24px;
+  }
+
+  .crypto-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
