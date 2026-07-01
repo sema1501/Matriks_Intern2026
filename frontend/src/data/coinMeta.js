@@ -49,9 +49,9 @@ export const COIN_META = {
     symbol: 'LINK',
     image: 'https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png',
   },
-  MATICUSDT: {
+     POLUSDT: {
     name: 'Polygon',
-    symbol: 'MATIC',
+    symbol: 'POL',
     image: 'https://assets.coingecko.com/coins/images/4713/large/polygon-matic-logo.png',
   },
   LTCUSDT: {
@@ -64,10 +64,10 @@ export const COIN_META = {
     symbol: 'TRX',
     image: 'https://assets.coingecko.com/coins/images/1094/large/tron-logo.png',
   },
-  UNIUSDT: {
+   UNIUSDT: {
     name: 'Uniswap',
     symbol: 'UNI',
-    image: 'https://assets.coingecko.com/coins/images/12504/large/uniswap-uni-logo.png',
+    image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984/logo.png',
   },
   XLMUSDT: {
     name: 'Stellar',
