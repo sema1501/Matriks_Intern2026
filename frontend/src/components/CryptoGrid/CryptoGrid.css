@@ -1,0 +1,120 @@
+/* ==========================================
+   1. Ana Kapsayıcı Kutu ve Genel Ayarlar
+   ========================================== */
+.crypto-grid-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ==========================================
+   2. Başlık ve Bağlantı Durumu Bölümü (Flexbox)
+   ========================================== */
+.grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  padding: 0.5rem 0.85rem;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+/* LED Lambası Gövdesi */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.3s ease;
+}
+
+/* Durumlara Göre LED Renkleri ve Parlamaları */
+.status-dot.connected {
+  background-color: #10b981; /* Canlı Yeşil */
+  box-shadow: 0 0 8px #10b981;
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot.connecting {
+  background-color: #f59e0b; /* Uyarı Sarısı */
+  box-shadow: 0 0 8px #f59e0b;
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot.disconnected {
+  background-color: #ef4444; /* Hata Kırmızısı */
+  box-shadow: 0 0 8px #ef4444;
+}
+
+/* Durum Metni Stili */
+.status-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* LED Nabız/Yanıp Sönme Animasyonu */
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* ==========================================
+   3. Kartların Yan Yana Dizileceği Izgara (Grid)
+   ========================================== */
+.crypto-grid {
+  display: grid;
+  /* Ekran genişliğine sığabildiği kadar sütun oluştur, her sütun en az 260px olsun */
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+/* ==========================================
+   4. Responsive (Cihaz Boyutlarına Göre) Ayarlar
+   ========================================== */
+
+/* Tablet Ekranları İçin (Maksimum 1024px) */
+@media (max-width: 1024px) {
+  .crypto-grid {
+    grid-template-columns: repeat(2, 1fr); /* Yan yana 2 kart */
+  }
+}
+
+/* Cep Telefonları İçin (Maksimum 640px) */
+@media (max-width: 640px) {
+  .crypto-grid-container {
+    padding: 1rem;
+  }
+  
+  .grid-header {
+    flex-direction: column; /* Başlık ve LED alt alta gelsin */
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .crypto-grid {
+    grid-template-columns: 1fr; /* Alt alta 1 kart (Tek sütun) */
+    gap: 1rem;
+  }
+}

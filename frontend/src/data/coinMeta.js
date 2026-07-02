@@ -52,7 +52,7 @@ export const COIN_META = {
      POLUSDT: {
     name: 'Polygon',
     symbol: 'POL',
-    image: 'https://assets.coingecko.com/coins/images/4713/large/polygon-matic-logo.png',
+    image: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/polygon/info/logo.png',
   },
   LTCUSDT: {
     name: 'Litecoin',

@@ -9,7 +9,7 @@ export const TRACKED_SYMBOLS = [
   'AVAXUSDT',
   'DOTUSDT',
   'LINKUSDT',
-  'MATICUSDT',
+  'POLUSDT',
   'LTCUSDT',
   'TRXUSDT',
   'UNIUSDT',
