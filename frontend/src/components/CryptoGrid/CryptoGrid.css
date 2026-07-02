@@ -1,120 +1,100 @@
-/* ==========================================
-   1. Ana Kapsayıcı Kutu ve Genel Ayarlar
-   ========================================== */
 .crypto-grid-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1.5rem;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  width: 100%;
+  padding: 32px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 45%, #ecfeff 100%);
 }
 
-/* ==========================================
-   2. Başlık ve Bağlantı Durumu Bölümü (Flexbox)
-   ========================================== */
 .grid-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.grid-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
 }
 
 .connection-status {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #f8fafc;
-  padding: 0.5rem 0.85rem;
-  border-radius: 20px;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 14px;
   border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
 }
 
-/* LED Lambası Gövdesi */
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  display: inline-block;
-  transition: background-color 0.3s ease;
+  background: #94a3b8;
 }
 
-/* Durumlara Göre LED Renkleri ve Parlamaları */
 .status-dot.connected {
-  background-color: #10b981; /* Canlı Yeşil */
-  box-shadow: 0 0 8px #10b981;
-  animation: pulse 1.5s infinite;
+  background: #22c55e;
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.14);
 }
 
 .status-dot.connecting {
-  background-color: #f59e0b; /* Uyarı Sarısı */
-  box-shadow: 0 0 8px #f59e0b;
-  animation: pulse 1.5s infinite;
+  background: #f59e0b;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.14);
 }
 
 .status-dot.disconnected {
-  background-color: #ef4444; /* Hata Kırmızısı */
-  box-shadow: 0 0 8px #ef4444;
+  background: #ef4444;
+  box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.14);
 }
 
-/* Durum Metni Stili */
-.status-text {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #475569;
-}
-
-/* LED Nabız/Yanıp Sönme Animasyonu */
-@keyframes pulse {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
-  }
-  70% {
-    transform: scale(1.1);
-    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
-}
-
-/* ==========================================
-   3. Kartların Yan Yana Dizileceği Izgara (Grid)
-   ========================================== */
 .crypto-grid {
   display: grid;
-  /* Ekran genişliğine sığabildiği kadar sütun oluştur, her sütun en az 260px olsun */
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  width: 100%;
 }
 
-/* ==========================================
-   4. Responsive (Cihaz Boyutlarına Göre) Ayarlar
-   ========================================== */
+.crypto-grid > * {
+  min-width: 0;
+}
 
-/* Tablet Ekranları İçin (Maksimum 1024px) */
 @media (max-width: 1024px) {
+  .crypto-grid-container {
+    padding: 26px;
+  }
+
   .crypto-grid {
-    grid-template-columns: repeat(2, 1fr); /* Yan yana 2 kart */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Cep Telefonları İçin (Maksimum 640px) */
 @media (max-width: 640px) {
   .crypto-grid-container {
-    padding: 1rem;
+    padding: 18px;
+    border-radius: 22px;
   }
-  
+
   .grid-header {
-    flex-direction: column; /* Başlık ve LED alt alta gelsin */
     align-items: flex-start;
-    gap: 1rem;
+    flex-direction: column;
   }
-  
+
+  .grid-header h2 {
+    font-size: 24px;
+  }
+
   .crypto-grid {
-    grid-template-columns: 1fr; /* Alt alta 1 kart (Tek sütun) */
-    gap: 1rem;
+    grid-template-columns: 1fr;
+    gap: 18px;
   }
 }
