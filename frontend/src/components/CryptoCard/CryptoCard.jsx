@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './CryptoCard.css';
 
 function getNumberValue(source, keys) {
@@ -73,6 +74,7 @@ function CryptoCardSkeleton() {
 }
 
 export default function CryptoCard({ meta, priceData }) {
+  const navigate = useNavigate(); 
   const [flashClass, setFlashClass] = useState('');
   const previousPriceRef = useRef(null);
   const flashTimeoutRef = useRef(null);
@@ -137,8 +139,19 @@ export default function CryptoCard({ meta, priceData }) {
   const isPositive = changePercent !== null && changePercent >= 0;
   const accentClass = getAccentClass(symbol);
 
+  const handleCardClick = () => {
+
+    navigate(`/coin/${meta.symbol}`);
+  };
+
+
   return (
-    <article className={`crypto-card ${accentClass} ${flashClass}`}>
+    <article 
+      className={`crypto-card ${accentClass} ${flashClass}`} 
+      onClick={() => navigate(`/coin/${symbol}`)}
+      style={{ cursor: 'pointer' }} 
+    >
+    
       <div className="crypto-card__shine" />
 
       <div className="crypto-card__header">
