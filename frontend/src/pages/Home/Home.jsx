@@ -5,7 +5,7 @@ export default function Home() {
   const { user } = useAuth();
 
   return (
-    <div style={{ padding: '32px' }}>
+    <div style={{ padding: '32px', color: 'var(--text-primary)' }}>
       <h2>Hos geldin{user ? `, ${user.username}` : ''}!</h2>
       <p>CryptoTracker — kripto para takip uygulamasi.</p>
       
