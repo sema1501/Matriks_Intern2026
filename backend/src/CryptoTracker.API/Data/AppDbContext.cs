@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<User>     Users     => Set<User>();
     public DbSet<Role>     Roles     => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<PriceAlert> PriceAlerts => Set<PriceAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
