@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useWatchlist } from '../../context/WatchlistContext';
 import './CryptoCard.css';
 
 function getNumberValue(source, keys) {
@@ -74,10 +76,13 @@ function CryptoCardSkeleton() {
 }
 
 export default function CryptoCard({ meta, priceData }) {
-  const navigate = useNavigate(); 
-  const [flashClass, setFlashClass] = useState('');
+  const navigate = useNavigate();
+  const { user }                      = useAuth();
+  const { isFavorite, toggleFavorite } = useWatchlist();
+  const [flashClass,  setFlashClass]  = useState('');
+  const [starLoading, setStarLoading] = useState(false);
   const previousPriceRef = useRef(null);
-  const flashTimeoutRef = useRef(null);
+  const flashTimeoutRef  = useRef(null);
 
   const currentPrice = getNumberValue(priceData, [
     'currentPrice',
@@ -169,6 +174,23 @@ export default function CryptoCard({ meta, priceData }) {
           <h3 className="crypto-card__name">{name}</h3>
           <span className="crypto-card__symbol">{symbol}</span>
         </div>
+
+        <button
+          className={`crypto-card__star ${
+            isFavorite(shortSymbol) ? 'crypto-card__star--active' : ''
+          }`}
+          aria-label={isFavorite(shortSymbol) ? 'Favoriden çıkar' : 'Favoriye ekle'}
+          disabled={starLoading}
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (!user) { navigate('/signin'); return; }
+            setStarLoading(true);
+            try { await toggleFavorite(shortSymbol); }
+            finally { setStarLoading(false); }
+          }}
+        >
+          {isFavorite(shortSymbol) ? '★' : '☆'}
+        </button>
       </div>
 
       <div className="crypto-card__price-area">

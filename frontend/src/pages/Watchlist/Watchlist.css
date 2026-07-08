@@ -1,0 +1,113 @@
+.watchlist-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.watchlist-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.watchlist-page__title {
+  margin: 0 0 6px;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+}
+
+.watchlist-page__subtitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ── Coin Grid ───────────────────────────────────────── */
+.watchlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+/* ── Empty State ─────────────────────────────────────── */
+.watchlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 340px;
+  border: 2px dashed var(--border-color);
+  border-radius: 24px;
+  padding: 3rem;
+  text-align: center;
+}
+
+.watchlist-empty__icon {
+  font-size: 64px;
+  line-height: 1;
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.watchlist-empty__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+
+.watchlist-empty__text {
+  margin: 0;
+  max-width: 340px;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ── Skeleton Loading ────────────────────────────────── */
+.watchlist-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.watchlist-skeleton-card {
+  min-height: 225px;
+  border-radius: 26px;
+  background: var(--surface-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.watchlist-skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.18),
+    transparent
+  );
+  animation: watchlistShimmer 1.3s infinite;
+}
+
+@keyframes watchlistShimmer {
+  100% { transform: translateX(100%); }
+}
+
+@media (max-width: 640px) {
+  .watchlist-page { padding: 1rem 0; }
+  .watchlist-grid,
+  .watchlist-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+}
