@@ -24,6 +24,7 @@ function getNumberValue(source, keys) {
 
 export default function Converter() {
   const { prices } = useGlobalPrices();
+
   const {
     usdTryRate,
     rateLoading,
@@ -44,7 +45,50 @@ export default function Converter() {
   const [selectedSymbol, setSelectedSymbol] = useState(
     coinOptions[0]?.fullSymbol || ''
   );
+
+  const [coinSearch, setCoinSearch] = useState('');
   const [amount, setAmount] = useState('1');
+
+  const filteredCoinOptions = useMemo(() => {
+    const searchValue = coinSearch.trim().toLowerCase();
+
+    if (!searchValue) {
+      return coinOptions;
+    }
+
+    return coinOptions.filter((coin) => {
+      const name = coin.name?.toLowerCase() || '';
+      const shortSymbol = coin.symbol?.toLowerCase() || '';
+      const fullSymbol = coin.fullSymbol?.toLowerCase() || '';
+
+      return (
+        name.includes(searchValue) ||
+        shortSymbol.includes(searchValue) ||
+        fullSymbol.includes(searchValue)
+      );
+    });
+  }, [coinOptions, coinSearch]);
+
+  function handleSelectCoin(symbol) {
+    if (!symbol) return;
+
+    setSelectedSymbol(symbol);
+    setCoinSearch('');
+  }
+
+  function handleSearchKeyDown(event) {
+    if (event.key !== 'Enter') return;
+
+    event.preventDefault();
+
+    if (filteredCoinOptions.length > 0) {
+      handleSelectCoin(filteredCoinOptions[0].fullSymbol);
+    }
+  }
+
+  const isSelectedSymbolVisible = filteredCoinOptions.some(
+    (coin) => coin.fullSymbol === selectedSymbol
+  );
 
   const selectedMeta = COIN_META[selectedSymbol];
   const selectedPriceData = prices?.[selectedSymbol];
@@ -60,7 +104,9 @@ export default function Converter() {
   const isAmountValid = amount !== '' && numericAmount > 0;
 
   const totalUsd =
-    currentPrice !== null && isAmountValid ? numericAmount * currentPrice : null;
+    currentPrice !== null && isAmountValid
+      ? numericAmount * currentPrice
+      : null;
 
   const totalTry = totalUsd !== null ? totalUsd * usdTryRate : null;
 
@@ -78,16 +124,36 @@ export default function Converter() {
 
         <div className="converter-form">
           <label className="converter-field">
-            <span>Coin Seç</span>
+            <span>Coin Ara ve Seç</span>
+
+            <input
+              type="text"
+              value={coinSearch}
+              onChange={(event) => setCoinSearch(event.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="BTC, ETH, Bitcoin, Ethereum..."
+              className="converter-search-input"
+            />
+
             <select
-              value={selectedSymbol}
-              onChange={(event) => setSelectedSymbol(event.target.value)}
+              value={
+                isSelectedSymbolVisible
+                  ? selectedSymbol
+                  : filteredCoinOptions[0]?.fullSymbol || ''
+              }
+              disabled={filteredCoinOptions.length === 0}
+              onChange={(event) => handleSelectCoin(event.target.value)}
             >
-              {coinOptions.map((coin) => (
-                <option key={coin.fullSymbol} value={coin.fullSymbol}>
-                  {coin.name} ({coin.symbol})
-                </option>
-              ))}
+              {filteredCoinOptions.length > 0 ? (
+                filteredCoinOptions.map((coin, index) => (
+                  <option key={coin.fullSymbol} value={coin.fullSymbol}>
+                    {coin.name} ({coin.symbol})
+                    {index === 0 && coinSearch.trim() ? ' - İlk sonuç' : ''}
+                  </option>
+                ))
+              ) : (
+                <option value="">Sonuç bulunamadı</option>
+              )}
             </select>
           </label>
 
@@ -103,6 +169,15 @@ export default function Converter() {
             />
           </label>
         </div>
+
+        {coinSearch.trim() && filteredCoinOptions.length > 0 && (
+          <p className="converter-message">
+            Enter’a basarak ilk sonucu seçebilirsin:{' '}
+            <strong>
+              {filteredCoinOptions[0].name} ({filteredCoinOptions[0].symbol})
+            </strong>
+          </p>
+        )}
 
         {!isAmountValid && (
           <p className="converter-message error">

@@ -87,6 +87,15 @@
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
 }
 
+.converter-search-input {
+  margin-bottom: 8px;
+}
+
+.converter-field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .converter-message {
   margin: 12px 0;
   color: var(--text-secondary);

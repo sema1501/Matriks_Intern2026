@@ -11,7 +11,12 @@ function CurrencyToggle() {
           type="button"
           className={currency === 'USD' ? 'active' : ''}
           onClick={() => changeCurrency('USD')}
+          aria-pressed={currency === 'USD'}
+          title="Fiyatları USD olarak göster"
         >
+          <span className="currency-check">
+            {currency === 'USD' ? '✓' : ''}
+          </span>
           USD
         </button>
 
@@ -19,7 +24,12 @@ function CurrencyToggle() {
           type="button"
           className={currency === 'TRY' ? 'active' : ''}
           onClick={() => changeCurrency('TRY')}
+          aria-pressed={currency === 'TRY'}
+          title="Fiyatları TRY olarak göster"
         >
+          <span className="currency-check">
+            {currency === 'TRY' ? '✓' : ''}
+          </span>
           TRY
         </button>
       </div>
