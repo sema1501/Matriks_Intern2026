@@ -17,9 +17,11 @@ function getErrorMessage(err) {
 }
 
 function formatDirection(direction) {
+  if (direction === 0 || direction === '0') return 'Üstüne çıkınca';
+  if (direction === 1 || direction === '1') return 'Altına düşünce';
   const d = String(direction || '').toLowerCase();
-  if (d === 'above') return 'Yukarı (≥)';
-  if (d === 'below') return 'Aşağı (≤)';
+  if (d === 'above') return 'Üstüne çıkınca';
+  if (d === 'below') return 'Altına düşünce';
   return direction || '—';
 }
 

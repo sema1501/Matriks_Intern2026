@@ -57,7 +57,7 @@ export default function CoinDetail() {
       await createAlert({
         symbol: fullSymbol,
         targetPrice: price,
-        direction,
+        direction: direction === 'above' ? 0 : 1,
       });
       setAlertSuccess('Alarm başarıyla oluşturuldu.');
       setTargetPrice('');

@@ -23,7 +23,12 @@ function markTriggered(key) {
 }
 
 function normalizeDirection(direction) {
-  return String(direction || '').toLowerCase();
+  if (direction === 0 || direction === '0') return 'above';
+  if (direction === 1 || direction === '1') return 'below';
+  const d = String(direction ?? '').toLowerCase();
+  if (d === 'above') return 'above';
+  if (d === 'below') return 'below';
+  return d;
 }
 
 function getAlertId(alert) {
