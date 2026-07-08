@@ -1,0 +1,57 @@
+.currency-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.currency-toggle {
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.currency-toggle button {
+  min-width: 44px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.currency-toggle button:hover {
+  color: var(--accent-color);
+}
+
+.currency-toggle button.active {
+  background: var(--accent-color);
+  color: var(--surface-color);
+}
+
+.currency-toggle button:active {
+  transform: scale(0.96);
+}
+
+.currency-rate-message {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.currency-rate-message.warning {
+  color: var(--accent-color);
+}
+
+@media (max-width: 760px) {
+  .currency-toggle-wrapper {
+    flex-wrap: wrap;
+  }
+}

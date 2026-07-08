@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ConnectionStatus from '../ConnectionStatus/ConnectionStatus';
 import ThemeToggle from '../ThemeToggle/ThemeToggle';
+import CurrencyToggle from '../CurrencyToggle/CurrencyToggle';
 import './Navbar.css';
 
 export default function Navbar() {
@@ -11,6 +12,8 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="navbar__links">
         <Link to="/">Ana Sayfa</Link>
+        <Link to="/converter">Dönüştürücü</Link>
+        
         {user ? (
           <>
             <Link to="/profile">{user.username}</Link>
@@ -26,6 +29,7 @@ export default function Navbar() {
 
       <div className="navbar__actions">
         <ConnectionStatus />
+        <CurrencyToggle />
         <ThemeToggle />
       </div>
     </nav>
