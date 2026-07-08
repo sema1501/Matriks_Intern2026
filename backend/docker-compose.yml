@@ -3,10 +3,13 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: cryptotracker-db
     environment:
+      # MSSQL 2022 prefers MSSQL_SA_PASSWORD; SA_PASSWORD kept for older tooling.
+      MSSQL_SA_PASSWORD: "YourStrong@Passw0rd"
       SA_PASSWORD: "YourStrong@Passw0rd"
       ACCEPT_EULA: "Y"
     ports:
-      - "1433:1433"
+      # Host 1434 avoids clash with a local Windows MSSQLSERVER on 1433.
+      - "1434:1433"
     volumes:
       - cryptotracker_db:/var/opt/mssql
 
