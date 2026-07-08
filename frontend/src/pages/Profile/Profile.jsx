@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getMe, updateProfile, changePassword } from '../../services/apiService';
+import { getMe, updateProfile, changePassword, getAlerts, deleteAlert } from '../../services/apiService';
 
 const inputStyle = { width: '100%', padding: '0.5rem', marginTop: '0.25rem' };
 const sectionStyle = { maxWidth: '500px', marginBottom: '2rem' };
@@ -16,6 +16,17 @@ function getErrorMessage(err) {
   return err.response?.data?.error || err.response?.data?.message || 'Bir hata oluştu.';
 }
 
+function formatDirection(direction) {
+  const d = String(direction || '').toLowerCase();
+  if (d === 'above') return 'Yukarı (≥)';
+  if (d === 'below') return 'Aşağı (≤)';
+  return direction || '—';
+}
+
+function getAlertField(alert, camel, pascal) {
+  return alert[camel] ?? alert[pascal];
+}
+
 export default function Profile() {
   const { user: authUser, loading: authLoading, setUser } = useAuth();
 
@@ -29,6 +40,10 @@ export default function Profile() {
   const [profileSuccess, setProfileSuccess]   = useState('');
   const [passwordError, setPasswordError]     = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [alerts, setAlerts]                   = useState([]);
+  const [alertsLoading, setAlertsLoading]     = useState(false);
+  const [alertsError, setAlertsError]         = useState('');
+  const [deletingId, setDeletingId]           = useState(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -42,6 +57,47 @@ export default function Profile() {
       .catch(err => setProfileError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [authUser, authLoading]);
+
+  const loadAlerts = () => {
+    if (!authUser) return;
+    setAlertsLoading(true);
+    setAlertsError('');
+    getAlerts()
+      .then(res => setAlerts(Array.isArray(res.data) ? res.data : []))
+      .catch(err => {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          setAlertsError('Alarmları görüntülemek için giriş yapmanız gerekiyor.');
+        } else {
+          setAlertsError('Alarmlar yüklenemedi. Backend erişilebilir değil olabilir.');
+        }
+      })
+      .finally(() => setAlertsLoading(false));
+  };
+
+  useEffect(() => {
+    if (authLoading || !authUser) return;
+    loadAlerts();
+  }, [authUser, authLoading]);
+
+  useEffect(() => {
+    const handleAlertsChanged = () => loadAlerts();
+    window.addEventListener('alerts-changed', handleAlertsChanged);
+    return () => window.removeEventListener('alerts-changed', handleAlertsChanged);
+  }, [authUser]);
+
+  const handleDeleteAlert = async (id) => {
+    setDeletingId(id);
+    setAlertsError('');
+    try {
+      await deleteAlert(id);
+      setAlerts(prev => prev.filter(a => getAlertField(a, 'id', 'Id') !== id));
+      window.dispatchEvent(new Event('alerts-changed'));
+    } catch (err) {
+      setAlertsError(getErrorMessage(err));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleProfileChange = (e) => {
     setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
@@ -155,6 +211,55 @@ export default function Profile() {
             {profileLoading ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
         </form>
+      </section>
+
+      <section style={sectionStyle}>
+        <h3>Alarmlarım</h3>
+        {alertsLoading && <p>Alarmlar yükleniyor...</p>}
+        {alertsError && <p style={{ color: 'red' }}>{alertsError}</p>}
+        {!alertsLoading && !alertsError && alerts.length === 0 && (
+          <p>Henüz alarm kurmadınız. Bir coin detay sayfasından alarm oluşturabilirsiniz.</p>
+        )}
+        {!alertsLoading && alerts.length > 0 && (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {alerts.map(alert => {
+              const id = getAlertField(alert, 'id', 'Id');
+              const symbol = getAlertField(alert, 'symbol', 'Symbol');
+              const targetPrice = getAlertField(alert, 'targetPrice', 'TargetPrice');
+              const direction = getAlertField(alert, 'direction', 'Direction');
+              return (
+                <li
+                  key={id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    padding: '0.75rem',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <div>
+                    <strong>{symbol}</strong>
+                    <br />
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted, #64748b)' }}>
+                      Hedef: ${Number(targetPrice).toLocaleString()} — {formatDirection(direction)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAlert(id)}
+                    disabled={deletingId === id}
+                    style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    {deletingId === id ? 'Siliniyor...' : 'Sil'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       <section style={sectionStyle}>

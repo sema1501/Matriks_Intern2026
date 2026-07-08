@@ -9,6 +9,7 @@ import SignUp from './pages/SignUp/SignUp';
 import Profile from './pages/Profile/Profile';
 import Dashboard from './pages/Dashboard/Dashboard';
 import CoinDetail from './pages/CoinDetail/CoinDetail';
+import AlertMonitor from './components/AlertMonitor/AlertMonitor';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <BrowserRouter>
             <div className="app-shell">
               <Navbar />
+              <AlertMonitor />
               <main className="app-main">
                 <Routes>
                   <Route path="/" element={<Home />} />

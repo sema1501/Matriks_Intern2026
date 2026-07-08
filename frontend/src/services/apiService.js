@@ -22,3 +22,6 @@ export const assignRole       = (roleId, userId) => api.post(`/api/Role/${roleId
 export const removeRole       = (roleId, userId) => api.delete(`/api/Role/${roleId}/remove/${userId}`);
 export const getUserRoles     = (userId)         => api.get(`/api/Role/user/${userId}`);
 export const getDailyNewUsers = ()               => api.get('/api/Dashboard/daily-new-users');
+export const getAlerts        = ()               => api.get('/api/Alert');
+export const createAlert      = (data)           => api.post('/api/Alert', data);
+export const deleteAlert      = (id)             => api.delete(`/api/Alert/${id}`);

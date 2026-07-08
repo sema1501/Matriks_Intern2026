@@ -74,3 +74,98 @@
   background: var(--border-color);
   color: var(--text-primary);
 }
+
+.alarm-section {
+  background: var(--surface-soft);
+  padding: 25px;
+  border-radius: 16px;
+  margin-bottom: 30px;
+  text-align: left;
+}
+
+.alarm-title {
+  font-size: 18px;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.alarm-hint {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.alarm-hint a {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.alarm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.alarm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.alarm-field label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.alarm-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-strong);
+  color: var(--text-primary);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.alarm-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alarm-message {
+  font-size: 14px;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.alarm-message--error { color: #ef4444; }
+.alarm-message--success { color: #10b981; }
+
+.btn-alarm {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 4px;
+}
+
+.btn-alarm:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-alarm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
