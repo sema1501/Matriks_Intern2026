@@ -196,8 +196,33 @@ ve adminlerin bunları görebilmesi.
 
 ---
 
+## Görev 11 — Şifremi Unuttum / Şifre Sıfırlama (Backend + Frontend)
+
+**Açıklama**
+Şu an şifresini unutan kullanıcı için hiçbir kurtarma yolu yok. Email/username ile
+şifre sıfırlama akışı ekleniyor (gerçek SMTP kurulumu bu haftanın kapsamı dışında —
+geliştirme ortamında token backend log'una veya response'a yazdırılabilir).
+
+**Yapılacaklar**
+- `Models/PasswordResetToken.cs`: `UserId`, `Token`, `ExpiresAt`, `IsUsed`, migration
+- `IAuthService`'e ekle: `ForgotPasswordAsync(email)` — kullanıcı bulunursa token üretir
+  (örn. 30 dk geçerli), bulunamasa da aynı generic mesajı döner (email enumeration önlenir)
+- `ResetPasswordAsync(token, newPassword)` — token'ı doğrula (süresi geçmiş/kullanılmış mı),
+  şifreyi BCrypt ile hashleyip güncelle, token'ı `IsUsed = true` yap
+- `AuthController.cs`: `POST /api/Auth/forgot-password`, `POST /api/Auth/reset-password`
+- Frontend: `SignIn.jsx`'e "Şifremi unuttum" linki; `ForgotPassword.jsx` (email formu) ve
+  `ResetPassword.jsx` (`/reset-password/:token` route, yeni şifre formu) sayfaları
+
+**Kabul kriterleri**
+- [ ] Var olmayan email için de aynı generic başarı mesajı dönüyor
+- [ ] Süresi dolmuş token ile sıfırlama reddediliyor
+- [ ] Kullanılmış token tekrar kullanılamıyor
+- [ ] Şifre sıfırlandıktan sonra kullanıcı yeni şifreyle giriş yapabiliyor
+
+---
+
 ## Genel Kurallar
 
-- Görev 1→2, 5→6 sıralı bağımlılık (önce backend, sonra frontend). 3, 4, 7, 8, 9, 10 paralel yürütülebilir.
+- Görev 1→2, 5→6 sıralı bağımlılık (önce backend, sonra frontend). 3, 4, 7, 8, 9, 10, 11 paralel yürütülebilir.
 - Yeni model eklerken migration'ı mutlaka oluşturun (`dotnet ef migrations add ...`).
 - Push öncesi `npm run build` ve `dotnet build` hatasız geçmeli.
