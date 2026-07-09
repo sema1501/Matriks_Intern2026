@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { getFeedbacks } from '../../services/apiService';
+import './Dashboard.css';
 
 export default function Dashboard() {
   const [feedbacks, setFeedbacks] = useState([]);
+  const [activeMenu, setActiveMenu] = useState("feedback");
 
   useEffect(() => {
     loadFeedbacks();
@@ -18,43 +20,47 @@ export default function Dashboard() {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: 'calc(100vh - 60px)',
-        fontFamily: 'sans-serif',
-      }}
-    >
+    <div className="dashboard">
       {/* Sidebar */}
-      <div
-        style={{
-          width: '240px',
-          backgroundColor: '#f4f4f4',
-          padding: '20px',
-          borderRight: '1px solid #ddd',
-        }}
-      >
-        <h3>Admin Paneli</h3>
+      <div className="sidebar">
+        <h2>👨‍💼 Admin Paneli</h2>
 
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          <li>📊 Özet</li>
-          <li>🪙 Kripto Varlıklar</li>
-          <li>👤 Kullanıcı Yönetimi</li>
-          <li>💬 Geri Bildirimler</li>
+        <ul>
+          <li
+            className={activeMenu === "summary" ? "active" : ""}
+            onClick={() => setActiveMenu("summary")}
+          >
+            📊 Özet
+          </li>
+
+          <li
+            className={activeMenu === "crypto" ? "active" : ""}
+            onClick={() => setActiveMenu("crypto")}
+          >
+            🪙 Kripto Varlıklar
+          </li>
+
+          <li
+            className={activeMenu === "users" ? "active" : ""}
+            onClick={() => setActiveMenu("users")}
+          >
+            👤 Kullanıcı Yönetimi
+          </li>
+
+          <li
+            className={activeMenu === "feedback" ? "active" : ""}
+            onClick={() => setActiveMenu("feedback")}
+          >
+            💬 Geri Bildirimler
+          </li>
         </ul>
       </div>
 
       {/* İçerik */}
-      <div style={{ flex: 1, padding: '30px' }}>
-        <h2>Geri Bildirimler</h2>
+      <div className="content">
+        <h2>💬 Geri Bildirimler</h2>
 
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            marginTop: '20px',
-          }}
-        >
+        <table>
           <thead>
             <tr>
               <th>ID</th>
@@ -70,16 +76,16 @@ export default function Dashboard() {
               <tr key={item.id}>
                 <td>{item.id}</td>
                 <td>{item.message}</td>
-                <td>{item.rating ?? '-'}</td>
-                <td>{item.userId ?? 'Misafir'}</td>
-                <td>{new Date(item.createdAt).toLocaleString()}</td>
+                <td>{item.rating ?? "-"}</td>
+                <td>{item.userId ?? "Misafir"}</td>
+                <td>{new Date(item.createdAt).toLocaleString("tr-TR")}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
         {feedbacks.length === 0 && (
-          <p style={{ marginTop: '20px' }}>
+          <p style={{ marginTop: "20px" }}>
             Henüz geri bildirim bulunmuyor.
           </p>
         )}
