@@ -1,39 +1,88 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { getFeedbacks } from '../../services/apiService';
 
 export default function Dashboard() {
+  const [feedbacks, setFeedbacks] = useState([]);
+
+  useEffect(() => {
+    loadFeedbacks();
+  }, []);
+
+  const loadFeedbacks = async () => {
+    try {
+      const response = await getFeedbacks();
+      setFeedbacks(response.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 60px)', fontFamily: 'sans-serif' }}>
-      {/* Sol Menü (Sidebar) */}
-      <div style={{ width: '240px', backgroundColor: '#f4f4f4', padding: '20px', borderRight: '1px solid #ddd' }}>
-        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Admin Paneli</h3>
-        <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
-          <li style={{ padding: '10px 0', fontWeight: 'bold', color: '#0066cc' }}>📊 Özet Raporlar</li>
-          <li style={{ padding: '10px 0', color: '#555', cursor: 'pointer' }}>🪙 Kripto Varlıklar</li>
-          <li style={{ padding: '10px 0', color: '#555', cursor: 'pointer' }}>👤 Kullanıcı Yönetimi</li>
-          <li style={{ padding: '10px 0', color: '#555', cursor: 'pointer' }}>⚙️ Ayarlar</li>
+    <div
+      style={{
+        display: 'flex',
+        minHeight: 'calc(100vh - 60px)',
+        fontFamily: 'sans-serif',
+      }}
+    >
+      {/* Sidebar */}
+      <div
+        style={{
+          width: '240px',
+          backgroundColor: '#f4f4f4',
+          padding: '20px',
+          borderRight: '1px solid #ddd',
+        }}
+      >
+        <h3>Admin Paneli</h3>
+
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          <li>📊 Özet</li>
+          <li>🪙 Kripto Varlıklar</li>
+          <li>👤 Kullanıcı Yönetimi</li>
+          <li>💬 Geri Bildirimler</li>
         </ul>
       </div>
 
-      {/* Sağ İçerik Alanı (Main Content) */}
-      <div style={{ flex: 1, padding: '30px', backgroundColor: '#fff' }}>
-        <h2 style={{ marginTop: 0 }}>📊 Sistem Özet Raporları</h2>
-        <p style={{ color: '#666' }}>CryptoTracker sistemindeki anlık veriler ve yönetim araçları.</p>
-        
-        {/* Örnek Bilgi Kartları */}
-        <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
-          <div style={{ flex: 1, padding: '20px', backgroundColor: '#e6f2ff', borderRadius: '8px', border: '1px solid #b3d7ff' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#004085' }}>Toplam Kullanıcı</h4>
-            <span style={{ fontSize: '24px', fontWeight: 'bold' }}>1,240</span>
-          </div>
-          <div style={{ flex: 1, padding: '20px', backgroundColor: '#d4edda', borderRadius: '8px', border: '1px solid #c3e6cb' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>Aktif Kripto Paralar</h4>
-            <span style={{ fontSize: '24px', fontWeight: 'bold' }}>85</span>
-          </div>
-          <div style={{ flex: 1, padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '1px solid #ffeeba' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>Günlük İşlem Hacmi</h4>
-            <span style={{ fontSize: '24px', fontWeight: 'bold' }}>$45,210</span>
-          </div>
-        </div>
+      {/* İçerik */}
+      <div style={{ flex: 1, padding: '30px' }}>
+        <h2>Geri Bildirimler</h2>
+
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            marginTop: '20px',
+          }}
+        >
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Mesaj</th>
+              <th>Puan</th>
+              <th>Kullanıcı</th>
+              <th>Tarih</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {feedbacks.map((item) => (
+              <tr key={item.id}>
+                <td>{item.id}</td>
+                <td>{item.message}</td>
+                <td>{item.rating ?? '-'}</td>
+                <td>{item.userId ?? 'Misafir'}</td>
+                <td>{new Date(item.createdAt).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {feedbacks.length === 0 && (
+          <p style={{ marginTop: '20px' }}>
+            Henüz geri bildirim bulunmuyor.
+          </p>
+        )}
       </div>
     </div>
   );
