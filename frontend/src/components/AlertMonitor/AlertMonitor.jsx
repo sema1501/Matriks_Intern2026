@@ -5,6 +5,7 @@ import { getAlerts } from '../../services/apiService';
 import './AlertMonitor.css';
 
 const TRIGGERED_KEY = 'cryptotracker_triggered_alert_ids';
+const TOAST_DURATION_MS = 8000;
 
 function getTriggeredIds() {
   try {
@@ -35,13 +36,15 @@ function getAlertId(alert) {
   return alert.id ?? alert.Id;
 }
 
+// Dedupe key combines id + symbol + target + direction so that stale
+// localStorage entries cannot silence new alerts after the database is
+// reset (docker compose down -v) and ids restart from 1.
 function getAlertDedupeKey(alert) {
   const id = getAlertId(alert);
-  if (id != null) return String(id);
   const symbol = alert.symbol ?? alert.Symbol ?? '';
   const target = alert.targetPrice ?? alert.TargetPrice;
   const direction = normalizeDirection(alert.direction ?? alert.Direction);
-  return `${symbol}-${target}-${direction}`;
+  return `${id ?? 'noid'}-${symbol}-${target}-${direction}`;
 }
 
 function isAlertTriggered(alert, currentPrice) {
@@ -73,7 +76,7 @@ export default function AlertMonitor() {
     setToasts(prev => [...prev, { id, message }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
+    }, TOAST_DURATION_MS);
   }, []);
 
   const loadAlerts = useCallback(async () => {
@@ -137,9 +140,10 @@ export default function AlertMonitor() {
       markTriggered(dedupeKey);
       notifiedRef.current.add(dedupeKey);
 
-      if (!showBrowserNotification('Fiyat Alarmı', message)) {
-        addToast(message);
-      }
+      // Always show the in-app toast; additionally fire a browser
+      // notification when permission has been granted.
+      addToast(message);
+      showBrowserNotification('Fiyat Alarmı', message);
     });
   }, [user, alerts, prices, addToast]);
 
