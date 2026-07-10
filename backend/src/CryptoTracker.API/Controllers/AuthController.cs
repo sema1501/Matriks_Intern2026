@@ -18,6 +18,17 @@ public class AuthController(IAuthService authService, IUserService userService) 
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
         => Ok(await authService.LoginAsync(request));
 
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    => Ok(new { message = await authService.ForgotPasswordAsync(request.Email) });
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        await authService.ResetPasswordAsync(request.Token, request.NewPassword);
+        return NoContent();
+    }
+
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> Me()

@@ -22,3 +22,5 @@ export const assignRole       = (roleId, userId) => api.post(`/api/Role/${roleId
 export const removeRole       = (roleId, userId) => api.delete(`/api/Role/${roleId}/remove/${userId}`);
 export const getUserRoles     = (userId)         => api.get(`/api/Role/user/${userId}`);
 export const getDailyNewUsers = ()               => api.get('/api/Dashboard/daily-new-users');
+export const forgotPassword   = (data)           => api.post('/api/Auth/forgot-password', data);
+export const resetPassword    = (data)           => api.post('/api/Auth/reset-password', data);

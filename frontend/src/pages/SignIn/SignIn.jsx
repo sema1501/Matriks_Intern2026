@@ -65,15 +65,34 @@ export default function SignIn() {
             style={{ width: '100%', padding: '0.5rem', marginTop: '0.25rem' }}
           />
         </div>
-
         <button type="submit" disabled={loading} style={{ padding: '0.6rem', cursor: 'pointer' }}>
           {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
         </button>
       </form>
 
-      <p style={{ marginTop: '1rem' }}>
-        Hesabın yok mu? <Link to="/signup">Kayıt Ol</Link>
-      </p>
+          <div
+              style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto 1fr',
+                  alignItems: 'center',
+                  columnGap: '0.75rem',
+                  width: '100%',
+                  marginTop: '1rem'
+              }}
+          >
+              <span style={{ whiteSpace: 'nowrap' }}>
+                  Hesabın yok mu? <Link to="/signup">Kayıt Ol</Link>
+              </span>
+
+              <span>|</span>
+
+              <Link
+                  to="/forgot-password"
+                  style={{ justifySelf: 'end', whiteSpace: 'nowrap' }}
+              >
+                  Şifreni mi unuttun?
+              </Link>
+          </div>
     </div>
   );
 }
