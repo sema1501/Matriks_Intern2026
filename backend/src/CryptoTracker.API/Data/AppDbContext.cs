@@ -5,9 +5,10 @@ namespace CryptoTracker.API.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<User>     Users     => Set<User>();
-    public DbSet<Role>     Roles     => Set<Role>();
-    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<User>          Users          => Set<User>();
+    public DbSet<Role>          Roles          => Set<Role>();
+    public DbSet<UserRole>      UserRoles      => Set<UserRole>();
+    public DbSet<WatchlistItem> WatchlistItems => Set<WatchlistItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,5 +30,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
         modelBuilder.Entity<User>().HasIndex(u => u.Username).IsUnique();
         modelBuilder.Entity<Role>().HasIndex(r => r.Name).IsUnique();
+
+        // WatchlistItem: bir kullanıcı aynı symbol'ü bir kez ekleyebilir
+        modelBuilder.Entity<WatchlistItem>()
+            .HasIndex(w => new { w.UserId, w.Symbol })
+            .IsUnique();
+
+        modelBuilder.Entity<WatchlistItem>()
+            .HasOne(w => w.User)
+            .WithMany()
+            .HasForeignKey(w => w.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

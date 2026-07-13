@@ -360,3 +360,50 @@
 [data-theme='dark'] .crypto-card__skeleton-pill {
   background: #334155;
 }
+
+/* ── Favori (yıldız) butonu ─────────────────────────────── */
+
+.crypto-card__star {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  padding: 0;
+  border: 1.5px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.crypto-card__star:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  transform: scale(1.18);
+}
+
+.crypto-card__star--active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
+.crypto-card__star--active:hover {
+  background: rgba(245, 158, 11, 0.22);
+}
+
+.crypto-card__star:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+

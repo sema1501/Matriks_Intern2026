@@ -39,6 +39,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IWatchlistService, WatchlistService>();
 
 // ── CORS ─────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
