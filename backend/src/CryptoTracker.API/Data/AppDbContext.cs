@@ -11,6 +11,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WatchlistItem> WatchlistItems => Set<WatchlistItem>();
     public DbSet<PriceAlert>    PriceAlerts    => Set<PriceAlert>();
     public DbSet<Feedback>      Feedbacks      => Set<Feedback>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,5 +69,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<PriceAlert>()
             .Property(a => a.TargetPrice)
             .HasPrecision(18, 8);
+
+        // PasswordResetToken → User
+        modelBuilder.Entity<PasswordResetToken>().HasOne(prt => prt.User).WithMany().HasForeignKey(prt => prt.UserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<PasswordResetToken>().HasIndex(prt => prt.Token).IsUnique();
     }
 }

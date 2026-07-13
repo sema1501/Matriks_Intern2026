@@ -16,6 +16,8 @@ import CoinDetail  from './pages/CoinDetail/CoinDetail';
 import Watchlist   from './pages/Watchlist/Watchlist';
 import Converter   from './pages/Converter/Converter';
 import Feedback    from './pages/Feedback/Feedback';
+import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
+import ResetPassword  from './pages/ResetPassword/ResetPassword';
 
 // PrivateRoute: giriş yapılmamışsa /signin'e yönlendirir
 function PrivateRoute({ children }) {
@@ -39,6 +41,8 @@ function App() {
                     <Routes>
                       <Route path="/"          element={<Home />} />
                       <Route path="/signin"    element={<SignIn />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/reset-password/:token" element={<ResetPassword />} />
                       <Route path="/signup"    element={<SignUp />} />
                       <Route path="/profile"   element={<Profile />} />
                       <Route path="/dashboard" element={<Dashboard />} />
