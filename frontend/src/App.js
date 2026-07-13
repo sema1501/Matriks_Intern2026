@@ -5,6 +5,7 @@ import { ThemeProvider }     from './context/ThemeContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { useAuth }           from './context/AuthContext';
 import Navbar      from './components/Navbar/Navbar';
+import AlertMonitor from './components/AlertMonitor/AlertMonitor';
 import Home        from './pages/Home/Home';
 import SignIn      from './pages/SignIn/SignIn';
 import SignUp      from './pages/SignUp/SignUp';
@@ -29,6 +30,7 @@ function App() {
             <BrowserRouter>
               <div className="app-shell">
                 <Navbar />
+                <AlertMonitor />
                 <main className="app-main">
                   <Routes>
                     <Route path="/"          element={<Home />} />

@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Role>          Roles          => Set<Role>();
     public DbSet<UserRole>      UserRoles      => Set<UserRole>();
     public DbSet<WatchlistItem> WatchlistItems => Set<WatchlistItem>();
+    public DbSet<PriceAlert>    PriceAlerts    => Set<PriceAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,5 +42,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey(w => w.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // PriceAlert → User
+        modelBuilder.Entity<PriceAlert>()
+            .HasOne(a => a.User)
+            .WithMany(u => u.PriceAlerts)
+            .HasForeignKey(a => a.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PriceAlert>()
+            .HasIndex(a => new { a.UserId, a.Symbol });
+
+        modelBuilder.Entity<PriceAlert>()
+            .Property(a => a.Symbol)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<PriceAlert>()
+            .Property(a => a.TargetPrice)
+            .HasPrecision(18, 8);
     }
 }

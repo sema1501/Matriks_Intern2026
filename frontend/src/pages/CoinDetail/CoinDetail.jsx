@@ -1,18 +1,73 @@
-import { useParams, useNavigate } from 'react-router-dom'; 
+import { useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom'; 
 import { COIN_META } from '../../data/coinMeta'; 
 import { useGlobalPrices } from '../../context/PriceContext';
+import { useAuth } from '../../context/AuthContext';
+import { createAlert } from '../../services/apiService';
 import './CoinDetail.css';
+
+function getErrorMessage(err) {
+  if (err.response?.status === 401 || err.response?.status === 403) {
+    return 'Bu işlem için giriş yapmanız gerekiyor.';
+  }
+  return err.response?.data?.error || err.response?.data?.message || 'Alarm oluşturulamadı.';
+}
 
 export default function CoinDetail() {
   const { symbol } = useParams();
   const navigate = useNavigate();
   const { prices } = useGlobalPrices();
+  const { user } = useAuth();
+
+  const [targetPrice, setTargetPrice] = useState('');
+  const [direction, setDirection] = useState('above');
+  const [alertLoading, setAlertLoading] = useState(false);
+  const [alertError, setAlertError] = useState('');
+  const [alertSuccess, setAlertSuccess] = useState('');
   
   const fullSymbol = symbol.toUpperCase().endsWith('USDT') 
     ? symbol.toUpperCase() 
     : `${symbol.toUpperCase()}USDT`;
   const meta = COIN_META[fullSymbol];
   const coinData = prices?.[fullSymbol];
+
+  const handleAlertSubmit = async (e) => {
+    e.preventDefault();
+    setAlertError('');
+    setAlertSuccess('');
+
+    if (!user) {
+      setAlertError('Alarm kurmak için giriş yapmanız gerekiyor.');
+      return;
+    }
+
+    const price = Number(targetPrice);
+    if (!targetPrice || !Number.isFinite(price) || price <= 0) {
+      setAlertError('Geçerli bir hedef fiyat girin (pozitif sayı).');
+      return;
+    }
+
+    if (direction !== 'above' && direction !== 'below') {
+      setAlertError('Yön seçimi geçersiz.');
+      return;
+    }
+
+    setAlertLoading(true);
+    try {
+      await createAlert({
+        symbol: fullSymbol,
+        targetPrice: price,
+        direction: direction === 'above' ? 0 : 1,
+      });
+      setAlertSuccess('Alarm başarıyla oluşturuldu.');
+      setTargetPrice('');
+      window.dispatchEvent(new Event('alerts-changed'));
+    } catch (err) {
+      setAlertError(getErrorMessage(err));
+    } finally {
+      setAlertLoading(false);
+    }
+  };
 
   
   if (!meta) {
@@ -62,6 +117,53 @@ export default function CoinDetail() {
       ) : (
         <p style={{ margin: '40px 0', color: '#64748b' }}>Canlı piyasa verisi bekleniyor...</p>
       )}
+
+      <section className="alarm-section">
+        <h2 className="alarm-title">Alarm Kur</h2>
+        {!user && (
+          <p className="alarm-hint">
+            Alarm kurmak için <Link to="/signin">giriş yapın</Link>.
+          </p>
+        )}
+        {alertError && <p className="alarm-message alarm-message--error">{alertError}</p>}
+        {alertSuccess && <p className="alarm-message alarm-message--success">{alertSuccess}</p>}
+        <form onSubmit={handleAlertSubmit} className="alarm-form">
+          <div className="alarm-field">
+            <label htmlFor="targetPrice">Hedef Fiyat (USD)</label>
+            <input
+              id="targetPrice"
+              type="number"
+              min="0"
+              step="any"
+              value={targetPrice}
+              onChange={(e) => setTargetPrice(e.target.value)}
+              placeholder={coinData ? String(coinData.currentPrice) : '0.00'}
+              disabled={!user || alertLoading}
+              className="alarm-input"
+            />
+          </div>
+          <div className="alarm-field">
+            <label htmlFor="direction">Yön</label>
+            <select
+              id="direction"
+              value={direction}
+              onChange={(e) => setDirection(e.target.value)}
+              disabled={!user || alertLoading}
+              className="alarm-input"
+            >
+              <option value="above">Yukarı (fiyat hedefin üstüne çıkınca)</option>
+              <option value="below">Aşağı (fiyat hedefin altına inince)</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="btn-alarm"
+            disabled={!user || alertLoading}
+          >
+            {alertLoading ? 'Kaydediliyor...' : 'Alarm Kur'}
+          </button>
+        </form>
+      </section>
 
       <button className="btn-back" onClick={() => navigate('/')}>Listeye Dön</button>
     </div>
