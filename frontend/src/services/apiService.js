@@ -34,3 +34,7 @@ export const getAlerts        = ()               => api.get('/api/Alert');
 export const createAlert      = (data)           => api.post('/api/Alert', data);
 export const deleteAlert      = (id)             => api.delete(`/api/Alert/${id}`);
 
+// Feedback
+export const getFeedbacks     = ()               => api.get('/api/Feedback');
+export const createFeedback   = (data)           => api.post('/api/Feedback', data);
+

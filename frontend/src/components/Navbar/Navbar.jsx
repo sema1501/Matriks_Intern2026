@@ -13,11 +13,16 @@ export default function Navbar() {
       <div className="navbar__links">
         <Link to="/">Ana Sayfa</Link>
         <Link to="/converter">Dönüştürücü</Link>
-        
+        <Link to="/feedback">Geri Bildirim</Link>
+
         {user ? (
           <><Link to="/watchlist"> 🌟 Favorilerim 🌟</Link>
             <Link to="/profile">{user.username}</Link>
-            <button type="button" onClick={logoutUser}>Çıkış</button>
+            <Link to="/dashboard">Dashboard</Link>
+
+            <button type="button" onClick={logoutUser}>
+              Çıkış
+            </button>
           </>
         ) : (
           <>

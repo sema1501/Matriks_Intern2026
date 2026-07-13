@@ -15,6 +15,7 @@ import Dashboard   from './pages/Dashboard/Dashboard';
 import CoinDetail  from './pages/CoinDetail/CoinDetail';
 import Watchlist   from './pages/Watchlist/Watchlist';
 import Converter   from './pages/Converter/Converter';
+import Feedback    from './pages/Feedback/Feedback';
 
 // PrivateRoute: giriş yapılmamışsa /signin'e yönlendirir
 function PrivateRoute({ children }) {
@@ -43,6 +44,7 @@ function App() {
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/converter" element={<Converter />} />
                       <Route path="/coin/:symbol" element={<CoinDetail />} />
+                      <Route path="/feedback"  element={<Feedback />} />
                       <Route
                         path="/watchlist"
                         element={

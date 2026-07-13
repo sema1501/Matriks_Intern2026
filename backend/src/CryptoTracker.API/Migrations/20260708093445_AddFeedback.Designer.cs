@@ -4,6 +4,7 @@ using CryptoTracker.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CryptoTracker.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708093445_AddFeedback")]
+    partial class AddFeedback
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -48,42 +51,6 @@ namespace CryptoTracker.API.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Feedbacks");
-                });
-
-            modelBuilder.Entity("CryptoTracker.API.Models.PriceAlert", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Direction")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsTriggered")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<decimal>("TargetPrice")
-                        .HasPrecision(18, 8)
-                        .HasColumnType("decimal(18,8)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "Symbol");
-
-                    b.ToTable("PriceAlerts");
                 });
 
             modelBuilder.Entity("CryptoTracker.API.Models.Role", b =>
@@ -155,49 +122,12 @@ namespace CryptoTracker.API.Migrations
                     b.ToTable("UserRoles");
                 });
 
-            modelBuilder.Entity("CryptoTracker.API.Models.WatchlistItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "Symbol")
-                        .IsUnique();
-
-                    b.ToTable("WatchlistItems");
-                });
-
             modelBuilder.Entity("CryptoTracker.API.Models.Feedback", b =>
                 {
                     b.HasOne("CryptoTracker.API.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("CryptoTracker.API.Models.PriceAlert", b =>
-                {
-                    b.HasOne("CryptoTracker.API.Models.User", "User")
-                        .WithMany("PriceAlerts")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -221,17 +151,6 @@ namespace CryptoTracker.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("CryptoTracker.API.Models.WatchlistItem", b =>
-                {
-                    b.HasOne("CryptoTracker.API.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("CryptoTracker.API.Models.Role", b =>
                 {
                     b.Navigation("UserRoles");
@@ -239,8 +158,6 @@ namespace CryptoTracker.API.Migrations
 
             modelBuilder.Entity("CryptoTracker.API.Models.User", b =>
                 {
-                    b.Navigation("PriceAlerts");
-
                     b.Navigation("UserRoles");
                 });
 #pragma warning restore 612, 618
