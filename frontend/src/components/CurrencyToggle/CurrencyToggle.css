@@ -1,0 +1,91 @@
+.currency-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.currency-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.currency-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 62px;
+  padding: 7px 11px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.currency-toggle button:hover {
+  color: var(--accent-color);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.currency-toggle button.active {
+  background: var(--accent-color);
+  color: #ffffff;
+  box-shadow:
+    0 8px 18px rgba(99, 102, 241, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.currency-toggle button.active:hover {
+  color: #ffffff;
+  background: var(--accent-color);
+}
+
+.currency-toggle button:active {
+  transform: scale(0.96);
+}
+
+.currency-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.currency-rate-message {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.currency-rate-message.warning {
+  color: var(--accent-color);
+}
+
+@media (max-width: 760px) {
+  .currency-toggle-wrapper {
+    flex-wrap: wrap;
+  }
+
+  .currency-toggle button {
+    min-width: 58px;
+    padding: 7px 10px;
+  }
+}

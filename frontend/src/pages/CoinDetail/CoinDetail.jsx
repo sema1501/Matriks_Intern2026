@@ -4,6 +4,7 @@ import { COIN_META } from '../../data/coinMeta';
 import { useGlobalPrices } from '../../context/PriceContext';
 import { useAuth } from '../../context/AuthContext';
 import { createAlert } from '../../services/apiService';
+import { useCurrency } from '../../context/CurrencyContext';
 import './CoinDetail.css';
 
 function getErrorMessage(err) {
@@ -18,13 +19,14 @@ export default function CoinDetail() {
   const navigate = useNavigate();
   const { prices } = useGlobalPrices();
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
 
   const [targetPrice, setTargetPrice] = useState('');
   const [direction, setDirection] = useState('above');
   const [alertLoading, setAlertLoading] = useState(false);
   const [alertError, setAlertError] = useState('');
   const [alertSuccess, setAlertSuccess] = useState('');
-  
+
   const fullSymbol = symbol.toUpperCase().endsWith('USDT') 
     ? symbol.toUpperCase() 
     : `${symbol.toUpperCase()}USDT`;
@@ -94,7 +96,7 @@ export default function CoinDetail() {
           <div className="coin-detail-grid">
             <div className="stat-box">
               <span className="stat-label">Anlık Fiyat</span>
-              <span className="stat-value">${Number(coinData.currentPrice).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 6})}</span>
+              <span className="stat-value">{formatPrice(coinData.currentPrice)}</span>            
             </div>
             
             <div className="stat-box">
@@ -106,12 +108,12 @@ export default function CoinDetail() {
 
             <div className="stat-box">
               <span className="stat-label">24S Yüksek</span>
-              <span className="stat-value">{Number(coinData.high24h).toLocaleString()}</span>
+              <span className="stat-value">{formatPrice(coinData.high24h)}</span>
             </div>
 
             <div className="stat-box">
               <span className="stat-label">24S Düşük</span>
-              <span className="stat-value">{Number(coinData.low24h).toLocaleString()}</span>
+              <span className="stat-value">{formatPrice(coinData.low24h)}</span>
             </div>
           </div>
       ) : (

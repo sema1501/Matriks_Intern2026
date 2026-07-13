@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useWatchlist } from '../../context/WatchlistContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import './CryptoCard.css';
 
 function getNumberValue(source, keys) {
@@ -22,16 +23,6 @@ function getNumberValue(source, keys) {
   return null;
 }
 
-function formatUsd(value) {
-  if (value === null || value === undefined) return '-';
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: value >= 1 ? 2 : 4,
-    maximumFractionDigits: value >= 1 ? 2 : 6,
-  }).format(value);
-}
 
 function formatPercent(value) {
   if (value === null || value === undefined) return '-';
@@ -79,6 +70,7 @@ export default function CryptoCard({ meta, priceData }) {
   const navigate = useNavigate();
   const { user }                      = useAuth();
   const { isFavorite, toggleFavorite } = useWatchlist();
+  const { formatPrice }                = useCurrency();
   const [flashClass,  setFlashClass]  = useState('');
   const [starLoading, setStarLoading] = useState(false);
   const previousPriceRef = useRef(null);
@@ -195,7 +187,7 @@ export default function CryptoCard({ meta, priceData }) {
 
       <div className="crypto-card__price-area">
         <span className="crypto-card__label">Anlık Fiyat</span>
-        <strong className="crypto-card__price">{formatUsd(currentPrice)}</strong>
+        <strong className="crypto-card__price">{formatPrice(currentPrice)}</strong>
       </div>
 
       <div className="crypto-card__footer">
