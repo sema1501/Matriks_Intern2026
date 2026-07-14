@@ -2,11 +2,13 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalPrices } from '../../context/PriceContext';
+import { useCurrency } from '../../context/CurrencyContext';
 import CryptoGrid from '../../components/CryptoGrid/CryptoGrid';
 
 export default function Home() {
     const { user } = useAuth();
     const { prices, connectionStatus } = useGlobalPrices();
+    const { formatPrice } = useCurrency();
     const navigate = useNavigate();
 
     const { topGainers, topLosers, stats } = useMemo(() => {
@@ -16,7 +18,13 @@ export default function Home() {
             return { topGainers: [], topLosers: [], stats: { total: 0, highestPrice: 0, highestSymbol: '-' } };
         }
 
-        const sorted = [...priceArray].sort((a, b) => b.priceChangePercentage24h - a.priceChangePercentage24h);
+        const gainers = priceArray
+            .filter(coin => Number(coin.priceChangePercentage24h) > 0)
+            .sort((a, b) => b.priceChangePercentage24h - a.priceChangePercentage24h);
+
+        const losers = priceArray
+            .filter(coin => Number(coin.priceChangePercentage24h) < 0)
+            .sort((a, b) => a.priceChangePercentage24h - b.priceChangePercentage24h);
 
         let highest = priceArray[0];
         priceArray.forEach(coin => {
@@ -26,8 +34,8 @@ export default function Home() {
         });
 
         return {
-            topGainers: sorted.slice(0, 5),
-            topLosers: sorted.slice(-5).reverse(),
+            topGainers: gainers.slice(0, 5),
+            topLosers: losers.slice(0, 5),
             stats: {
                 total: priceArray.length,
                 highestPrice: highest.currentPrice,
@@ -38,7 +46,7 @@ export default function Home() {
 
     const isLoading = connectionStatus === 'connecting' && topGainers.length === 0;
 
-    const renderList = (title, list, isGainer) => (
+    const renderList = (title, list, isGainerSection) => (
         <div
             style={styles.card}
             onMouseEnter={(e) => {
@@ -53,50 +61,58 @@ export default function Home() {
             }}
         >
             <h3 style={{
-                marginTop: '1px', 
+                marginTop: '1px',
                 marginBottom: '20px',
                 color: 'var(--text-primary)',
                 fontWeight: '700',
                 fontSize: '18px',
                 display: 'flex',
-                alignItems: 'center', 
-                lineHeight: '1' 
+                alignItems: 'center',
+                lineHeight: '1'
             }}>
                 {title}
-            </h3>            <div style={styles.listContainer}>
-                {list.map((coin) => (
-                    <div
-                        key={coin.symbol}
-                        style={styles.listItem}
-                        onClick={() => navigate(`/coin/${coin.symbol}`)}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'}
-                    >
-                        <span style={styles.symbol}>{coin.symbol.replace('USDT', '')}</span>
-                        <span style={styles.price}>${coin.currentPrice.toLocaleString()}</span>
-                        <span style={{
-                            ...styles.percentage,
-                            color: isGainer ? '#00b4d8' : '#ef233c',
-                            backgroundColor: isGainer ? 'rgba(0, 180, 216, 0.08)' : 'rgba(239, 35, 60, 0.08)',
-                            padding: '6px 10px',
-                            borderRadius: '6px',
-                            fontSize: '14px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            {isGainer ? '+' : ''}{coin.priceChangePercentage24h.toFixed(2)}%
-                        </span>
+            </h3>
+            <div style={styles.listContainer}>
+                {list.length > 0 ? (
+                    list.map((coin) => {
+                        const isCoinPositive = coin.priceChangePercentage24h >= 0;
+                        return (
+                            <div
+                                key={coin.symbol}
+                                style={styles.listItem}
+                                onClick={() => navigate(`/coin/${coin.symbol}`)}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'}
+                            >
+                                <span style={styles.symbol}>{coin.symbol.replace('USDT', '')}</span>
+                                <span style={styles.price}>{formatPrice(coin.currentPrice)}</span>
+                                <span style={{
+                                    ...styles.percentage,
+                                    color: isCoinPositive ? '#00b4d8' : '#ef233c',
+                                    backgroundColor: isCoinPositive ? 'rgba(0, 180, 216, 0.08)' : 'rgba(239, 35, 60, 0.08)',
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    {isCoinPositive ? '+' : ''}{coin.priceChangePercentage24h.toFixed(2)}%
+                                </span>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#888', fontSize: '14px', backgroundColor: 'rgba(255, 255, 255, 0.01)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.05)' }}>
+                        {isGainerSection ? 'Yükseliş yaşayan varlık bulunmuyor.' : 'Düşüş yaşayan varlık bulunmuyor. 🚀'}
                     </div>
-                ))}
+                )}
             </div>
         </div>
     );
 
     return (
         <div style={{ padding: '32px', color: 'var(--text-primary)', maxWidth: '1400px', margin: '0 auto' }}>
-            <h2>Hos geldin{user ? `, ${user.username}` : ''}!</h2>
-            <p style={{ marginBottom: '32px', color: '#888' }}>CryptoTracker — kripto para takip uygulamasi.</p>
 
             <div style={styles.band}>
                 <div style={styles.bandItem}>
@@ -105,7 +121,7 @@ export default function Home() {
                 </div>
                 <div style={styles.bandItem}>
                     <span style={styles.bandLabel}>En Değerli Varlık</span>
-                    <span style={styles.bandValue}>{stats.highestSymbol} (${stats.highestPrice.toLocaleString()})</span>
+                    <span style={styles.bandValue}>{stats.highestSymbol} ({formatPrice(stats.highestPrice)})</span>
                 </div>
                 <div style={styles.bandItem}>
                     <span style={styles.bandLabel}>Piyasa Durumu</span>
@@ -131,7 +147,6 @@ export default function Home() {
                 </div>
             )}
 
-            {/* Senin yazdığın canlı veri ızgarasını sayfaya yerleştiriyoruz */}
             <div style={{ marginTop: '32px' }}>
                 <h3 style={{ marginBottom: '16px' }}>Tüm Kripto Para Piyasası</h3>
                 <CryptoGrid />
