@@ -30,6 +30,10 @@ export default function CoinDetail() {
 
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
+    const [isEmaActive, setIsEmaActive] = useState(false);
+    const [isRsiActive, setIsRsiActive] = useState(false);
+    const [emaPeriod, setEmaPeriod] = useState(12);
+
     useEffect(() => {
         const handleResize = () => {
             setIsMobile(window.innerWidth <= 768);
@@ -200,8 +204,66 @@ export default function CoinDetail() {
 
                 </div>
 
-                <div style={{ width: '100%', overflow: 'hidden' }}>
-                    <ChartModule symbol={fullSymbol} />
+                <div style={{ width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    
+                   
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '15px',
+                        padding: '10px 15px',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        width: 'fit-content'
+                    }}>
+                        <span style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>İndikatörler:</span>
+                        
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: '#334155' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={isEmaActive} 
+                                onChange={(e) => setIsEmaActive(e.target.checked)} 
+                            />
+                            EMA
+                        </label>
+
+                        {isEmaActive && (
+                            <input 
+                                type="number" 
+                                value={emaPeriod} 
+                                onChange={(e) => setEmaPeriod(Number(e.target.value))}
+                                min="1"
+                                max="200"
+                                style={{
+                                    width: '50px',
+                                    padding: '2px 6px',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    outline: 'none'
+                                }}
+                            />
+                        )}
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: '#334155' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={isRsiActive} 
+                                onChange={(e) => setIsRsiActive(e.target.checked)} 
+                            />
+                            RSI
+                        </label>
+                    </div>
+                    
+
+                    
+                    <ChartModule 
+                        symbol={fullSymbol} 
+                        isEmaActive={isEmaActive}
+                        isRsiActive={isRsiActive}
+                        emaPeriod={emaPeriod}
+                    />
                 </div>
 
                 {isMobile && (
