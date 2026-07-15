@@ -1,15 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getMe, updateProfile, changePassword, getAlerts, deleteAlert } from '../../services/apiService';
+import {
+  getMe,
+  updateProfile,
+  changePassword,
+  getAlerts,
+  deleteAlert,
+  toggleAlert,
+  getAlertSignals,
+} from '../../services/apiService';
 
 const inputStyle = { width: '100%', padding: '0.5rem', marginTop: '0.25rem' };
-const sectionStyle = { maxWidth: '500px', marginBottom: '2rem' };
+const sectionStyle = { maxWidth: '560px', marginBottom: '2rem' };
+const ALERT_POLL_MS = 45_000;
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('tr-TR', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return 'Henüz sinyal yok';
+  return new Date(dateStr).toLocaleString('tr-TR');
 }
 
 function getErrorMessage(err) {
@@ -23,6 +37,13 @@ function formatDirection(direction) {
   if (d === 'above') return 'Üstüne çıkınca';
   if (d === 'below') return 'Altına düşünce';
   return direction || '—';
+}
+
+function formatInterval(interval) {
+  if (interval === 0 || interval === '0') return 'Dakikalık';
+  if (interval === 1 || interval === '1') return 'Saatlik';
+  if (interval === 2 || interval === '2') return 'Günlük';
+  return '—';
 }
 
 function getAlertField(alert, camel, pascal) {
@@ -45,7 +66,13 @@ export default function Profile() {
   const [alerts, setAlerts]                   = useState([]);
   const [alertsLoading, setAlertsLoading]     = useState(false);
   const [alertsError, setAlertsError]         = useState('');
+  const [alertsActionMessage, setAlertsActionMessage] = useState('');
   const [deletingId, setDeletingId]           = useState(null);
+  const [togglingId, setTogglingId]           = useState(null);
+  const [expandedSignalAlertId, setExpandedSignalAlertId] = useState(null);
+  const [signalsByAlertId, setSignalsByAlertId] = useState({});
+  const [signalsLoadingId, setSignalsLoadingId] = useState(null);
+  const [signalsError, setSignalsError] = useState('');
 
   useEffect(() => {
     if (authLoading) return;
@@ -60,20 +87,24 @@ export default function Profile() {
       .finally(() => setLoading(false));
   }, [authUser, authLoading]);
 
-  const loadAlerts = () => {
+  const loadAlerts = (silent = false) => {
     if (!authUser) return;
-    setAlertsLoading(true);
-    setAlertsError('');
+    if (!silent) {
+      setAlertsLoading(true);
+      setAlertsError('');
+    }
     getAlerts()
       .then(res => setAlerts(Array.isArray(res.data) ? res.data : []))
       .catch(err => {
         if (err.response?.status === 401 || err.response?.status === 403) {
           setAlertsError('Alarmları görüntülemek için giriş yapmanız gerekiyor.');
-        } else {
+        } else if (!silent) {
           setAlertsError('Alarmlar yüklenemedi. Backend erişilebilir değil olabilir.');
         }
       })
-      .finally(() => setAlertsLoading(false));
+      .finally(() => {
+        if (!silent) setAlertsLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -82,22 +113,72 @@ export default function Profile() {
   }, [authUser, authLoading]);
 
   useEffect(() => {
-    const handleAlertsChanged = () => loadAlerts();
+    const handleAlertsChanged = () => loadAlerts(true);
     window.addEventListener('alerts-changed', handleAlertsChanged);
     return () => window.removeEventListener('alerts-changed', handleAlertsChanged);
   }, [authUser]);
 
+  useEffect(() => {
+    if (authLoading || !authUser) return undefined;
+    const id = setInterval(() => loadAlerts(true), ALERT_POLL_MS);
+    return () => clearInterval(id);
+  }, [authUser, authLoading]);
+
   const handleDeleteAlert = async (id) => {
     setDeletingId(id);
     setAlertsError('');
+    setAlertsActionMessage('');
     try {
       await deleteAlert(id);
       setAlerts(prev => prev.filter(a => getAlertField(a, 'id', 'Id') !== id));
+      if (expandedSignalAlertId === id) {
+        setExpandedSignalAlertId(null);
+      }
       window.dispatchEvent(new Event('alerts-changed'));
+      setAlertsActionMessage('Alarm silindi.');
     } catch (err) {
       setAlertsError(getErrorMessage(err));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleToggleAlert = async (alert) => {
+    const id = getAlertField(alert, 'id', 'Id');
+    const isActive = getAlertField(alert, 'isActive', 'IsActive');
+    const nextActive = !(isActive === true || isActive === 'true');
+    setTogglingId(id);
+    setAlertsError('');
+    setAlertsActionMessage('');
+    try {
+      const res = await toggleAlert(id, nextActive);
+      setAlerts(prev => prev.map(a => (getAlertField(a, 'id', 'Id') === id ? res.data : a)));
+      window.dispatchEvent(new Event('alerts-changed'));
+      setAlertsActionMessage(nextActive ? 'Alarm aktifleştirildi.' : 'Alarm pasifleştirildi.');
+    } catch (err) {
+      setAlertsError(getErrorMessage(err));
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleToggleSignals = async (alertId) => {
+    if (expandedSignalAlertId === alertId) {
+      setExpandedSignalAlertId(null);
+      setSignalsError('');
+      return;
+    }
+
+    setExpandedSignalAlertId(alertId);
+    setSignalsLoadingId(alertId);
+    setSignalsError('');
+    try {
+      const res = await getAlertSignals(alertId);
+      setSignalsByAlertId(prev => ({ ...prev, [alertId]: res.data }));
+    } catch (err) {
+      setSignalsError(getErrorMessage(err));
+    } finally {
+      setSignalsLoadingId(null);
     }
   };
 
@@ -219,6 +300,7 @@ export default function Profile() {
         <h3>Alarmlarım</h3>
         {alertsLoading && <p>Alarmlar yükleniyor...</p>}
         {alertsError && <p style={{ color: 'red' }}>{alertsError}</p>}
+        {alertsActionMessage && <p style={{ color: 'green' }}>{alertsActionMessage}</p>}
         {!alertsLoading && !alertsError && alerts.length === 0 && (
           <p>Henüz alarm kurmadınız. Bir coin detay sayfasından alarm oluşturabilirsiniz.</p>
         )}
@@ -229,34 +311,108 @@ export default function Profile() {
               const symbol = getAlertField(alert, 'symbol', 'Symbol');
               const targetPrice = getAlertField(alert, 'targetPrice', 'TargetPrice');
               const direction = getAlertField(alert, 'direction', 'Direction');
+              const interval = getAlertField(alert, 'interval', 'Interval');
+              const isActive = getAlertField(alert, 'isActive', 'IsActive');
+              const signalCount = Number(getAlertField(alert, 'signalCount', 'SignalCount') ?? 0);
+              const lastTriggeredAt = getAlertField(alert, 'lastTriggeredAt', 'LastTriggeredAt');
+              const active = isActive === true || isActive === 'true';
+              const signalsPayload = signalsByAlertId[id];
+              const signals = Array.isArray(signalsPayload?.signals)
+                ? signalsPayload.signals
+                : Array.isArray(signalsPayload?.Signals)
+                  ? signalsPayload.Signals
+                  : [];
+
               return (
                 <li
                   key={id}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '1rem',
                     padding: '0.75rem',
                     border: '1px solid var(--border-color, #e2e8f0)',
                     borderRadius: '8px',
+                    opacity: active ? 1 : 0.75,
                   }}
                 >
-                  <div>
-                    <strong>{symbol}</strong>
-                    <br />
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted, #64748b)' }}>
-                      Hedef: ${Number(targetPrice).toLocaleString()} — {formatDirection(direction)}
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
+                    <div>
+                      <strong>{symbol}</strong>
+                      {!active && (
+                        <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
+                          (Pasif)
+                        </span>
+                      )}
+                      <br />
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-muted, #64748b)' }}>
+                        Hedef: ${Number(targetPrice).toLocaleString()} — {formatDirection(direction)}
+                      </span>
+                      <br />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
+                        Aralık: {formatInterval(interval)} · Durum: {active ? 'Aktif' : 'Pasif'}
+                      </span>
+                      <br />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
+                        Sinyal: {signalCount} · Son: {formatDateTime(lastTriggeredAt)}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAlert(alert)}
+                        disabled={togglingId === id}
+                        style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
+                      >
+                        {togglingId === id ? 'Güncelleniyor...' : active ? 'Pasifleştir' : 'Aktifleştir'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSignals(id)}
+                        style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
+                      >
+                        {expandedSignalAlertId === id ? 'Sinyalleri Gizle' : 'Sinyal Geçmişi'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAlert(id)}
+                        disabled={deletingId === id}
+                        style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
+                      >
+                        {deletingId === id ? 'Siliniyor...' : 'Sil'}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteAlert(id)}
-                    disabled={deletingId === id}
-                    style={{ padding: '0.4rem 0.8rem', cursor: 'pointer', flexShrink: 0 }}
-                  >
-                    {deletingId === id ? 'Siliniyor...' : 'Sil'}
-                  </button>
+
+                  {expandedSignalAlertId === id && (
+                    <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border-color, #e2e8f0)', paddingTop: '0.75rem' }}>
+                      {signalsLoadingId === id && <p>Sinyaller yükleniyor...</p>}
+                      {signalsError && expandedSignalAlertId === id && (
+                        <p style={{ color: 'red' }}>{signalsError}</p>
+                      )}
+                      {!signalsLoadingId && !signalsError && signals.length === 0 && (
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted, #64748b)' }}>
+                          {active ? 'Henüz sinyal yok.' : 'Alarm pasif. Aktifleştirince izleme yeniden başlar.'}
+                        </p>
+                      )}
+                      {!signalsLoadingId && signals.length > 0 && (
+                        <>
+                          <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                            Toplam: {signalsPayload?.totalCount ?? signalsPayload?.TotalCount ?? signals.length}
+                          </p>
+                          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            {signals.map((signal) => {
+                              const signalId = signal.id ?? signal.Id;
+                              const price = Number(signal.priceAtTrigger ?? signal.PriceAtTrigger);
+                              const at = signal.triggeredAt ?? signal.TriggeredAt;
+                              return (
+                                <li key={signalId} style={{ fontSize: '0.85rem' }}>
+                                  ${price.toLocaleString()} — {formatDateTime(at)}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}

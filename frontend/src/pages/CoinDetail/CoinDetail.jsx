@@ -23,6 +23,7 @@ export default function CoinDetail() {
 
   const [targetPrice, setTargetPrice] = useState('');
   const [direction, setDirection] = useState('above');
+  const [alertInterval, setAlertInterval] = useState(0);
   const [alertLoading, setAlertLoading] = useState(false);
   const [alertError, setAlertError] = useState('');
   const [alertSuccess, setAlertSuccess] = useState('');
@@ -54,15 +55,22 @@ export default function CoinDetail() {
       return;
     }
 
+    if (Number(alertInterval) !== 0) {
+      setAlertError('Bu aralık henüz desteklenmiyor. Dakikalık seçin.');
+      return;
+    }
+
     setAlertLoading(true);
     try {
       await createAlert({
         symbol: fullSymbol,
         targetPrice: price,
         direction: direction === 'above' ? 0 : 1,
+        interval: 0,
       });
       setAlertSuccess('Alarm başarıyla oluşturuldu.');
       setTargetPrice('');
+      setAlertInterval(0);
       window.dispatchEvent(new Event('alerts-changed'));
     } catch (err) {
       setAlertError(getErrorMessage(err));
@@ -155,6 +163,24 @@ export default function CoinDetail() {
             >
               <option value="above">Yukarı (fiyat hedefin üstüne çıkınca)</option>
               <option value="below">Aşağı (fiyat hedefin altına inince)</option>
+            </select>
+          </div>
+          <div className="alarm-field">
+            <label htmlFor="alertInterval">Kontrol Sıklığı</label>
+            <select
+              id="alertInterval"
+              value={alertInterval}
+              onChange={(e) => setAlertInterval(Number(e.target.value))}
+              disabled={!user || alertLoading}
+              className="alarm-input"
+            >
+              <option value={0}>Dakikalık</option>
+              <option value={1} disabled>
+                Saatlik (Yakında)
+              </option>
+              <option value={2} disabled>
+                Günlük (Yakında)
+              </option>
             </select>
           </div>
           <button
