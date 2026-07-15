@@ -2,7 +2,12 @@
 import { init, dispose } from 'klinecharts';
 import { getKlines, subscribeKline } from '../../services/binanceService';
 
-const ChartModule = ({ symbol = 'BTCUSDT' }) => {
+const ChartModule = ({ 
+    symbol = 'BTCUSDT',
+    isEmaActive,
+    isRsiActive,
+    emaPeriod 
+}) => {
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const [activeTab, setActiveTab] = useState('1h');
@@ -199,6 +204,35 @@ const ChartModule = ({ symbol = 'BTCUSDT' }) => {
             });
         }
     }, [chartType]);
+
+
+    useEffect(() => {
+        if (!chartRef.current) return;
+
+        
+        if (isEmaActive) {
+            chartRef.current.removeIndicator('candle_pane', 'EMA');
+            chartRef.current.createIndicator(
+                { name: 'EMA', calcParams: [emaPeriod] },
+                true, 
+                { id: 'candle_pane' } 
+            );
+        } else {
+            chartRef.current.removeIndicator('candle_pane', 'EMA');
+        }
+
+        
+        if (isRsiActive) {
+            chartRef.current.createIndicator(
+                { name: 'RSI', calcParams: [14] },
+                false, 
+                { id: 'pane_rsi' } 
+            );
+        } else {
+            chartRef.current.removeIndicator('pane_rsi', 'RSI');
+        }
+
+    }, [isEmaActive, isRsiActive, emaPeriod]);
 
     const toggleChartType = () => {
         setChartType((prev) => (prev === 'candle_solid' ? 'ohlc' : 'candle_solid'));
