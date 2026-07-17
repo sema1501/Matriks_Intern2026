@@ -10,12 +10,16 @@ const ChartModule = ({
 }) => {
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
+    const drawingOverlayIdRef = useRef(null);
+    const trendLineIdsRef = useRef([]);
     const [activeTab, setActiveTab] = useState('1h');
     const [chartType, setChartType] = useState('candle_solid');
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const [isDarkMode, setIsDarkMode] = useState(true);
+    const [isDrawingTrendLine, setIsDrawingTrendLine] = useState(false);
+    const [trendLineCount, setTrendLineCount] = useState(0);
 
     const intervals = [
         { label: '1 Saat', value: '1h', binanceInterval: '1m', limit: 60 },
@@ -234,6 +238,71 @@ const ChartModule = ({
 
     }, [isEmaActive, isRsiActive, emaPeriod]);
 
+    const cancelTrendLineDrawing = () => {
+        if (!chartRef.current) {
+            setIsDrawingTrendLine(false);
+            drawingOverlayIdRef.current = null;
+            return;
+        }
+        if (drawingOverlayIdRef.current) {
+            chartRef.current.removeOverlay(drawingOverlayIdRef.current);
+            drawingOverlayIdRef.current = null;
+        }
+        chartRef.current.setZoomEnabled(true);
+        chartRef.current.setScrollEnabled(true);
+        setIsDrawingTrendLine(false);
+    };
+
+    const toggleTrendLineDrawing = () => {
+        if (!chartRef.current) return;
+        if (isDrawingTrendLine) {
+            cancelTrendLineDrawing();
+            return;
+        }
+
+        const overlayId = chartRef.current.createOverlay(
+            {
+                name: 'segment',
+                groupId: 'trend-lines',
+                onDrawEnd: (event) => {
+                    const id = event.overlay?.id || overlayId;
+                    if (id) {
+                        trendLineIdsRef.current.push(id);
+                        setTrendLineCount(trendLineIdsRef.current.length);
+                    }
+                    drawingOverlayIdRef.current = null;
+                    setIsDrawingTrendLine(false);
+                    chartRef.current.setZoomEnabled(true);
+                    chartRef.current.setScrollEnabled(true);
+                    return true;
+                }
+            }
+        );
+
+        if (typeof overlayId === 'string') {
+            drawingOverlayIdRef.current = overlayId;
+        }
+        setIsDrawingTrendLine(true);
+    };
+
+    const deleteLastTrendLine = () => {
+        if (!chartRef.current) return;
+        const ids = trendLineIdsRef.current;
+        const lastId = ids[ids.length - 1];
+        if (!lastId) return;
+        chartRef.current.removeOverlay(lastId);
+        ids.pop();
+        setTrendLineCount(ids.length);
+    };
+
+    const clearAllTrendLines = () => {
+        if (!chartRef.current) return;
+        cancelTrendLineDrawing();
+        chartRef.current.removeOverlay({ groupId: 'trend-lines' });
+        trendLineIdsRef.current = [];
+        setTrendLineCount(0);
+    };
+
     const toggleChartType = () => {
         setChartType((prev) => (prev === 'candle_solid' ? 'ohlc' : 'candle_solid'));
     };
@@ -287,7 +356,7 @@ const ChartModule = ({
             }}>
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
                     gap: '5px'
                 }}>
                     {intervals.map((item) => (
@@ -307,6 +376,46 @@ const ChartModule = ({
                 >
                     Görünüm: {chartType === 'candle_solid' ? 'Mum' : 'OHLC Bar'}
                 </button>
+            </div>
+
+            <div style={{
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: '10px',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'stretch' : 'center',
+                marginBottom: '15px'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: '10px',
+                    flexWrap: 'wrap'
+                }}>
+                    <button
+                        onClick={toggleTrendLineDrawing}
+                        style={themeStyles.button(isDrawingTrendLine)}
+                    >
+                        {isDrawingTrendLine ? 'Trend Çizgisi İptal' : 'Trend Çizgisi Çiz'}
+                    </button>
+                    <button
+                        onClick={deleteLastTrendLine}
+                        style={themeStyles.button(false)}
+                    >
+                        Son Çizgiyi Sil
+                    </button>
+                    <button
+                        onClick={clearAllTrendLines}
+                        style={themeStyles.button(false)}
+                    >
+                        Tüm Çizgileri Temizle
+                    </button>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
+                    <div style={{ color: isDarkMode ? '#CBD5E1' : '#475569', fontSize: isMobile ? '12px' : '14px' }}>
+                        {trendLineCount} trend çizgisi kayıtlı
+                    </div>
+                </div>
             </div>
 
             {error && (
