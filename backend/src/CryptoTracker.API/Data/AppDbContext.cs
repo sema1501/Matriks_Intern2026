@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<UserRole>      UserRoles      => Set<UserRole>();
     public DbSet<WatchlistItem> WatchlistItems => Set<WatchlistItem>();
     public DbSet<PriceAlert>    PriceAlerts    => Set<PriceAlert>();
+    public DbSet<AlertSignal>   AlertSignals   => Set<AlertSignal>();
     public DbSet<Feedback>      Feedbacks      => Set<Feedback>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
@@ -68,6 +69,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<PriceAlert>()
             .Property(a => a.TargetPrice)
+            .HasPrecision(18, 8);
+
+        modelBuilder.Entity<PriceAlert>()
+            .Property(a => a.IsActive)
+            .HasDefaultValue(true);
+
+        modelBuilder.Entity<PriceAlert>()
+            .Property(a => a.Interval)
+            .HasDefaultValue(AlertInterval.Minute);
+
+        // AlertSignal → PriceAlert (cascade with alert deletion, matching User→Alert)
+        modelBuilder.Entity<AlertSignal>()
+            .HasOne(s => s.Alert)
+            .WithMany(a => a.Signals)
+            .HasForeignKey(s => s.AlertId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AlertSignal>()
+            .HasIndex(s => s.AlertId);
+
+        modelBuilder.Entity<AlertSignal>()
+            .HasIndex(s => s.TriggeredAt);
+
+        modelBuilder.Entity<AlertSignal>()
+            .Property(s => s.PriceAtTrigger)
             .HasPrecision(18, 8);
 
         // PasswordResetToken → User

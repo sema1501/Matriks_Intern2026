@@ -1,59 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useGlobalPrices } from '../../context/PriceContext';
-import { getAlerts } from '../../services/apiService';
+import { getAlerts, getAlertSignals } from '../../services/apiService';
 import './AlertMonitor.css';
 
-const TRIGGERED_KEY = 'cryptotracker_triggered_alert_ids';
 const TOAST_DURATION_MS = 8000;
+const POLL_INTERVAL_MS = 45_000;
 
-function getTriggeredIds() {
-  try {
-    const raw = localStorage.getItem(TRIGGERED_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function markTriggered(key) {
-  const ids = getTriggeredIds();
-  if (!ids.includes(key)) {
-    localStorage.setItem(TRIGGERED_KEY, JSON.stringify([...ids, key]));
-  }
-}
-
-function normalizeDirection(direction) {
-  if (direction === 0 || direction === '0') return 'above';
-  if (direction === 1 || direction === '1') return 'below';
-  const d = String(direction ?? '').toLowerCase();
-  if (d === 'above') return 'above';
-  if (d === 'below') return 'below';
-  return d;
-}
-
-function getAlertId(alert) {
-  return alert.id ?? alert.Id;
-}
-
-// Dedupe key combines id + symbol + target + direction so that stale
-// localStorage entries cannot silence new alerts after the database is
-// reset (docker compose down -v) and ids restart from 1.
-function getAlertDedupeKey(alert) {
-  const id = getAlertId(alert);
-  const symbol = alert.symbol ?? alert.Symbol ?? '';
-  const target = alert.targetPrice ?? alert.TargetPrice;
-  const direction = normalizeDirection(alert.direction ?? alert.Direction);
-  return `${id ?? 'noid'}-${symbol}-${target}-${direction}`;
-}
-
-function isAlertTriggered(alert, currentPrice) {
-  const target = Number(alert.targetPrice ?? alert.TargetPrice);
-  const direction = normalizeDirection(alert.direction ?? alert.Direction);
-  if (!Number.isFinite(currentPrice) || !Number.isFinite(target) || target <= 0) return false;
-  if (direction === 'above') return currentPrice >= target;
-  if (direction === 'below') return currentPrice <= target;
-  return false;
+function getAlertField(alert, camel, pascal) {
+  return alert[camel] ?? alert[pascal];
 }
 
 function showBrowserNotification(title, body) {
@@ -64,94 +18,136 @@ function showBrowserNotification(title, body) {
   return false;
 }
 
+function formatTriggeredAt(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleString('tr-TR');
+}
+
+/**
+ * Backend writes AlertSignal rows while this page is closed.
+ * This component only polls for new signal history while the user is logged in
+ * and the app is open. Closed-browser delivery (push/email) is out of scope.
+ */
 export default function AlertMonitor() {
   const { user } = useAuth();
-  const { prices } = useGlobalPrices();
-  const [alerts, setAlerts] = useState([]);
   const [toasts, setToasts] = useState([]);
-  const notifiedRef = useRef(new Set());
+  const knownSignalIdsRef = useRef(new Set());
+  const knownCountsRef = useRef(new Map());
+  const baselineReadyRef = useRef(false);
+  const pollingRef = useRef(false);
 
   const addToast = useCallback((message) => {
     const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, message }]);
+    setToasts((prev) => [...prev, { id, message }]);
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
+      setToasts((prev) => prev.filter((t) => t.id !== id));
     }, TOAST_DURATION_MS);
   }, []);
 
-  const loadAlerts = useCallback(async () => {
-    if (!user) {
-      setAlerts([]);
-      return;
-    }
+  const notifyNewSignals = useCallback((alert, signals) => {
+    const symbol = getAlertField(alert, 'symbol', 'Symbol');
+    const fresh = signals.filter((s) => {
+      const id = s.id ?? s.Id;
+      if (id == null || knownSignalIdsRef.current.has(id)) return false;
+      knownSignalIdsRef.current.add(id);
+      return true;
+    });
+
+    if (!baselineReadyRef.current || fresh.length === 0) return;
+
+    fresh.forEach((signal) => {
+      const price = Number(signal.priceAtTrigger ?? signal.PriceAtTrigger);
+      const at = formatTriggeredAt(signal.triggeredAt ?? signal.TriggeredAt);
+      const message = `${symbol} sinyal: $${price.toLocaleString()} (${at})`;
+      addToast(message);
+      showBrowserNotification('Fiyat Alarmı Sinyali', message);
+    });
+  }, [addToast]);
+
+  const pollSignals = useCallback(async () => {
+    if (!user || pollingRef.current) return;
+    pollingRef.current = true;
     try {
-      const res = await getAlerts();
-      setAlerts(Array.isArray(res.data) ? res.data : []);
+      const alertsRes = await getAlerts();
+      const alerts = Array.isArray(alertsRes.data) ? alertsRes.data : [];
+
+      await Promise.all(
+        alerts.map(async (alert) => {
+          const alertId = getAlertField(alert, 'id', 'Id');
+          const signalCount = Number(getAlertField(alert, 'signalCount', 'SignalCount') ?? 0);
+          if (!alertId) return;
+
+          const previousCount = knownCountsRef.current.get(alertId) ?? 0;
+          const needsFetch = !baselineReadyRef.current
+            ? signalCount > 0
+            : signalCount > previousCount;
+
+          knownCountsRef.current.set(alertId, signalCount);
+
+          if (!needsFetch) return;
+
+          try {
+            const signalsRes = await getAlertSignals(alertId);
+            const payload = signalsRes.data ?? {};
+            const signals = Array.isArray(payload.signals)
+              ? payload.signals
+              : Array.isArray(payload.Signals)
+                ? payload.Signals
+                : [];
+
+            if (!baselineReadyRef.current) {
+              signals.forEach((s) => {
+                const id = s.id ?? s.Id;
+                if (id != null) knownSignalIdsRef.current.add(id);
+              });
+              return;
+            }
+
+            notifyNewSignals(alert, signals);
+          } catch {
+            // Per-alert signal fetch failures should not break polling.
+          }
+        })
+      );
+
+      if (!baselineReadyRef.current) {
+        baselineReadyRef.current = true;
+      }
     } catch {
-      // Backend unavailable or unauthorized — do not break the app
-      setAlerts([]);
+      // Backend unavailable — keep previous known IDs; retry next cycle.
+    } finally {
+      pollingRef.current = false;
     }
-  }, [user]);
+  }, [user, notifyNewSignals]);
 
   useEffect(() => {
-    loadAlerts();
-  }, [loadAlerts]);
+    if (!user) {
+      knownSignalIdsRef.current = new Set();
+      knownCountsRef.current = new Map();
+      baselineReadyRef.current = false;
+      return undefined;
+    }
 
-  useEffect(() => {
-    const handleAlertsChanged = () => loadAlerts();
-    window.addEventListener('alerts-changed', handleAlertsChanged);
-    return () => window.removeEventListener('alerts-changed', handleAlertsChanged);
-  }, [loadAlerts]);
-
-  useEffect(() => {
-    if (!user || typeof Notification === 'undefined') return;
-    if (Notification.permission === 'default') {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
-  }, [user]);
 
-  useEffect(() => {
-    if (!user || !alerts.length || !prices) return;
+    pollSignals();
+    const intervalId = setInterval(pollSignals, POLL_INTERVAL_MS);
+    const handleAlertsChanged = () => pollSignals();
+    window.addEventListener('alerts-changed', handleAlertsChanged);
 
-    const triggeredIds = getTriggeredIds();
-
-    alerts.forEach((alert) => {
-      const dedupeKey = getAlertDedupeKey(alert);
-      const symbol = alert.symbol ?? alert.Symbol;
-      const alreadyTriggered =
-        alert.isTriggered === true ||
-        alert.IsTriggered === true ||
-        triggeredIds.includes(dedupeKey) ||
-        notifiedRef.current.has(dedupeKey);
-
-      if (alreadyTriggered) return;
-
-      const coinData = prices[symbol];
-      if (!coinData?.currentPrice) return;
-
-      const currentPrice = Number(coinData.currentPrice);
-      if (!isAlertTriggered(alert, currentPrice)) return;
-
-      const direction = normalizeDirection(alert.direction ?? alert.Direction);
-      const target = Number(alert.targetPrice ?? alert.TargetPrice);
-      const dirLabel = direction === 'above' ? 'yukarı' : 'aşağı';
-      const message = `${symbol} fiyat alarmı tetiklendi! Hedef: $${target.toLocaleString()} (${dirLabel})`;
-
-      markTriggered(dedupeKey);
-      notifiedRef.current.add(dedupeKey);
-
-      // Always show the in-app toast; additionally fire a browser
-      // notification when permission has been granted.
-      addToast(message);
-      showBrowserNotification('Fiyat Alarmı', message);
-    });
-  }, [user, alerts, prices, addToast]);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('alerts-changed', handleAlertsChanged);
+    };
+  }, [user, pollSignals]);
 
   if (!toasts.length) return null;
 
   return (
     <div className="alert-monitor-toasts" aria-live="polite">
-      {toasts.map(t => (
+      {toasts.map((t) => (
         <div key={t.id} className="alert-monitor-toast">{t.message}</div>
       ))}
     </div>

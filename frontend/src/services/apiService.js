@@ -35,6 +35,8 @@ export const removeFromWatchlist = (symbol)       => api.delete(`/api/Watchlist/
 export const getAlerts        = ()               => api.get('/api/Alert');
 export const createAlert      = (data)           => api.post('/api/Alert', data);
 export const deleteAlert      = (id)             => api.delete(`/api/Alert/${id}`);
+export const toggleAlert      = (id, isActive)   => api.patch(`/api/Alert/${id}/toggle`, { isActive });
+export const getAlertSignals  = (id)             => api.get(`/api/Alert/${id}/signals`);
 
 // Feedback
 export const getFeedbacks     = ()               => api.get('/api/Feedback');

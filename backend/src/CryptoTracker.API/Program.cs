@@ -10,8 +10,11 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ──────────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
 
 // ── Auth ──────────────────────────────────────────────────────────
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -33,6 +36,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+
+// ── Alert monitoring ──────────────────────────────────────────────
+builder.Services.Configure<AlertMonitoringOptions>(
+    builder.Configuration.GetSection(AlertMonitoringOptions.SectionName));
+
+builder.Services.AddHttpClient<IBinancePriceService, BinancePriceService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.binance.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+
+builder.Services.AddScoped<IAlertMonitoringProcessor, AlertMonitoringProcessor>();
+builder.Services.AddHostedService<AlertMonitorService>();
 
 // ── DI ───────────────────────────────────────────────────────────
 builder.Services.AddScoped<IJwtService, JwtService>();
@@ -98,11 +114,16 @@ app.UseAuthorization();
 app.MapControllers();
 
 // ── Seed database ─────────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-    await DataSeeder.SeedAsync(db);
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+        await DataSeeder.SeedAsync(db);
+    }
 }
 
 app.Run();
+
+public partial class Program { }

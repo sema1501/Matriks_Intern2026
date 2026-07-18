@@ -24,6 +24,7 @@ export default function CoinDetail() {
 
     const [targetPrice, setTargetPrice] = useState('');
     const [direction, setDirection] = useState('above');
+    const [alertInterval, setAlertInterval] = useState(0);
     const [alertLoading, setAlertLoading] = useState(false);
     const [alertError, setAlertError] = useState('');
     const [alertSuccess, setAlertSuccess] = useState('');
@@ -69,15 +70,22 @@ export default function CoinDetail() {
             return;
         }
 
+        if (Number(alertInterval) !== 0) {
+            setAlertError('Bu aralık henüz desteklenmiyor. Dakikalık seçin.');
+            return;
+        }
+
         setAlertLoading(true);
         try {
             await createAlert({
                 symbol: fullSymbol,
                 targetPrice: price,
                 direction: direction === 'above' ? 0 : 1,
+                interval: 0,
             });
             setAlertSuccess('Alarm başarıyla oluşturuldu.');
             setTargetPrice('');
+            setAlertInterval(0);
             window.dispatchEvent(new Event('alerts-changed'));
         } catch (err) {
             setAlertError(getErrorMessage(err));
@@ -183,6 +191,24 @@ export default function CoinDetail() {
                                     <option value="below">Aşağı (fiyat hedefin altına inince)</option>
                                 </select>
                             </div>
+                            <div className="alarm-field" style={{ margin: 0 }}>
+                                <label htmlFor="alertInterval" style={{ fontSize: '12px', marginBottom: '4px' }}>Kontrol Sıklığı</label>
+                                <select
+                                    id="alertInterval"
+                                    value={alertInterval}
+                                    onChange={(e) => setAlertInterval(Number(e.target.value))}
+                                    disabled={!user || alertLoading}
+                                    className="alarm-input"
+                                >
+                                    <option value={0}>Dakikalık</option>
+                                    <option value={1} disabled>
+                                        Saatlik (Yakında)
+                                    </option>
+                                    <option value={2} disabled>
+                                        Günlük (Yakında)
+                                    </option>
+                                </select>
+                            </div>
                             <button
                                 type="submit"
                                 className="btn-alarm"
@@ -205,8 +231,7 @@ export default function CoinDetail() {
                 </div>
 
                 <div style={{ width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    
-                   
+
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -218,20 +243,20 @@ export default function CoinDetail() {
                         width: 'fit-content'
                     }}>
                         <span style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>İndikatörler:</span>
-                        
+
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: '#334155' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={isEmaActive} 
-                                onChange={(e) => setIsEmaActive(e.target.checked)} 
+                            <input
+                                type="checkbox"
+                                checked={isEmaActive}
+                                onChange={(e) => setIsEmaActive(e.target.checked)}
                             />
                             EMA
                         </label>
 
                         {isEmaActive && (
-                            <input 
-                                type="number" 
-                                value={emaPeriod} 
+                            <input
+                                type="number"
+                                value={emaPeriod}
                                 onChange={(e) => setEmaPeriod(Number(e.target.value))}
                                 min="1"
                                 max="200"
@@ -247,19 +272,17 @@ export default function CoinDetail() {
                         )}
 
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: '#334155' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={isRsiActive} 
-                                onChange={(e) => setIsRsiActive(e.target.checked)} 
+                            <input
+                                type="checkbox"
+                                checked={isRsiActive}
+                                onChange={(e) => setIsRsiActive(e.target.checked)}
                             />
                             RSI
                         </label>
                     </div>
-                    
 
-                    
-                    <ChartModule 
-                        symbol={fullSymbol} 
+                    <ChartModule
+                        symbol={fullSymbol}
                         isEmaActive={isEmaActive}
                         isRsiActive={isRsiActive}
                         emaPeriod={emaPeriod}
