@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { createAlert } from '../../services/apiService';
 import { useCurrency } from '../../context/CurrencyContext';
 import ChartModule from '../../components/ChartModule/ChartModule';
+import IndicatorPanel from '../../components/IndicatorPanel/IndicatorPanel';
 import './CoinDetail.css';
 
 function getErrorMessage(err) {
@@ -34,6 +35,9 @@ export default function CoinDetail() {
     const [isEmaActive, setIsEmaActive] = useState(false);
     const [isRsiActive, setIsRsiActive] = useState(false);
     const [emaPeriod, setEmaPeriod] = useState(12);
+    const [isBollActive, setIsBollActive] = useState(false);
+    const [bollPeriod, setBollPeriod] = useState(20);
+    const [bollStdDev, setBollStdDev] = useState(2);
 
     useEffect(() => {
         const handleResize = () => {
@@ -232,60 +236,29 @@ export default function CoinDetail() {
 
                 <div style={{ width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '15px',
-                        padding: '10px 15px',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        width: 'fit-content'
-                    }}>
-                        <span style={{ fontWeight: '600', fontSize: '13px', color: '#475569' }}>İndikatörler:</span>
-
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: '#334155' }}>
-                            <input
-                                type="checkbox"
-                                checked={isEmaActive}
-                                onChange={(e) => setIsEmaActive(e.target.checked)}
-                            />
-                            EMA
-                        </label>
-
-                        {isEmaActive && (
-                            <input
-                                type="number"
-                                value={emaPeriod}
-                                onChange={(e) => setEmaPeriod(Number(e.target.value))}
-                                min="1"
-                                max="200"
-                                style={{
-                                    width: '50px',
-                                    padding: '2px 6px',
-                                    border: '1px solid #cbd5e1',
-                                    borderRadius: '4px',
-                                    fontSize: '12px',
-                                    outline: 'none'
-                                }}
-                            />
-                        )}
-
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: '#334155' }}>
-                            <input
-                                type="checkbox"
-                                checked={isRsiActive}
-                                onChange={(e) => setIsRsiActive(e.target.checked)}
-                            />
-                            RSI
-                        </label>
-                    </div>
+                    <IndicatorPanel
+                        isEmaActive={isEmaActive}
+                        onEmaToggle={setIsEmaActive}
+                        emaPeriod={emaPeriod}
+                        onEmaPeriodChange={setEmaPeriod}
+                        isRsiActive={isRsiActive}
+                        onRsiToggle={setIsRsiActive}
+                        isBollActive={isBollActive}
+                        onBollToggle={setIsBollActive}
+                        bollPeriod={bollPeriod}
+                        onBollPeriodChange={setBollPeriod}
+                        bollStdDev={bollStdDev}
+                        onBollStdDevChange={setBollStdDev}
+                    />
 
                     <ChartModule
                         symbol={fullSymbol}
                         isEmaActive={isEmaActive}
                         isRsiActive={isRsiActive}
                         emaPeriod={emaPeriod}
+                        isBollActive={isBollActive}
+                        bollPeriod={bollPeriod}
+                        bollStdDev={bollStdDev}
                     />
                 </div>
 
