@@ -6,6 +6,7 @@ public class User
     public string Email    { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public decimal VirtualBalance { get; set; } = 10000m;
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<PriceAlert> PriceAlerts { get; set; } = new List<PriceAlert>();
 }
