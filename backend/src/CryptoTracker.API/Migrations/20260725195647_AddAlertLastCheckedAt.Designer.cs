@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CryptoTracker.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260725113808_AddPortfolioVirtualTrading")]
-    partial class AddPortfolioVirtualTrading
+    [Migration("20260725195647_AddAlertLastCheckedAt")]
+    partial class AddAlertLastCheckedAt
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -169,6 +169,9 @@ namespace CryptoTracker.API.Migrations
 
                     b.Property<bool>("IsTriggered")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastCheckedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Symbol")
                         .IsRequired()
