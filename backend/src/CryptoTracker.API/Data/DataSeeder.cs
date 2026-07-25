@@ -27,7 +27,7 @@ public static class DataSeeder
                 Username       = "admin",
                 Email          = "admin@cryptotracker.dev",
                 PasswordHash   = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-                VirtualBalance = 10000m
+                VirtualBalance = 10_000m
             };
 
             db.Users.Add(admin);
@@ -42,6 +42,16 @@ public static class DataSeeder
             );
 
             await db.SaveChangesAsync();
+        }
+        else
+        {
+            // Mevcut admin kullanıcısına varsayılan sanal bakiyeyi uygula (migration sonrası)
+            var existingAdmin = await db.Users.FirstAsync(u => u.Username == "admin");
+            if (existingAdmin.VirtualBalance == 0)
+            {
+                existingAdmin.VirtualBalance = 10_000m;
+                await db.SaveChangesAsync();
+            }
         }
     }
 }

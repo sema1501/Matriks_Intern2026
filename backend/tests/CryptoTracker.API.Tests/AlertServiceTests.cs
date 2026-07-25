@@ -9,15 +9,28 @@ namespace CryptoTracker.API.Tests;
 public class AlertServiceTests
 {
     [Fact]
-    public async Task Create_rejects_unsupported_interval()
+    public async Task Create_accepts_hourly_and_daily_intervals()
+    {
+        await using var db = CreateDb();
+        var service = new AlertService(db);
+
+        var hourly = await service.CreateAsync(1, new CreateAlertRequest("BTCUSDT", 100m, AlertDirection.Above, AlertInterval.Hourly));
+        var daily = await service.CreateAsync(1, new CreateAlertRequest("ETHUSDT", 100m, AlertDirection.Above, AlertInterval.Daily));
+
+        Assert.Equal(AlertInterval.Hourly, hourly.Interval);
+        Assert.Equal(AlertInterval.Daily, daily.Interval);
+    }
+
+    [Fact]
+    public async Task Create_rejects_undefined_interval()
     {
         await using var db = CreateDb();
         var service = new AlertService(db);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.CreateAsync(1, new CreateAlertRequest("BTCUSDT", 100m, AlertDirection.Above, AlertInterval.Hourly)));
+            service.CreateAsync(1, new CreateAlertRequest("BTCUSDT", 100m, AlertDirection.Above, (AlertInterval)99)));
 
-        Assert.Equal(AlertConditionEvaluator.UnsupportedIntervalMessage, ex.Message);
+        Assert.Equal("Geçersiz alarm aralığı.", ex.Message);
     }
 
     [Fact]

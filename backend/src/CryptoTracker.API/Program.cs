@@ -47,6 +47,7 @@ builder.Services.AddHttpClient<IBinancePriceService, BinancePriceService>(client
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
+builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IAlertMonitoringProcessor, AlertMonitoringProcessor>();
 builder.Services.AddHostedService<AlertMonitorService>();
 
@@ -58,6 +59,7 @@ builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IWatchlistService, WatchlistService>();
 builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
+builder.Services.AddScoped<IPortfolioService, PortfolioService>();
 
 // ── CORS ─────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>

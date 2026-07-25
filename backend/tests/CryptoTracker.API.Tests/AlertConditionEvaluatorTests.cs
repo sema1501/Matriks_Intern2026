@@ -37,11 +37,41 @@ public class AlertConditionEvaluatorTests
 
     [Theory]
     [InlineData(AlertInterval.Minute, true)]
-    [InlineData(AlertInterval.Hourly, false)]
-    [InlineData(AlertInterval.Daily, false)]
-    public void Interval_support_matches_week4_scope(AlertInterval interval, bool expected)
+    [InlineData(AlertInterval.Hourly, true)]
+    [InlineData(AlertInterval.Daily, true)]
+    [InlineData((AlertInterval)99, false)]
+    public void Interval_support_includes_minute_hourly_daily(AlertInterval interval, bool expected)
     {
         Assert.Equal(expected, AlertConditionEvaluator.IsIntervalSupported(interval));
+    }
+
+    [Fact]
+    public void IsDue_null_LastCheckedAt_is_immediately_due()
+    {
+        var alert = Alert(AlertDirection.Above, 100m);
+        alert.Interval = AlertInterval.Hourly;
+        alert.LastCheckedAt = null;
+
+        Assert.True(AlertConditionEvaluator.IsDue(alert, new DateTime(2026, 7, 25, 10, 0, 0, DateTimeKind.Utc)));
+    }
+
+    [Fact]
+    public void IsDue_respects_cadence_thresholds()
+    {
+        var t0 = new DateTime(2026, 7, 25, 10, 0, 0, DateTimeKind.Utc);
+        var hourly = Alert(AlertDirection.Above, 100m);
+        hourly.Interval = AlertInterval.Hourly;
+        hourly.LastCheckedAt = t0;
+
+        Assert.False(AlertConditionEvaluator.IsDue(hourly, t0.AddMinutes(59)));
+        Assert.True(AlertConditionEvaluator.IsDue(hourly, t0.AddHours(1)));
+
+        var daily = Alert(AlertDirection.Above, 100m);
+        daily.Interval = AlertInterval.Daily;
+        daily.LastCheckedAt = t0;
+
+        Assert.False(AlertConditionEvaluator.IsDue(daily, t0.AddHours(23)));
+        Assert.True(AlertConditionEvaluator.IsDue(daily, t0.AddDays(1)));
     }
 
     private static PriceAlert Alert(AlertDirection direction, decimal target) => new()
