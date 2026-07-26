@@ -18,6 +18,7 @@ import Converter   from './pages/Converter/Converter';
 import Feedback    from './pages/Feedback/Feedback';
 import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
 import ResetPassword  from './pages/ResetPassword/ResetPassword';
+import Portfolio      from './pages/Portfolio/Portfolio';
 
 // PrivateRoute: giriş yapılmamışsa /signin'e yönlendirir
 function PrivateRoute({ children }) {
@@ -49,6 +50,16 @@ function App() {
                       <Route path="/converter" element={<Converter />} />
                       <Route path="/coin/:symbol" element={<CoinDetail />} />
                       <Route path="/feedback"  element={<Feedback />} />
+                      
+                      <Route
+                        path="/portfolio"
+                        element={
+                          <PrivateRoute>
+                            <Portfolio />
+                          </PrivateRoute>
+                        }
+                      />
+                      
                       <Route
                         path="/watchlist"
                         element={
