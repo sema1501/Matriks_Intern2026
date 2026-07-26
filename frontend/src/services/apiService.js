@@ -42,3 +42,6 @@ export const getAlertSignals  = (id)             => api.get(`/api/Alert/${id}/si
 export const getFeedbacks     = ()               => api.get('/api/Feedback');
 export const createFeedback   = (data)           => api.post('/api/Feedback', data);
 
+export const getBalance      = () => api.get('/api/Portfolio/balance');
+export const getHoldings     = () => api.get('/api/Portfolio/holdings');
+export const getTransactions = () => api.get('/api/Portfolio/transactions');
