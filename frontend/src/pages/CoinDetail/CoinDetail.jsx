@@ -7,6 +7,7 @@ import { createAlert } from '../../services/apiService';
 import { useCurrency } from '../../context/CurrencyContext';
 import ChartModule from '../../components/ChartModule/ChartModule';
 import IndicatorPanel from '../../components/IndicatorPanel/IndicatorPanel';
+import TradeForm from '../../components/TradeForm/TradeForm';
 import './CoinDetail.css';
 
 function getErrorMessage(err) {
@@ -158,6 +159,12 @@ export default function CoinDetail() {
                             <p style={{ color: '#64748b' }}>Canlı piyasa verisi bekleniyor...</p>
                         )}
                     </div>
+
+                    <TradeForm
+                        symbol={fullSymbol}
+                        currentPrice={coinData?.currentPrice}
+                        user={user}
+                    />
 
                     <section className="alarm-section" style={{ margin: 0, width: '100%' }}>
                         <h2 className="alarm-title" style={{ fontSize: '20px', marginBottom: '15px' }}>Alarm Kur</h2>
