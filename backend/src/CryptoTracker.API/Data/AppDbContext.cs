@@ -14,6 +14,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Feedback>      Feedbacks      => Set<Feedback>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
+    public DbSet<PortfolioHolding> PortfolioHoldings => Set<PortfolioHolding>();
+    public DbSet<Transaction>   Transactions   => Set<Transaction>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Composite PK for join table
@@ -99,5 +102,59 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // PasswordResetToken → User
         modelBuilder.Entity<PasswordResetToken>().HasOne(prt => prt.User).WithMany().HasForeignKey(prt => prt.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<PasswordResetToken>().HasIndex(prt => prt.Token).IsUnique();
+
+        // User.VirtualBalance
+        modelBuilder.Entity<User>()
+            .Property(u => u.VirtualBalance)
+            .HasPrecision(18, 8)
+            .HasDefaultValue(10_000m);
+
+        // PortfolioHolding → User (bir kullanıcı aynı symbol'ü bir kez tutabilir)
+        modelBuilder.Entity<PortfolioHolding>()
+            .HasIndex(h => new { h.UserId, h.Symbol })
+            .IsUnique();
+
+        modelBuilder.Entity<PortfolioHolding>()
+            .HasOne(h => h.User)
+            .WithMany(u => u.Holdings)
+            .HasForeignKey(h => h.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PortfolioHolding>()
+            .Property(h => h.Symbol)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<PortfolioHolding>()
+            .Property(h => h.Quantity)
+            .HasPrecision(18, 8);
+
+        modelBuilder.Entity<PortfolioHolding>()
+            .Property(h => h.AvgBuyPrice)
+            .HasPrecision(18, 8);
+
+        // Transaction → User
+        modelBuilder.Entity<Transaction>()
+            .HasOne(t => t.User)
+            .WithMany(u => u.Transactions)
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Transaction>()
+            .HasIndex(t => t.UserId);
+
+        modelBuilder.Entity<Transaction>()
+            .HasIndex(t => t.CreatedAt);
+
+        modelBuilder.Entity<Transaction>()
+            .Property(t => t.Symbol)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<Transaction>()
+            .Property(t => t.Quantity)
+            .HasPrecision(18, 8);
+
+        modelBuilder.Entity<Transaction>()
+            .Property(t => t.Price)
+            .HasPrecision(18, 8);
     }
 }

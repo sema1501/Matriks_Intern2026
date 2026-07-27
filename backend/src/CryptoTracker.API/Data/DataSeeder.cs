@@ -16,6 +16,7 @@ public static class DataSeeder
             if (!await db.Roles.AnyAsync(r => r.Name == roleName))
                 db.Roles.Add(new Role { Name = roleName });
         }
+
         await db.SaveChangesAsync();
 
         // Seed a default admin user (dev only)
@@ -23,20 +24,34 @@ public static class DataSeeder
         {
             var admin = new User
             {
-                Username     = "admin",
-                Email        = "admin@cryptotracker.dev",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!")
+                Username       = "admin",
+                Email          = "admin@cryptotracker.dev",
+                PasswordHash   = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+                VirtualBalance = 10_000m
             };
+
             db.Users.Add(admin);
             await db.SaveChangesAsync();
 
             var adminRole = await db.Roles.FirstAsync(r => r.Name == "Admin");
             var userRole  = await db.Roles.FirstAsync(r => r.Name == "User");
+
             db.UserRoles.AddRange(
                 new UserRole { UserId = admin.Id, RoleId = adminRole.Id },
                 new UserRole { UserId = admin.Id, RoleId = userRole.Id }
             );
+
             await db.SaveChangesAsync();
+        }
+        else
+        {
+            // Mevcut admin kullanıcısına varsayılan sanal bakiyeyi uygula (migration sonrası)
+            var existingAdmin = await db.Users.FirstAsync(u => u.Username == "admin");
+            if (existingAdmin.VirtualBalance == 0)
+            {
+                existingAdmin.VirtualBalance = 10_000m;
+                await db.SaveChangesAsync();
+            }
         }
     }
 }

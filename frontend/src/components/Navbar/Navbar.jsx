@@ -17,6 +17,7 @@ export default function Navbar() {
 
         {user ? (
           <><Link to="/watchlist"> 🌟 Favorilerim 🌟</Link>
+            <Link to="/portfolio">Portföyüm</Link>
             <Link to="/profile">{user.username}</Link>
             <Link to="/dashboard">Dashboard</Link>
 

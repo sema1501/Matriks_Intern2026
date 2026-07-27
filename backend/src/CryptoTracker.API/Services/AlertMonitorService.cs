@@ -17,7 +17,7 @@ public class AlertMonitoringOptions
 }
 
 /// <summary>
-/// Background worker that evaluates active minute-interval alerts every cycle.
+/// Background worker that evaluates due active alerts every cycle.
 /// First cycle runs after the configured delay (default 60s), then every IntervalSeconds.
 /// Cycles never overlap; each cycle creates a fresh DI scope for DbContext.
 /// </summary>
@@ -79,25 +79,56 @@ public record AlertMonitoringCycleResult(
     int GeneratedSignalCount,
     int SkippedAlertCount);
 
-public class AlertMonitoringProcessor(ILogger<AlertMonitoringProcessor> logger) : IAlertMonitoringProcessor
+public class AlertMonitoringProcessor(
+    ILogger<AlertMonitoringProcessor> logger,
+    IClock clock) : IAlertMonitoringProcessor
 {
     public async Task<AlertMonitoringCycleResult> ProcessAsync(
         AppDbContext db,
         IBinancePriceService binance,
         CancellationToken cancellationToken)
     {
+        var now = clock.UtcNow;
+
+        // Tracked entities so LastCheckedAt updates persist in the same SaveChanges batch.
         var activeAlerts = await db.PriceAlerts
-            .AsNoTracking()
-            .Where(a => a.IsActive && a.Interval == AlertInterval.Minute)
+            .Where(a => a.IsActive)
             .ToListAsync(cancellationToken);
 
         if (activeAlerts.Count == 0)
         {
-            logger.LogDebug("Alert monitoring cycle: no active minute alerts");
+            logger.LogDebug("Alert monitoring cycle: no active alerts");
             return new AlertMonitoringCycleResult(0, 0, 0, 0);
         }
 
-        var symbols = activeAlerts
+        var dueAlerts = new List<PriceAlert>();
+        var skipped = 0;
+
+        foreach (var alert in activeAlerts)
+        {
+            if (!AlertConditionEvaluator.TryGetCadence(alert.Interval, out _))
+            {
+                skipped++;
+                logger.LogWarning(
+                    "Skipping alert {AlertId} with unsupported interval value {Interval}",
+                    alert.Id,
+                    (int)alert.Interval);
+                continue;
+            }
+
+            if (AlertConditionEvaluator.IsDue(alert, now))
+                dueAlerts.Add(alert);
+        }
+
+        if (dueAlerts.Count == 0)
+        {
+            logger.LogDebug(
+                "Alert monitoring cycle: {ActiveCount} active alerts, none due this tick",
+                activeAlerts.Count);
+            return new AlertMonitoringCycleResult(0, 0, 0, skipped);
+        }
+
+        var symbols = dueAlerts
             .Select(a => a.Symbol.Trim().ToUpperInvariant())
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct(StringComparer.Ordinal)
@@ -115,14 +146,13 @@ public class AlertMonitoringProcessor(ILogger<AlertMonitoringProcessor> logger) 
         catch (Exception ex)
         {
             logger.LogError(ex, "Binance lookup failed for {SymbolCount} symbols; skipping cycle writes", symbols.Count);
-            return new AlertMonitoringCycleResult(activeAlerts.Count, symbols.Count, 0, activeAlerts.Count);
+            return new AlertMonitoringCycleResult(dueAlerts.Count, symbols.Count, 0, dueAlerts.Count + skipped);
         }
 
-        var now = DateTime.UtcNow;
         var signals = new List<AlertSignal>();
-        var skipped = 0;
+        var checkedAny = false;
 
-        foreach (var alert in activeAlerts)
+        foreach (var alert in dueAlerts)
         {
             try
             {
@@ -132,6 +162,10 @@ public class AlertMonitoringProcessor(ILogger<AlertMonitoringProcessor> logger) 
                     skipped++;
                     continue;
                 }
+
+                // Advance cadence only after a real price evaluation (condition met or not).
+                alert.LastCheckedAt = now;
+                checkedAny = true;
 
                 if (!AlertConditionEvaluator.IsConditionSatisfied(alert, currentPrice))
                     continue;
@@ -151,18 +185,18 @@ public class AlertMonitoringProcessor(ILogger<AlertMonitoringProcessor> logger) 
         }
 
         if (signals.Count > 0)
-        {
             db.AlertSignals.AddRange(signals);
+
+        if (signals.Count > 0 || checkedAny)
             await db.SaveChangesAsync(cancellationToken);
-        }
 
         logger.LogInformation(
-            "Alert monitoring cycle complete: ActiveAlerts={ActiveAlertCount}, UniqueSymbols={UniqueSymbolCount}, GeneratedSignals={GeneratedSignalCount}, Skipped={SkippedAlertCount}",
-            activeAlerts.Count,
+            "Alert monitoring cycle complete: DueAlerts={ActiveAlertCount}, UniqueSymbols={UniqueSymbolCount}, GeneratedSignals={GeneratedSignalCount}, Skipped={SkippedAlertCount}",
+            dueAlerts.Count,
             symbols.Count,
             signals.Count,
             skipped);
 
-        return new AlertMonitoringCycleResult(activeAlerts.Count, symbols.Count, signals.Count, skipped);
+        return new AlertMonitoringCycleResult(dueAlerts.Count, symbols.Count, signals.Count, skipped);
     }
 }

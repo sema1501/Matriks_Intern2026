@@ -23,6 +23,7 @@ public class AuthService(AppDbContext db, IJwtService jwtService, ILogger<AuthSe
             Username     = request.Username,
             Email        = request.Email,
             PasswordHash = passwordHash,
+            VirtualBalance = 10_000m,
             CreatedAt    = DateTime.UtcNow
         };
         db.Users.Add(user);

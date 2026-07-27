@@ -1,15 +1,36 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalPrices } from '../../context/PriceContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import CryptoGrid from '../../components/CryptoGrid/CryptoGrid';
+import { getLeaderboard } from '../../services/apiService';
 
 export default function Home() {
     const { user } = useAuth();
     const { prices, connectionStatus } = useGlobalPrices();
     const { formatPrice } = useCurrency();
     const navigate = useNavigate();
+
+    // LeaderBoard
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLeaderboardData = async () => {
+            try {
+                const response = await getLeaderboard();
+                const data = response?.data || [];
+                setLeaderboard(data.slice(0, 10));
+            } catch (err) {
+                console.error("Liderlik tablosu çekilemedi:", err);
+            } finally {
+                setLeaderboardLoading(false);
+            }
+        };
+
+        fetchLeaderboardData();
+    }, []);
 
     const { topGainers, topLosers, stats } = useMemo(() => {
         const priceArray = Object.values(prices || {});
@@ -111,6 +132,76 @@ export default function Home() {
         </div>
     );
 
+    const renderLeaderboard = () => (
+        <div
+            style={styles.card}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+                e.currentTarget.style.borderColor = 'rgba(0, 180, 216, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+            }}
+        >
+            <h3 style={{
+                marginTop: '1px',
+                marginBottom: '20px',
+                color: 'var(--text-primary)',
+                fontWeight: '700',
+                fontSize: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                lineHeight: '1'
+            }}>
+                🏆 Liderlik Tablosu (Top 10)
+            </h3>
+            <div style={styles.listContainer}>
+                {leaderboardLoading ? (
+                    [1, 2, 3, 4, 5].map((j) => (
+                        <div key={j} style={{ ...styles.skeleton, width: '100%', height: '40px', marginBottom: '8px' }} />
+                    ))
+                ) : leaderboard.length > 0 ? (
+                    leaderboard.map((item, index) => {
+                        const isProfit = item.profitLossPercentage >= 0;
+                        return (
+                            <div
+                                key={index}
+                                style={styles.listItem}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'}
+                            >
+                                <span style={{ ...styles.symbol, color: index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : index === 2 ? '#cd7f32' : 'var(--text-primary)' }}>
+                                    {index === 0 ? '🥇 #1' : index === 1 ? '🥈 #2' : index === 2 ? '🥉 #3' : `#${index + 1}`} {item.username}
+                                </span>
+                                <span style={{
+                                    ...styles.percentage,
+                                    color: isProfit ? '#00b4d8' : '#ef233c',
+                                    backgroundColor: isProfit ? 'rgba(0, 180, 216, 0.08)' : 'rgba(239, 35, 60, 0.08)',
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginLeft: 'auto'
+                                }}>
+                                    {isProfit ? '+' : ''}{item.profitLossPercentage.toFixed(2)}%
+                                </span>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#888', fontSize: '14px', backgroundColor: 'rgba(255, 255, 255, 0.01)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.05)' }}>
+                        Sıralama verisi bulunmuyor.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
     return (
         <div style={{ padding: '32px', color: 'var(--text-primary)', maxWidth: '1400px', margin: '0 auto' }}>
 
@@ -131,7 +222,7 @@ export default function Home() {
 
             {isLoading ? (
                 <div style={styles.gridContainer}>
-                    {[1, 2].map((i) => (
+                    {[1, 2, 3].map((i) => (
                         <div key={i} style={styles.card}>
                             <div style={{ ...styles.skeleton, width: '50%', height: '24px', marginBottom: '16px' }} />
                             {[1, 2, 3, 4, 5].map((j) => (
@@ -144,6 +235,7 @@ export default function Home() {
                 <div style={styles.gridContainer}>
                     {renderList('↗ Top 5 Yükselen', topGainers, true)}
                     {renderList('↘ Top 5 Düşen', topLosers, false)}
+                    {renderLeaderboard()}
                 </div>
             )}
 

@@ -7,6 +7,7 @@ import { createAlert } from '../../services/apiService';
 import { useCurrency } from '../../context/CurrencyContext';
 import ChartModule from '../../components/ChartModule/ChartModule';
 import IndicatorPanel from '../../components/IndicatorPanel/IndicatorPanel';
+import TradeForm from '../../components/TradeForm/TradeForm';
 import './CoinDetail.css';
 
 function getErrorMessage(err) {
@@ -74,8 +75,9 @@ export default function CoinDetail() {
             return;
         }
 
-        if (Number(alertInterval) !== 0) {
-            setAlertError('Bu aralık henüz desteklenmiyor. Dakikalık seçin.');
+        const interval = Number(alertInterval);
+        if (![0, 1, 2].includes(interval)) {
+            setAlertError('Kontrol sıklığı geçersiz.');
             return;
         }
 
@@ -85,7 +87,7 @@ export default function CoinDetail() {
                 symbol: fullSymbol,
                 targetPrice: price,
                 direction: direction === 'above' ? 0 : 1,
-                interval: 0,
+                interval,
             });
             setAlertSuccess('Alarm başarıyla oluşturuldu.');
             setTargetPrice('');
@@ -158,6 +160,12 @@ export default function CoinDetail() {
                         )}
                     </div>
 
+                    <TradeForm
+                        symbol={fullSymbol}
+                        currentPrice={coinData?.currentPrice}
+                        user={user}
+                    />
+
                     <section className="alarm-section" style={{ margin: 0, width: '100%' }}>
                         <h2 className="alarm-title" style={{ fontSize: '20px', marginBottom: '15px' }}>Alarm Kur</h2>
                         {!user && (
@@ -205,12 +213,8 @@ export default function CoinDetail() {
                                     className="alarm-input"
                                 >
                                     <option value={0}>Dakikalık</option>
-                                    <option value={1} disabled>
-                                        Saatlik (Yakında)
-                                    </option>
-                                    <option value={2} disabled>
-                                        Günlük (Yakında)
-                                    </option>
+                                    <option value={1}>Saatlik</option>
+                                    <option value={2}>Günlük</option>
                                 </select>
                             </div>
                             <button

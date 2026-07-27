@@ -23,6 +23,13 @@ public class PriceAlert
 
     public bool IsActive { get; set; } = true;
     public AlertInterval Interval { get; set; } = AlertInterval.Minute;
+
+    /// <summary>
+    /// UTC timestamp of the last monitoring evaluation for this alert.
+    /// Null means the alert has never been checked and is due on the next cycle (Option A).
+    /// </summary>
+    public DateTime? LastCheckedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User User { get; set; } = null!;

@@ -4,6 +4,7 @@ using CryptoTracker.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CryptoTracker.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721150250_AddVirtualPortfolioModels")]
+    partial class AddVirtualPortfolioModels
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -167,9 +170,6 @@ namespace CryptoTracker.API.Migrations
                     b.Property<bool>("IsTriggered")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime?>("LastCheckedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Symbol")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -241,8 +241,6 @@ namespace CryptoTracker.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedAt");
-
                     b.HasIndex("UserId");
 
                     b.ToTable("Transactions");
@@ -273,8 +271,8 @@ namespace CryptoTracker.API.Migrations
 
                     b.Property<decimal>("VirtualBalance")
                         .ValueGeneratedOnAdd()
-                        .HasPrecision(18, 8)
-                        .HasColumnType("decimal(18,8)")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(10000m);
 
                     b.HasKey("Id");
@@ -364,7 +362,7 @@ namespace CryptoTracker.API.Migrations
             modelBuilder.Entity("CryptoTracker.API.Models.PortfolioHolding", b =>
                 {
                     b.HasOne("CryptoTracker.API.Models.User", "User")
-                        .WithMany("Holdings")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -386,7 +384,7 @@ namespace CryptoTracker.API.Migrations
             modelBuilder.Entity("CryptoTracker.API.Models.Transaction", b =>
                 {
                     b.HasOne("CryptoTracker.API.Models.User", "User")
-                        .WithMany("Transactions")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -436,11 +434,7 @@ namespace CryptoTracker.API.Migrations
 
             modelBuilder.Entity("CryptoTracker.API.Models.User", b =>
                 {
-                    b.Navigation("Holdings");
-
                     b.Navigation("PriceAlerts");
-
-                    b.Navigation("Transactions");
 
                     b.Navigation("UserRoles");
                 });
