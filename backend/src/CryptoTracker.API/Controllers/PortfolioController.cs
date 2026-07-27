@@ -41,6 +41,14 @@ public class PortfolioController(IPortfolioService portfolioService) : Controlle
         return Ok(transactions);
     }
 
+    [HttpGet("leaderboard")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetLeaderboard(CancellationToken cancellationToken)
+    {
+        var leaderboard = await portfolioService.GetLeaderboardAsync(cancellationToken);
+        return Ok(leaderboard);
+    }
+
     [HttpPost("buy")]
     public async Task<IActionResult> Buy([FromBody] TradeRequest request, CancellationToken cancellationToken)
     {

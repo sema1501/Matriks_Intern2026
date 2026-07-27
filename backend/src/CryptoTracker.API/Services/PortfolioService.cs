@@ -34,6 +34,37 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
         return transactions.Select(MapToDto).ToList();
     }
 
+    public async Task<List<LeaderboardDto>> GetLeaderboardAsync(CancellationToken cancellationToken = default)
+    {
+        var users = await db.Users
+            .AsNoTracking()
+            .Include(u => u.Holdings)
+            .ToListAsync(cancellationToken);
+
+        var leaderboard = new List<LeaderboardDto>();
+
+        foreach (var user in users)
+        {
+            decimal holdingsValue = user.Holdings?.Sum(h => h.Quantity * h.AvgBuyPrice) ?? 0m;
+            decimal totalPortfolioValue = user.VirtualBalance + holdingsValue;
+            decimal initialBalance = 10000m;
+
+            decimal profitLossPercent = initialBalance > 0
+                ? ((totalPortfolioValue - initialBalance) / initialBalance) * 100m
+                : 0m;
+
+            leaderboard.Add(new LeaderboardDto
+            {
+                Username = user.Username,
+                ProfitLossPercentage = Math.Round(profitLossPercent, 2)
+            });
+        }
+
+        return leaderboard
+            .OrderByDescending(x => x.ProfitLossPercentage)
+            .ToList();
+    }
+
     public async Task<TransactionDto> BuyAsync(
         int userId,
         string symbol,
@@ -69,8 +100,6 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
         }
         else
         {
-            // Ağırlıklı ortalama maliyet:
-            // (mevcutMiktar × mevcutOrt + yeniMiktar × fiyat) / (mevcutMiktar + yeniMiktar)
             var totalQuantity = holding.Quantity + quantity;
             holding.AvgBuyPrice = ((holding.Quantity * holding.AvgBuyPrice) + (quantity * pricePerUnit)) / totalQuantity;
             holding.Quantity = totalQuantity;
