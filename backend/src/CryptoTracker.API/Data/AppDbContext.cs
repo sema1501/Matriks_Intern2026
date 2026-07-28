@@ -16,6 +16,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<PortfolioHolding> PortfolioHoldings => Set<PortfolioHolding>();
     public DbSet<Transaction>   Transactions   => Set<Transaction>();
+    public DbSet<TradingBot> TradingBots => Set<TradingBot>();
+    public DbSet<BotSignal> BotSignals => Set<BotSignal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -156,5 +158,65 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Transaction>()
             .Property(t => t.Price)
             .HasPrecision(18, 8);
+            // TradingBot → User
+        modelBuilder.Entity<TradingBot>()
+            .HasOne(b => b.User)
+            .WithMany(u => u.TradingBots)
+            .HasForeignKey(b => b.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+            // BotSignal → TradingBot
+        modelBuilder.Entity<BotSignal>()
+            .HasOne(s => s.Bot)
+            .WithMany(b => b.Signals)
+            .HasForeignKey(s => s.BotId)
+            .OnDelete(DeleteBehavior.Cascade);
+            // TradingBot.Symbol
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.Symbol)
+            .HasMaxLength(50)
+            .IsRequired();
+
+            // TradingBot RSI değerleri
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.BuyRsiThreshold)
+            .HasPrecision(5, 2);
+
+        modelBuilder.Entity<TradingBot>()
+           .Property(b => b.SellRsiThreshold)
+           .HasPrecision(5, 2);
+
+           // TradingBot işlem miktarı
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.TradeQuantity)
+            .HasPrecision(18, 8);
+
+            // BotSignal RSI ve fiyat değerleri
+        modelBuilder.Entity<BotSignal>()
+            .Property(s => s.RsiValueAtSignal)
+            .HasPrecision(5, 2);
+        modelBuilder.Entity<BotSignal>()
+            .Property(s => s.PriceAtSignal)
+            .HasPrecision(18, 8);
+
+            // BotSignal indeksleri
+        modelBuilder.Entity<BotSignal>()
+            .HasIndex(s => s.BotId);
+
+            modelBuilder.Entity<BotSignal>()
+            .HasIndex(s => s.CreatedAt);
+
+            // Varsayılan değerler
+        modelBuilder.Entity<TradingBot>()
+           .Property(b => b.IsActive)
+           .HasDefaultValue(true);
+
+        modelBuilder.Entity<BotSignal>()
+           .Property(s => s.Status)
+           .HasDefaultValue(BotSignalStatus.Pending);
+
+           // Bir kullanıcı aynı işlem çifti için yalnızca bir bot oluşturabilir
+        modelBuilder.Entity<TradingBot>()
+           .HasIndex(b => new { b.UserId, b.Symbol })
+           .IsUnique();
     }
 }
