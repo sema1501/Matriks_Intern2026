@@ -1,18 +1,21 @@
 using CryptoTracker.API.Data;
 using CryptoTracker.API.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace CryptoTracker.API.Services;
 
 public sealed class BotMonitorService(
     IServiceScopeFactory scopeFactory,
     IBinanceKlineService klineService,
+    IOptions<TradingBotOptions> botOptions,
     ILogger<BotMonitorService> logger) : BackgroundService
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(60);
     private const int RsiPeriod = 14;
     private const int KlineLimit = 100;
     private const string KlineInterval = "1m";
+    private readonly int _expirationMinutes = botOptions.Value.SignalExpirationMinutes;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -63,6 +66,21 @@ public sealed class BotMonitorService(
 
         var dbContext =
             scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var cutoff = DateTime.UtcNow.AddMinutes(-_expirationMinutes);
+        var staleSignals = await dbContext.BotSignals
+            .Where(s => s.Status == BotSignalStatus.Pending && s.CreatedAt <= cutoff)
+            .ToListAsync(cancellationToken);
+
+        if (staleSignals.Count > 0)
+        {
+            foreach (var s in staleSignals)
+                s.Status = BotSignalStatus.Expired;
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation("Expired {Count} stale pending signal(s).", staleSignals.Count);
+        }
 
         var activeBots = await dbContext.TradingBots
             .AsNoTracking()

@@ -5,6 +5,7 @@ using CryptoTracker.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace CryptoTracker.API.Tests;
@@ -292,9 +293,12 @@ public class BotMonitorServiceTests
             serviceProvider.GetRequiredService<
                 ILogger<BotMonitorService>>();
 
+        var botOptions = Options.Create(new TradingBotOptions { SignalExpirationMinutes = 15 });
+
         return new BotMonitorService(
             scopeFactory,
             klineService,
+            botOptions,
             logger);
     }
 
