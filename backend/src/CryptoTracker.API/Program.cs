@@ -65,6 +65,9 @@ builder.Services.AddScoped<IWatchlistService, WatchlistService>();
 builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
+builder.Services.AddScoped<IBotService, BotService>();
+builder.Services.Configure<TradingBotOptions>(
+    builder.Configuration.GetSection(TradingBotOptions.SectionName));
 
 // ── CORS ─────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
