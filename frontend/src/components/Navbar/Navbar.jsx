@@ -6,38 +6,39 @@ import CurrencyToggle from '../CurrencyToggle/CurrencyToggle';
 import './Navbar.css';
 
 export default function Navbar() {
-  const { user, logoutUser } = useAuth();
+    const { user, logoutUser } = useAuth();
 
-  return (
-    <nav className="navbar">
-      <div className="navbar__links">
-        <Link to="/">Ana Sayfa</Link>
-        <Link to="/converter">Dönüştürücü</Link>
-        <Link to="/feedback">Geri Bildirim</Link>
+    return (
+        <nav className="navbar">
+            <div className="navbar__links">
+                <Link to="/">Ana Sayfa</Link>
+                <Link to="/leaderboard">Liderlik Tablosu</Link>
+                <Link to="/converter">Dönüştürücü</Link>
+                <Link to="/feedback">Geri Bildirim</Link>
 
-        {user ? (
-          <><Link to="/watchlist"> 🌟 Favorilerim 🌟</Link>
-            <Link to="/portfolio">Portföyüm</Link>
-            <Link to="/profile">{user.username}</Link>
-            <Link to="/dashboard">Dashboard</Link>
+                {user ? (
+                    <><Link to="/watchlist"> 🌟 Favorilerim 🌟</Link>
+                        <Link to="/portfolio">Portföyüm</Link>
+                        <Link to="/profile">{user.username}</Link>
+                        <Link to="/dashboard">Dashboard</Link>
 
-            <button type="button" onClick={logoutUser}>
-              Çıkış
-            </button>
-          </>
-        ) : (
-          <>
-            <Link to="/signin">Giriş Yap</Link>
-            <Link to="/signup">Kayıt Ol</Link>
-          </>
-        )}
-      </div>
+                        <button type="button" onClick={logoutUser}>
+                            Çıkış
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <Link to="/signin">Giriş Yap</Link>
+                        <Link to="/signup">Kayıt Ol</Link>
+                    </>
+                )}
+            </div>
 
-      <div className="navbar__actions">
-        <ConnectionStatus />
-        <CurrencyToggle />
-        <ThemeToggle />
-      </div>
-    </nav>
-  );
+            <div className="navbar__actions">
+                <ConnectionStatus />
+                <CurrencyToggle />
+                <ThemeToggle />
+            </div>
+        </nav>
+    );
 }
