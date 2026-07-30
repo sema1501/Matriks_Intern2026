@@ -61,3 +61,5 @@ export const sellCoin = async (data) => {
     const response = await api.post('/api/Portfolio/sell', data);
     return response.data;
 };
+
+export const getBotPerformance = () => api.get('/api/Bot/performance');

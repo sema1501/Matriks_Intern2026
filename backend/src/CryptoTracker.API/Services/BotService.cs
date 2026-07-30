@@ -289,6 +289,46 @@ public class BotService(
 
         await db.SaveChangesAsync(cancellationToken);
     }
+    
+    public async Task<BotPerformanceDto> GetBotPerformanceAsync(int userId, CancellationToken cancellationToken = default)
+    {
+ 
+        var userSignalsQuery = db.BotSignals
+            .Include(s => s.Bot)
+            .Where(s => s.Bot.UserId == userId);
+
+        var total = await userSignalsQuery.CountAsync(cancellationToken);
+ 
+ 
+        if (total == 0) return new BotPerformanceDto(0, 0, 0, 0, 0, 0m);
+
+        var approved = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Approved, cancellationToken);
+        var rejected = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Rejected, cancellationToken);
+        var expired = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Expired, cancellationToken);
+
+        double approvalRate = Math.Round(((double)approved / total) * 100, 2);
+
+ 
+ 
+        var approvedSignals = await userSignalsQuery
+            .Where(x => x.Status == BotSignalStatus.Approved)
+            .ToListAsync(cancellationToken);
+
+ 
+        decimal totalBuyCost = approvedSignals
+            .Where(x => x.SignalType == BotSignalType.Buy)
+            .Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
+
+ 
+        decimal totalSellRevenue = approvedSignals
+            .Where(x => x.SignalType == BotSignalType.Sell)
+            .Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
+
+ 
+        decimal botProfitLoss = totalSellRevenue - totalBuyCost;
+
+        return new BotPerformanceDto(total, approved, rejected, expired, approvalRate, botProfitLoss);
+    }
 
     private static BotResponse MapToResponse(TradingBot bot) =>
         new(bot.Id, bot.Symbol, bot.IsActive, bot.BuyRsiThreshold,

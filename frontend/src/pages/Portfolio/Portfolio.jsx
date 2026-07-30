@@ -1,7 +1,71 @@
 import React, { useState, useEffect } from 'react';
-import { getBalance, getHoldings, getTransactions } from '../../services/apiService';
+import { getBalance, getHoldings, getTransactions, getBotPerformance } from '../../services/apiService';
 import { useBinancePrices } from '../../hooks/useBinancePrices';
 import './Portfolio.css'; 
+
+const BotPerformanceSummary = ({ totalPortfolioProfit }) => {
+  const [performance, setPerformance] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPerformance = async () => {
+      try {
+        const res = await getBotPerformance();
+        setPerformance(res.data);
+      } catch (error) {
+        console.error("Bot performansı çekilirken hata:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPerformance();
+  }, []);
+
+  if (loading) return <div className="portfolio-loading">Bot performans verileri yükleniyor...</div>;
+  
+  if (!performance) return null;
+
+  const total = performance.totalSignals;
+  const approvedRate = total > 0 ? ((performance.approvedSignals / total) * 100).toFixed(2) : "0.00";
+  const rejectedRate = total > 0 ? ((performance.rejectedSignals / total) * 100).toFixed(2) : "0.00";
+  const expiredRate = total > 0 ? ((performance.expiredSignals / total) * 100).toFixed(2) : "0.00";
+  const botPnl = performance.botProfitLoss;
+  
+  
+  const impactPercentage = totalPortfolioProfit !== 0 
+    ? ((botPnl / totalPortfolioProfit) * 100).toFixed(2) 
+    : "0.00";
+
+  return (
+    <div className="portfolio-section" style={{ borderLeft: '4px solid #3b82f6' }}>
+      <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Bot Performansı</h2>
+      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '0.95rem' }}>
+        
+        <div><strong>Toplam Sinyal:</strong> {total}</div>
+        
+        <div className="text-green">
+          <strong>Onaylanma Oranı:</strong> %{approvedRate} <span style={{fontSize: '0.8rem'}}>({performance.approvedSignals})</span>
+        </div>
+        
+        <div className="text-red">
+          <strong>Reddedilme Oranı:</strong> %{rejectedRate} <span style={{fontSize: '0.8rem'}}>({performance.rejectedSignals})</span>
+        </div>
+        
+        <div style={{ color: '#9ca3af' }}>
+          <strong>Süresi Geçme Oranı:</strong> %{expiredRate} <span style={{fontSize: '0.8rem'}}>({performance.expiredSignals})</span>
+        </div>
+        
+        <div className={botPnl >= 0 ? 'text-green' : 'text-red'} style={{ fontWeight: 'bold', borderLeft: '2px solid #4b5563', paddingLeft: '10px' }}>
+          <strong>Genel Portföye Etkisi:</strong> ${botPnl.toFixed(2)} 
+          <span style={{ fontSize: '0.85rem', marginLeft: '5px' }}>
+            ({botPnl >= 0 ? '+' : ''}%{impactPercentage})
+          </span>
+        </div>
+
+      </div>
+    </div>
+  );
+};
 
 const Portfolio = () => {
   const [balance, setBalance] = useState(0);
@@ -89,7 +153,8 @@ const Portfolio = () => {
         </div>
       </div>
 
-      
+      <BotPerformanceSummary totalPortfolioProfit={totalPortfolioValue - initialBalance} />
+
       <div className="portfolio-section">
         <h2>Varlıklarım</h2>
         <div className="table-responsive">
@@ -162,9 +227,22 @@ const Portfolio = () => {
                   <tr key={i}>
                     <td className="date-text">{new Date(t.createdAt).toLocaleString()}</td>
                     <td>
-                      <span className={`badge ${t.type === 0 ? 'buy' : 'sell'}`}>
-                        {t.type === 0 ? 'ALIM' : 'SATIM'}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className={`badge ${t.type === 0 ? 'buy' : 'sell'}`}>
+                          {t.type === 0 ? 'ALIM' : 'SATIM'}
+                        </span>
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          padding: '3px 8px', 
+                          borderRadius: '4px', 
+                          backgroundColor: t.description && t.description.includes("Bot") ? '#2563eb' : '#374151',
+                          color: '#fff',
+                          fontWeight: '500',
+                          letterSpacing: '0.3px'
+                        }}>
+                          {t.description && t.description.includes("Bot") ? 'Bot' : 'Manuel'}
+                        </span>
+                      </div>
                     </td>
                     <td className="font-semibold">{t.symbol}</td>
                     <td>{t.quantity}</td>
