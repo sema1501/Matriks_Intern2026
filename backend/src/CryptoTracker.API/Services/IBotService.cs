@@ -10,4 +10,5 @@ public interface IBotService
     Task<List<BotSignalResponse>> GetSignalsAsync(int userId, int botId, CancellationToken cancellationToken = default);
     Task<SignalActionResponse> ApproveSignalAsync(int userId, int signalId, CancellationToken cancellationToken = default);
     Task<SignalActionResponse> RejectSignalAsync(int userId, int signalId, CancellationToken cancellationToken = default);
+    Task<BotPerformanceDto> GetBotPerformanceAsync(int userId, CancellationToken cancellationToken = default);
 }

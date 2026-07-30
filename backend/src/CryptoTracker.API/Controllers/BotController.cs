@@ -70,6 +70,17 @@ public class BotController(IBotService botService) : ControllerBase
         var result = await botService.RejectSignalAsync(userId, signalId, cancellationToken);
         return Ok(result);
     }
+    
+
+    [HttpGet("performance")]
+    public async Task<IActionResult> GetPerformance(CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var performance = await botService.GetBotPerformanceAsync(userId, cancellationToken);
+        return Ok(performance);
+    }
 
     private bool TryGetUserId(out int userId)
     {

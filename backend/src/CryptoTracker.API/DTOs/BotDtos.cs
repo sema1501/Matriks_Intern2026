@@ -34,3 +34,13 @@ public record SignalActionResponse(
     BotSignalStatus Status,
     TransactionDto? Transaction
 );
+
+public record BotPerformanceDto(
+    int TotalSignals,
+    int ApprovedSignals,
+    int RejectedSignals,
+    int ExpiredSignals,
+    double ApprovalRate,
+    decimal BotProfitLoss
+);
+
