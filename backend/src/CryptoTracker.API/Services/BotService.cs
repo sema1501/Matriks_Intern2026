@@ -93,6 +93,19 @@ public class BotService(
         return MapToResponse(bot);
     }
 
+    public async Task DeleteBotAsync(
+        int userId, int botId, CancellationToken cancellationToken = default)
+    {
+        var bot = await db.TradingBots
+            .FirstOrDefaultAsync(b => b.Id == botId && b.UserId == userId, cancellationToken);
+
+        if (bot is null)
+            throw new KeyNotFoundException("Bot bulunamadı.");
+
+        db.TradingBots.Remove(bot);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<List<BotSignalResponse>> GetSignalsAsync(
         int userId, int botId, CancellationToken cancellationToken = default)
     {
@@ -224,14 +237,6 @@ public class BotService(
         return new SignalActionResponse(signal.Id, BotSignalStatus.Rejected, null);
     }
 
-    /// <summary>
-    /// Atomically transitions a signal from <paramref name="from"/> to <paramref name="to"/>.
-    /// On relational providers, uses ExecuteUpdateAsync with a WHERE clause containing
-    /// the status condition, so only one concurrent caller can succeed.
-    /// On InMemory (test-only), uses tracked entity update — not multi-instance safe.
-    /// </summary>
-    /// <param name="expirationCutoff">If non-null, requires CreatedAt > cutoff (signal not expired).</param>
-    /// <returns>True if exactly one row was affected; false if the signal was already transitioned.</returns>
     private async Task<bool> AtomicStatusTransitionAsync(
         int signalId,
         int userId,
@@ -257,7 +262,6 @@ public class BotService(
             return affected == 1;
         }
 
-        // InMemory fallback: NOT multi-instance safe. Test-provider behavior only.
         var signal = await db.BotSignals
             .FirstOrDefaultAsync(s => s.Id == signalId && s.Status == from, cancellationToken);
 
@@ -289,17 +293,15 @@ public class BotService(
 
         await db.SaveChangesAsync(cancellationToken);
     }
-    
+
     public async Task<BotPerformanceDto> GetBotPerformanceAsync(int userId, CancellationToken cancellationToken = default)
     {
- 
         var userSignalsQuery = db.BotSignals
             .Include(s => s.Bot)
             .Where(s => s.Bot.UserId == userId);
 
         var total = await userSignalsQuery.CountAsync(cancellationToken);
- 
- 
+
         if (total == 0) return new BotPerformanceDto(0, 0, 0, 0, 0, 0m);
 
         var approved = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Approved, cancellationToken);
@@ -308,23 +310,18 @@ public class BotService(
 
         double approvalRate = Math.Round(((double)approved / total) * 100, 2);
 
- 
- 
         var approvedSignals = await userSignalsQuery
             .Where(x => x.Status == BotSignalStatus.Approved)
             .ToListAsync(cancellationToken);
 
- 
         decimal totalBuyCost = approvedSignals
             .Where(x => x.SignalType == BotSignalType.Buy)
             .Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
 
- 
         decimal totalSellRevenue = approvedSignals
             .Where(x => x.SignalType == BotSignalType.Sell)
             .Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
 
- 
         decimal botProfitLoss = totalSellRevenue - totalBuyCost;
 
         return new BotPerformanceDto(total, approved, rejected, expired, approvalRate, botProfitLoss);

@@ -11,13 +11,16 @@ export default function Navbar() {
     return (
         <nav className="navbar">
             <div className="navbar__links">
+                {/* Herkese açık bağlantılar */}
                 <Link to="/">Ana Sayfa</Link>
                 <Link to="/leaderboard">Liderlik Tablosu</Link>
                 <Link to="/converter">Dönüştürücü</Link>
                 <Link to="/feedback">Geri Bildirim</Link>
+                <Link to="/bot">🤖 Botlarım</Link> {/* Artık giriş yapmayanlara da görünür */}
 
                 {user ? (
-                    <><Link to="/watchlist"> 🌟 Favorilerim 🌟</Link>
+                    <>
+                        <Link to="/watchlist"> 🌟 Favorilerim 🌟</Link>
                         <Link to="/portfolio">Portföyüm</Link>
                         <Link to="/profile">{user.username}</Link>
                         <Link to="/dashboard">Dashboard</Link>

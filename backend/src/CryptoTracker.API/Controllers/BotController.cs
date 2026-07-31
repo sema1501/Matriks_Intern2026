@@ -41,6 +41,16 @@ public class BotController(IBotService botService) : ControllerBase
         return Ok(bot);
     }
 
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        await botService.DeleteBotAsync(userId, id, cancellationToken);
+        return NoContent(); // Veya duruma göre Ok(new { message = "Bot başarıyla silindi." }) dönebilirsiniz.
+    }
+
     [HttpGet("{id:int}/signals")]
     public async Task<IActionResult> GetSignals(int id, CancellationToken cancellationToken)
     {
@@ -70,7 +80,6 @@ public class BotController(IBotService botService) : ControllerBase
         var result = await botService.RejectSignalAsync(userId, signalId, cancellationToken);
         return Ok(result);
     }
-    
 
     [HttpGet("performance")]
     public async Task<IActionResult> GetPerformance(CancellationToken cancellationToken)

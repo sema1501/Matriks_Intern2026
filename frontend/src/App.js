@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { PriceProvider } from './context/PriceContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { WatchlistProvider } from './context/WatchlistContext';
-import { useAuth } from './context/AuthContext';
+
 import Navbar from './components/Navbar/Navbar';
 import AlertMonitor from './components/AlertMonitor/AlertMonitor';
 import Home from './pages/Home/Home';
@@ -20,8 +20,9 @@ import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
 import ResetPassword from './pages/ResetPassword/ResetPassword';
 import Portfolio from './pages/Portfolio/Portfolio';
 import Leaderboard from './pages/Leaderboard/Leaderboard';
+import Bot from './pages/Bot/Bot';
 
-// PrivateRoute: giriş yapılmamışsa /signin'e yönlendirir
+// PrivateRoute: Giriş yapılmamışsa /signin'e yönlendirir
 function PrivateRoute({ children }) {
     const { user, loading } = useAuth();
     if (loading) return null;
@@ -41,6 +42,7 @@ function App() {
                                     <AlertMonitor />
                                     <main className="app-main">
                                         <Routes>
+                                            {/* Herkese Açık Rotalar */}
                                             <Route path="/" element={<Home />} />
                                             <Route path="/leaderboard" element={<Leaderboard />} />
                                             <Route path="/signin" element={<SignIn />} />
@@ -53,6 +55,7 @@ function App() {
                                             <Route path="/coin/:symbol" element={<CoinDetail />} />
                                             <Route path="/feedback" element={<Feedback />} />
 
+                                            {/* Oturum Açma Gerektiren (Korumalı) Rotalar */}
                                             <Route
                                                 path="/portfolio"
                                                 element={
@@ -67,6 +70,15 @@ function App() {
                                                 element={
                                                     <PrivateRoute>
                                                         <Watchlist />
+                                                    </PrivateRoute>
+                                                }
+                                            />
+
+                                            <Route
+                                                path="/bot"
+                                                element={
+                                                    <PrivateRoute>
+                                                        <Bot />
                                                     </PrivateRoute>
                                                 }
                                             />
