@@ -93,3 +93,8 @@ export const rejectBotSignal = async (signalId) => {
 export const deleteBot = async (botId) => {
     return await api.delete(`/api/Bot/${botId}`);
 };
+
+// Backtest: geçmiş veri üzerinde saf simülasyon, gerçek/Testnet emri göndermez.
+export const runBotBacktest = async (botId, dateRange) => {
+    return await api.post(`/api/Bot/${botId}/backtest`, dateRange);
+};

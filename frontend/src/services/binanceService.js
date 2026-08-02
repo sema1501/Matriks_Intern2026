@@ -83,3 +83,48 @@ export const subscribeKline = (symbol, interval, onMessage) => {
         close: safeClose
     };
 };
+
+export const getKlinesRange = async (symbol, interval, startTime, endTime) => {
+    let cleanSymbol = symbol.toUpperCase().replace('-', '').replace('_', '');
+    if (!cleanSymbol.endsWith('USDT')) cleanSymbol = `${cleanSymbol}USDT`;
+
+    const allCandles = [];
+    let cursor = Number(startTime);
+    const finish = Number(endTime);
+    let requestCount = 0;
+
+    while (cursor <= finish && requestCount < 120) {
+        const response = await axios.get(`${BINANCE_BASE_URL}/klines`, {
+            params: {
+                symbol: cleanSymbol,
+                interval,
+                startTime: cursor,
+                endTime: finish,
+                limit: 1000
+            }
+        });
+
+        const rows = Array.isArray(response.data) ? response.data : [];
+        if (rows.length === 0) break;
+
+        rows.forEach((candle) => {
+            allCandles.push({
+                timestamp: Number(candle[0]),
+                open: parseFloat(candle[1]),
+                high: parseFloat(candle[2]),
+                low: parseFloat(candle[3]),
+                close: parseFloat(candle[4]),
+                volume: parseFloat(candle[5])
+            });
+        });
+
+        const lastOpenTime = Number(rows[rows.length - 1][0]);
+        if (!Number.isFinite(lastOpenTime) || lastOpenTime >= finish || rows.length < 1000) break;
+
+        cursor = lastOpenTime + 1;
+        requestCount += 1;
+    }
+
+    return allCandles;
+};
+

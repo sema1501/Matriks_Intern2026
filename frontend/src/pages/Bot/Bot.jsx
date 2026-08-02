@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getBots, createBot, toggleBot, deleteBot } from '../../services/apiService';
 import BotSignalApproval from '../../components/BotSignalApproval/BotSignalApproval';
+import BacktestReport from '../../components/BacktestReport/BacktestReport';
 
 const ALL_SYMBOLS = [
     'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'LTCUSDT',
@@ -16,6 +17,7 @@ export default function Bot() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [formError, setFormError] = useState(null);
+    const [backtestBot, setBacktestBot] = useState(null);
 
     const [symbol, setSymbol] = useState('BTCUSDT');
     const [buyRsiThreshold, setBuyRsiThreshold] = useState(30);
@@ -228,6 +230,13 @@ export default function Bot() {
                                                 {bot.isActive ? 'Durdur' : 'Başlat'}
                                             </button>
 
+                                            <button
+                                                onClick={() => setBacktestBot(bot)}
+                                                style={styles.backtestBtn}
+                                            >
+                                                Backtest
+                                            </button>
+
                                             {/* KALDIR BUTONU */}
                                             <button
                                                 onClick={() => handleDeleteBot(bot.id)}
@@ -245,6 +254,13 @@ export default function Bot() {
             </div>
 
             <BotSignalApproval bots={bots} />
+
+            {backtestBot && (
+                <BacktestReport
+                    bot={backtestBot}
+                    onClose={() => setBacktestBot(null)}
+                />
+            )}
         </div>
     );
 }
@@ -313,6 +329,16 @@ const styles = {
         padding: '6px 12px',
         borderRadius: '6px',
         border: 'none',
+        color: '#fff',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        fontSize: '12px'
+    },
+    backtestBtn: {
+        padding: '6px 12px',
+        borderRadius: '6px',
+        border: 'none',
+        backgroundColor: '#2563eb',
         color: '#fff',
         fontWeight: 'bold',
         cursor: 'pointer',
