@@ -1,5 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getBots, createBot, toggleBot, deleteBot } from '../../services/apiService';
+import BotSignalApproval from '../../components/BotSignalApproval/BotSignalApproval';
 
 const ALL_SYMBOLS = [
     'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'LTCUSDT',
@@ -242,6 +243,8 @@ export default function Bot() {
                     </div>
                 )}
             </div>
+
+            <BotSignalApproval bots={bots} />
         </div>
     );
 }

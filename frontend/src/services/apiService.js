@@ -81,6 +81,14 @@ export const getBotSignals = async (botId) => {
     return await api.get(`/api/Bot/${botId}/signals`);
 };
 
+export const approveBotSignal = async (signalId) => {
+    return await api.post(`/api/Bot/signals/${signalId}/approve`);
+};
+
+export const rejectBotSignal = async (signalId) => {
+    return await api.post(`/api/Bot/signals/${signalId}/reject`);
+};
+
 // DÜZELTİLEN KISIM: Başına /api eklendi
 export const deleteBot = async (botId) => {
     return await api.delete(`/api/Bot/${botId}`);
