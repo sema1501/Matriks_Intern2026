@@ -3,7 +3,7 @@ import { getBalance, getHoldings, getTransactions, getBotPerformance } from '../
 import { useBinancePrices } from '../../hooks/useBinancePrices';
 import './Portfolio.css'; 
 
-const BotPerformanceSummary = ({ totalPortfolioProfit }) => {
+const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: prices prop'u eklendi
   const [performance, setPerformance] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,11 +29,25 @@ const BotPerformanceSummary = ({ totalPortfolioProfit }) => {
   const approvedRate = total > 0 ? ((performance.approvedSignals / total) * 100).toFixed(2) : "0.00";
   const rejectedRate = total > 0 ? ((performance.rejectedSignals / total) * 100).toFixed(2) : "0.00";
   const expiredRate = total > 0 ? ((performance.expiredSignals / total) * 100).toFixed(2) : "0.00";
-  const botPnl = performance.botProfitLoss;
   
+  
+  let unrealizedPnL = 0;
+  
+  if (performance.activePositions && performance.activePositions.length > 0) {
+    performance.activePositions.forEach(pos => {
+      const livePrice = prices[pos.symbol]?.currentPrice || 0;
+      if (livePrice > 0) {
+        const currentValue = pos.quantity * livePrice;
+        unrealizedPnL += (currentValue - pos.totalCost); 
+      }
+    });
+  }
+
+  
+  const realTimeBotPnL = performance.botProfitLoss + unrealizedPnL;
   
   const impactPercentage = totalPortfolioProfit !== 0 
-    ? ((botPnl / totalPortfolioProfit) * 100).toFixed(2) 
+    ? ((realTimeBotPnL / Math.abs(totalPortfolioProfit)) * 100).toFixed(2) 
     : "0.00";
 
   return (
@@ -55,10 +69,10 @@ const BotPerformanceSummary = ({ totalPortfolioProfit }) => {
           <strong>Süresi Geçme Oranı:</strong> %{expiredRate} <span style={{fontSize: '0.8rem'}}>({performance.expiredSignals})</span>
         </div>
         
-        <div className={botPnl >= 0 ? 'text-green' : 'text-red'} style={{ fontWeight: 'bold', borderLeft: '2px solid #4b5563', paddingLeft: '10px' }}>
-          <strong>Genel Portföye Etkisi:</strong> ${botPnl.toFixed(2)} 
+        <div className={realTimeBotPnL > 0 ? 'text-green' : realTimeBotPnL < 0 ? 'text-red' : ''} style={{ fontWeight: 'bold', borderLeft: '2px solid #4b5563', paddingLeft: '10px' }}>
+          <strong>Genel Portföye Etkisi:</strong> ${realTimeBotPnL.toFixed(2)} 
           <span style={{ fontSize: '0.85rem', marginLeft: '5px' }}>
-            ({botPnl >= 0 ? '+' : ''}%{impactPercentage})
+            ({realTimeBotPnL > 0 ? '+' : ''}%{impactPercentage})
           </span>
         </div>
 
@@ -66,7 +80,6 @@ const BotPerformanceSummary = ({ totalPortfolioProfit }) => {
     </div>
   );
 };
-
 const Portfolio = () => {
   const [balance, setBalance] = useState(0);
   const [initialBalance, setInitialBalance] = useState(0); 
@@ -153,7 +166,10 @@ const Portfolio = () => {
         </div>
       </div>
 
-      <BotPerformanceSummary totalPortfolioProfit={totalPortfolioValue - initialBalance} />
+      <BotPerformanceSummary 
+        totalPortfolioProfit={totalPortfolioValue - initialBalance} 
+        prices={prices} 
+      />
 
       <div className="portfolio-section">
         <h2>Varlıklarım</h2>
@@ -227,22 +243,9 @@ const Portfolio = () => {
                   <tr key={i}>
                     <td className="date-text">{new Date(t.createdAt).toLocaleString()}</td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className={`badge ${t.type === 0 ? 'buy' : 'sell'}`}>
-                          {t.type === 0 ? 'ALIM' : 'SATIM'}
-                        </span>
-                        <span style={{ 
-                          fontSize: '0.75rem', 
-                          padding: '3px 8px', 
-                          borderRadius: '4px', 
-                          backgroundColor: t.description && t.description.includes("Bot") ? '#2563eb' : '#374151',
-                          color: '#fff',
-                          fontWeight: '500',
-                          letterSpacing: '0.3px'
-                        }}>
-                          {t.description && t.description.includes("Bot") ? 'Bot' : 'Manuel'}
-                        </span>
-                      </div>
+                      <span className={`badge ${t.type === 0 ? 'buy' : 'sell'}`}>
+                        {t.type === 0 ? 'ALIM' : 'SATIM'}
+                      </span>
                     </td>
                     <td className="font-semibold">{t.symbol}</td>
                     <td>{t.quantity}</td>

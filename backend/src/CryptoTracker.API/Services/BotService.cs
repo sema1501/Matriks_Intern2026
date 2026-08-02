@@ -302,7 +302,7 @@ public class BotService(
 
         var total = await userSignalsQuery.CountAsync(cancellationToken);
 
-        if (total == 0) return new BotPerformanceDto(0, 0, 0, 0, 0, 0m);
+        if (total == 0) return new BotPerformanceDto(0, 0, 0, 0, 0, 0m, new List<BotActivePosition>());
 
         var approved = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Approved, cancellationToken);
         var rejected = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Rejected, cancellationToken);
@@ -314,17 +314,38 @@ public class BotService(
             .Where(x => x.Status == BotSignalStatus.Approved)
             .ToListAsync(cancellationToken);
 
-        decimal totalBuyCost = approvedSignals
-            .Where(x => x.SignalType == BotSignalType.Buy)
-            .Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
+        decimal botProfitLoss = 0m;
+        var activePositions = new List<BotActivePosition>(); 
+        
+        var symbolGroups = approvedSignals.GroupBy(x => x.Bot.Symbol);
 
-        decimal totalSellRevenue = approvedSignals
-            .Where(x => x.SignalType == BotSignalType.Sell)
-            .Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
+        foreach (var group in symbolGroups)
+        {
+            decimal buyTotalCost = group.Where(x => x.SignalType == BotSignalType.Buy).Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
+            decimal buyQty = group.Where(x => x.SignalType == BotSignalType.Buy).Sum(x => x.Bot.TradeQuantity);
+            
+            decimal sellTotalRevenue = group.Where(x => x.SignalType == BotSignalType.Sell).Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
+            decimal sellQty = group.Where(x => x.SignalType == BotSignalType.Sell).Sum(x => x.Bot.TradeQuantity);
+            
+            decimal currentQty = buyQty - sellQty; 
 
-        decimal botProfitLoss = totalSellRevenue - totalBuyCost;
+            if (sellQty > 0 && buyQty > 0)
+            {
+                decimal avgBuyPrice = buyTotalCost / buyQty; 
+                decimal costOfSold = avgBuyPrice * sellQty;  
+                botProfitLoss += (sellTotalRevenue - costOfSold); 
+            }
 
-        return new BotPerformanceDto(total, approved, rejected, expired, approvalRate, botProfitLoss);
+            
+            if (currentQty > 0)
+            {
+                decimal avgBuyPrice = buyQty > 0 ? (buyTotalCost / buyQty) : 0;
+                activePositions.Add(new BotActivePosition(group.Key, currentQty, currentQty * avgBuyPrice));
+            }
+        }
+
+        
+        return new BotPerformanceDto(total, approved, rejected, expired, approvalRate, botProfitLoss, activePositions);
     }
 
     private static BotResponse MapToResponse(TradingBot bot) =>

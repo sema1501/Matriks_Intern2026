@@ -41,6 +41,13 @@ public record BotPerformanceDto(
     int RejectedSignals,
     int ExpiredSignals,
     double ApprovalRate,
-    decimal BotProfitLoss
+    decimal BotProfitLoss,
+    List<BotActivePosition> ActivePositions
+);
+
+public record BotActivePosition(
+    string Symbol, 
+    decimal Quantity, 
+    decimal TotalCost
 );
 
