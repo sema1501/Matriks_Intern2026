@@ -12,4 +12,5 @@ public class User
     public ICollection<PriceAlert> PriceAlerts { get; set; } = new List<PriceAlert>();
     public ICollection<PortfolioHolding> Holdings { get; set; } = new List<PortfolioHolding>();
     public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+    public ICollection<TradingBot> TradingBots { get; set; } = new List<TradingBot>();
 }

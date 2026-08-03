@@ -1,8 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import { getBalance, getHoldings, getTransactions } from '../../services/apiService';
+import { getBalance, getHoldings, getTransactions, getBotPerformance } from '../../services/apiService';
 import { useBinancePrices } from '../../hooks/useBinancePrices';
 import './Portfolio.css'; 
 
+const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: prices prop'u eklendi
+  const [performance, setPerformance] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPerformance = async () => {
+      try {
+        const res = await getBotPerformance();
+        setPerformance(res.data);
+      } catch (error) {
+        console.error("Bot performansı çekilirken hata:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPerformance();
+  }, []);
+
+  if (loading) return <div className="portfolio-loading">Bot performans verileri yükleniyor...</div>;
+  
+  if (!performance) return null;
+
+  const total = performance.totalSignals;
+  const approvedRate = total > 0 ? ((performance.approvedSignals / total) * 100).toFixed(2) : "0.00";
+  const rejectedRate = total > 0 ? ((performance.rejectedSignals / total) * 100).toFixed(2) : "0.00";
+  const expiredRate = total > 0 ? ((performance.expiredSignals / total) * 100).toFixed(2) : "0.00";
+  
+  
+  let unrealizedPnL = 0;
+  
+  if (performance.activePositions && performance.activePositions.length > 0) {
+    performance.activePositions.forEach(pos => {
+      const livePrice = prices[pos.symbol]?.currentPrice || 0;
+      if (livePrice > 0) {
+        const currentValue = pos.quantity * livePrice;
+        unrealizedPnL += (currentValue - pos.totalCost); 
+      }
+    });
+  }
+
+  
+  const realTimeBotPnL = performance.botProfitLoss + unrealizedPnL;
+  
+  const impactPercentage = totalPortfolioProfit !== 0 
+    ? ((realTimeBotPnL / Math.abs(totalPortfolioProfit)) * 100).toFixed(2) 
+    : "0.00";
+
+  return (
+    <div className="portfolio-section" style={{ borderLeft: '4px solid #3b82f6' }}>
+      <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Bot Performansı</h2>
+      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '0.95rem' }}>
+        
+        <div><strong>Toplam Sinyal:</strong> {total}</div>
+        
+        <div className="text-green">
+          <strong>Onaylanma Oranı:</strong> %{approvedRate} <span style={{fontSize: '0.8rem'}}>({performance.approvedSignals})</span>
+        </div>
+        
+        <div className="text-red">
+          <strong>Reddedilme Oranı:</strong> %{rejectedRate} <span style={{fontSize: '0.8rem'}}>({performance.rejectedSignals})</span>
+        </div>
+        
+        <div style={{ color: '#9ca3af' }}>
+          <strong>Süresi Geçme Oranı:</strong> %{expiredRate} <span style={{fontSize: '0.8rem'}}>({performance.expiredSignals})</span>
+        </div>
+        
+        <div className={realTimeBotPnL > 0 ? 'text-green' : realTimeBotPnL < 0 ? 'text-red' : ''} style={{ fontWeight: 'bold', borderLeft: '2px solid #4b5563', paddingLeft: '10px' }}>
+          <strong>Genel Portföye Etkisi:</strong> ${realTimeBotPnL.toFixed(2)} 
+          <span style={{ fontSize: '0.85rem', marginLeft: '5px' }}>
+            ({realTimeBotPnL > 0 ? '+' : ''}%{impactPercentage})
+          </span>
+        </div>
+
+      </div>
+    </div>
+  );
+};
 const Portfolio = () => {
   const [balance, setBalance] = useState(0);
   const [initialBalance, setInitialBalance] = useState(0); 
@@ -89,7 +166,11 @@ const Portfolio = () => {
         </div>
       </div>
 
-      
+      <BotPerformanceSummary 
+        totalPortfolioProfit={totalPortfolioValue - initialBalance} 
+        prices={prices} 
+      />
+
       <div className="portfolio-section">
         <h2>Varlıklarım</h2>
         <div className="table-responsive">

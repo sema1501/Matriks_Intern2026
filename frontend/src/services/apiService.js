@@ -61,3 +61,35 @@ export const sellCoin = async (data) => {
     const response = await api.post('/api/Portfolio/sell', data);
     return response.data;
 };
+
+export const getBotPerformance = () => api.get('/api/Bot/performance');
+
+// --- BOT ENDPOINTS ---
+export const getBots = async () => {
+    return await api.get('/api/Bot');
+};
+
+export const createBot = async (botData) => {
+    return await api.post('/api/Bot', botData);
+};
+
+export const toggleBot = async (botId) => {
+    return await api.patch(`/api/Bot/${botId}/toggle`);
+};
+
+export const getBotSignals = async (botId) => {
+    return await api.get(`/api/Bot/${botId}/signals`);
+};
+
+export const approveBotSignal = async (signalId) => {
+    return await api.post(`/api/Bot/signals/${signalId}/approve`);
+};
+
+export const rejectBotSignal = async (signalId) => {
+    return await api.post(`/api/Bot/signals/${signalId}/reject`);
+};
+
+// DÜZELTİLEN KISIM: Başına /api eklendi
+export const deleteBot = async (botId) => {
+    return await api.delete(`/api/Bot/${botId}`);
+};

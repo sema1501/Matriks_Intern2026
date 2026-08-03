@@ -46,7 +46,12 @@ builder.Services.AddHttpClient<IBinancePriceService, BinancePriceService>(client
     client.BaseAddress = new Uri("https://api.binance.com/");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
-
+builder.Services.AddHttpClient<IBinanceKlineService, BinanceKlineService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.binance.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddHostedService<BotMonitorService>();
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IAlertMonitoringProcessor, AlertMonitoringProcessor>();
 builder.Services.AddHostedService<AlertMonitorService>();
@@ -60,6 +65,9 @@ builder.Services.AddScoped<IWatchlistService, WatchlistService>();
 builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
+builder.Services.AddScoped<IBotService, BotService>();
+builder.Services.Configure<TradingBotOptions>(
+    builder.Configuration.GetSection(TradingBotOptions.SectionName));
 
 // ── CORS ─────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
