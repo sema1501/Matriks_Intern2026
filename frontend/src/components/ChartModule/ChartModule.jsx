@@ -12,6 +12,16 @@ const ChartModule = ({
     const chartRef = useRef(null);
     const drawingOverlayIdRef = useRef(null);
     const trendLineIdsRef = useRef([]);
+    const [contextMenu, setContextMenu] = useState({
+        visible: false,
+        x: 0,
+        y: 0,
+        overlayId: null
+    });
+    const menuRef = useRef(null);
+    const longPressTimerRef = useRef(null);
+    const lastMousePosRef = useRef({ x: 0, y: 0 });
+    const hoveredOverlayRef = useRef(null);
     const [activeTab, setActiveTab] = useState('1h');
     const [chartType, setChartType] = useState('candle_solid');
     const [error, setError] = useState(null);
@@ -35,6 +45,25 @@ const ChartModule = ({
         if (price < 10) return 3;
         return 2;
     };
+    
+    useEffect(() => {
+        const handleGlobalMouseMove = (e) => {
+            lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+        };
+        const handleGlobalTouchStart = (e) => {
+            if (e.touches && e.touches.length > 0) {
+                lastMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        };
+
+        window.addEventListener('mousemove', handleGlobalMouseMove);
+        window.addEventListener('touchstart', handleGlobalTouchStart);
+
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMouseMove);
+            window.removeEventListener('touchstart', handleGlobalTouchStart);
+        };
+    }, []);
 
     useEffect(() => {
         const checkTheme = () => {
@@ -237,7 +266,148 @@ const ChartModule = ({
         }
 
     }, [isEmaActive, isRsiActive, emaPeriod]);
+    
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setContextMenu((prev) => ({ ...prev, visible: false }));
+            }
+        };
 
+        if (contextMenu.visible) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside); 
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [contextMenu.visible]);
+
+    const handleMenuAction = (actionType) => {
+        if (!chartRef.current || !contextMenu.overlayId) return;
+
+        const overlayId = contextMenu.overlayId;
+        const overlay = chartRef.current.getOverlayById(overlayId);
+        
+        if (!overlay) {
+            setContextMenu(prev => ({ ...prev, visible: false }));
+            return;
+        }
+
+       
+        if (actionType === 'setUptrend' || actionType === 'setDowntrend') {
+            const isUptrend = actionType === 'setUptrend';
+            chartRef.current.overrideOverlay({
+                id: overlayId,
+                ext: { ...(overlay.ext || {}), type: isUptrend ? 'UPTREND' : 'DOWNTREND' },
+                styles: {
+                    line: { color: isUptrend ? '#10B981' : '#EF4444' } 
+                }
+            });
+        } 
+        
+        else if (actionType === 'extendRight' || actionType === 'extendLeft') {
+            const currentPoints = overlay.points;
+            
+            
+            let isRight = false;
+            let isLeft = false;
+
+            if (overlay.name === 'straightLine') {
+                isRight = true;
+                isLeft = true;
+            } else if (overlay.name === 'rayLine') {
+                
+                if (currentPoints[0].timestamp <= currentPoints[1].timestamp) {
+                    isRight = true;
+                } else {
+                    isLeft = true;
+                }
+            }
+
+            
+            if (actionType === 'extendRight') isRight = true;
+            if (actionType === 'extendLeft') isLeft = true;
+
+            
+            let targetOverlayName = 'segment';
+            
+            
+            let targetPoints = [...currentPoints].sort((a, b) => a.timestamp - b.timestamp);
+
+            if (isRight && isLeft) {
+                targetOverlayName = 'straightLine'; 
+            } else if (isRight) {
+                targetOverlayName = 'rayLine'; 
+            } else if (isLeft) {
+                targetOverlayName = 'rayLine'; 
+                targetPoints = [targetPoints[1], targetPoints[0]]; 
+            }
+
+            
+            if (overlay.name === targetOverlayName && 
+                currentPoints[0].timestamp === targetPoints[0].timestamp) {
+                setContextMenu(prev => ({ ...prev, visible: false }));
+                return;
+            }
+
+            const currentExt = overlay.ext || {};
+            const isUptrend = currentExt.type === 'UPTREND';
+            const isDowntrend = currentExt.type === 'DOWNTREND';
+            let lineColor = '#2962FF'; 
+            if (isUptrend) lineColor = '#10B981';
+            if (isDowntrend) lineColor = '#EF4444';
+
+            
+            chartRef.current.removeOverlay(overlayId);
+
+            
+            const newOverlayId = chartRef.current.createOverlay({
+                name: targetOverlayName,
+                groupId: 'trend-lines',
+                points: targetPoints, 
+                mode: 'weak', 
+                ext: currentExt, 
+                styles: {
+                    line: { color: lineColor }
+                },
+                onMouseEnter: ({ overlay: newOverlay }) => {
+                    hoveredOverlayRef.current = newOverlay.id;
+                    return true;
+                },
+                onMouseLeave: () => {
+                    hoveredOverlayRef.current = null;
+                    return true;
+                },
+                onRightClick: () => true,
+                onPressed: ({ overlay: newOverlay }) => {
+                    longPressTimerRef.current = setTimeout(() => {
+                        setContextMenu({
+                            visible: true,
+                            x: Math.min(lastMousePosRef.current.x, window.innerWidth - 190),
+                            y: Math.min(lastMousePosRef.current.y, window.innerHeight - 180),
+                            overlayId: newOverlay.id
+                        });
+                    }, 500); 
+                    return true;
+                },
+                onMouseUp: () => { if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current); },
+                onMouseMove: () => { if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current); }
+            });
+            
+            if (typeof newOverlayId === 'string') {
+                hoveredOverlayRef.current = newOverlayId; 
+                const index = trendLineIdsRef.current.indexOf(overlayId);
+                if (index !== -1) {
+                    trendLineIdsRef.current[index] = newOverlayId;
+                }
+            }
+        }
+        
+        setContextMenu(prev => ({ ...prev, visible: false }));
+    };
     const cancelTrendLineDrawing = () => {
         if (!chartRef.current) {
             setIsDrawingTrendLine(false);
@@ -264,6 +434,34 @@ const ChartModule = ({
             {
                 name: 'segment',
                 groupId: 'trend-lines',
+                mode: 'weak',
+                onMouseEnter: ({ overlay }) => {
+                    hoveredOverlayRef.current = overlay.id;
+                    return true;
+                },
+                
+                onMouseLeave: () => {
+                    hoveredOverlayRef.current = null;
+                    return true;
+                },
+                
+                onRightClick: () => {
+                    return true; 
+                },
+
+                onPressed: ({ overlay }) => {
+                    longPressTimerRef.current = setTimeout(() => {
+                        setContextMenu({
+                            visible: true,
+                            x: lastMousePosRef.current.x,
+                            y: lastMousePosRef.current.y,
+                            overlayId: overlay.id
+                        });
+                    }, 500); 
+                    return true;
+                },
+                onMouseUp: () => { if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current); },
+                onMouseMove: () => { if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current); },
                 onDrawEnd: (event) => {
                     const id = event.overlay?.id || overlayId;
                     if (id) {
@@ -432,6 +630,21 @@ const ChartModule = ({
 
             <div
                 ref={chartContainerRef}
+                onContextMenu={(e) => {
+                    e.preventDefault(); 
+                    if (hoveredOverlayRef.current) {
+                        
+                        const clampedX = Math.min(e.clientX, window.innerWidth - 190);
+                        const clampedY = Math.min(e.clientY, window.innerHeight - 180);
+
+                        setContextMenu({
+                            visible: true,
+                            x: clampedX,
+                            y: clampedY,
+                            overlayId: hoveredOverlayRef.current
+                        });
+                    }
+                }}
                 style={{
                     width: '100%',
                     height: isMobile ? '320px' : '450px',
@@ -439,6 +652,55 @@ const ChartModule = ({
                     position: 'relative'
                 }}
             />
+              {contextMenu.visible && (
+                <div
+                    ref={menuRef}
+                    style={{
+                        position: 'fixed',
+                        top: contextMenu.y,
+                        left: contextMenu.x,
+                        backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                        border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`,
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                        borderRadius: '6px',
+                        padding: '4px 0',
+                        zIndex: 9999, 
+                        minWidth: '180px',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}
+                >
+                    {[
+                        { label: 'Sağa Uzat', action: 'extendRight' },
+                        { label: 'Sola Uzat', action: 'extendLeft' },
+                        { label: 'Yükselen Trende Çevir', action: 'setUptrend' },
+                        { label: 'Düşen Trende Çevir', action: 'setDowntrend' }
+                    ].map((item, index) => (
+                        <button
+                            key={index}
+                            onClick={(e) => {
+                                e.stopPropagation(); 
+                                handleMenuAction(item.action);
+                            }}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                padding: '10px 15px',
+                                textAlign: 'left',
+                                color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                                width: '100%',
+                                borderBottom: index === 1 ? `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}` : 'none'
+                            }}
+                            onMouseOver={(e) => e.target.style.backgroundColor = isDarkMode ? '#334155' : '#f1f5f9'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
