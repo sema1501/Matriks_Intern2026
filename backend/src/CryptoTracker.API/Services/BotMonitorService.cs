@@ -5,6 +5,10 @@ using Microsoft.Extensions.Options;
 
 namespace CryptoTracker.API.Services;
 
+/// <summary>
+/// Evaluates active bots and automatically executes virtual portfolio trades on RSI zone entry.
+/// No manual approve/reject step is required for newly generated signals.
+/// </summary>
 public sealed class BotMonitorService(
     IServiceScopeFactory scopeFactory,
     IBinanceKlineService klineService,
@@ -12,16 +16,12 @@ public sealed class BotMonitorService(
     ILogger<BotMonitorService> logger) : BackgroundService
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(60);
-    private const int RsiPeriod = 14;
-    private const int KlineLimit = 100;
-    private const string KlineInterval = "1m";
     private readonly int _expirationMinutes = botOptions.Value.SignalExpirationMinutes;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Bot monitor service started.");
+        logger.LogInformation("Bot monitor service started (automatic portfolio execution).");
 
-        // Uygulama açıldığında ilk kontrolü hemen yapar.
         await EvaluateBotsSafelyAsync(stoppingToken);
 
         using var timer = new PeriodicTimer(CheckInterval);
@@ -39,8 +39,7 @@ public sealed class BotMonitorService(
         }
     }
 
-    private async Task EvaluateBotsSafelyAsync(
-        CancellationToken cancellationToken)
+    private async Task EvaluateBotsSafelyAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -59,28 +58,17 @@ public sealed class BotMonitorService(
         }
     }
 
-    private async Task EvaluateBotsAsync(
-        CancellationToken cancellationToken)
+    private async Task EvaluateBotsAsync(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
 
         var dbContext =
             scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var tradeExecutor =
+            scope.ServiceProvider.GetRequiredService<IBotAutoTradeExecutor>();
 
-        var cutoff = DateTime.UtcNow.AddMinutes(-_expirationMinutes);
-        var staleSignals = await dbContext.BotSignals
-            .Where(s => s.Status == BotSignalStatus.Pending && s.CreatedAt <= cutoff)
-            .ToListAsync(cancellationToken);
-
-        if (staleSignals.Count > 0)
-        {
-            foreach (var s in staleSignals)
-                s.Status = BotSignalStatus.Expired;
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            logger.LogInformation("Expired {Count} stale pending signal(s).", staleSignals.Count);
-        }
+        // Legacy Pending signals (pre-auto-execution) may still expire.
+        await ExpireLegacyPendingSignalsAsync(dbContext, cancellationToken);
 
         var activeBots = await dbContext.TradingBots
             .AsNoTracking()
@@ -93,7 +81,6 @@ public sealed class BotMonitorService(
             return;
         }
 
-        // Aynı sembol için Binance'e yalnızca bir kline isteği gönderilir.
         var botsBySymbol = activeBots
             .Where(bot => !string.IsNullOrWhiteSpace(bot.Symbol))
             .GroupBy(
@@ -111,11 +98,11 @@ public sealed class BotMonitorService(
                 var closingPrices =
                     await klineService.GetClosingPricesAsync(
                         symbol,
-                        KlineInterval,
-                        KlineLimit,
+                        RsiSignalEvaluator.Interval,
+                        RsiSignalEvaluator.LiveKlineLimit,
                         cancellationToken);
 
-                if (closingPrices.Count < RsiPeriod + 1)
+                if (closingPrices.Count < RsiSignalEvaluator.Period + 1)
                 {
                     logger.LogWarning(
                         "Not enough closing prices to calculate RSI for {Symbol}. Count: {Count}",
@@ -125,55 +112,44 @@ public sealed class BotMonitorService(
                     continue;
                 }
 
-                var rsi = RsiCalculator.Calculate(
+                var rsiSeries = RsiCalculator.CalculateSeries(
                     closingPrices,
-                    RsiPeriod);
+                    RsiSignalEvaluator.Period);
+
+                var currentRsi = rsiSeries[^1];
+                if (currentRsi is null)
+                {
+                    logger.LogWarning(
+                        "RSI series did not produce a current value for {Symbol}.",
+                        symbol);
+                    continue;
+                }
+
+                // Previous closed candle RSI — survives process restarts (derived from market data).
+                decimal? previousRsi = rsiSeries.Count >= 2
+                    ? rsiSeries[^2]
+                    : null;
 
                 var currentPrice = closingPrices[^1];
 
                 foreach (var bot in symbolGroup)
                 {
-                    var signalType = DetermineSignalType(bot, rsi);
-
-                    if (signalType is null)
-                        continue;
-
-                    var pendingSignalExists =
-                        await dbContext.BotSignals.AnyAsync(
-                            signal =>
-                                signal.BotId == bot.Id &&
-                                signal.SignalType == signalType.Value &&
-                                signal.Status == BotSignalStatus.Pending,
-                            cancellationToken);
-
-                    if (pendingSignalExists)
-                    {
-                        logger.LogDebug(
-                            "Pending {SignalType} signal already exists for bot {BotId}.",
-                            signalType.Value,
-                            bot.Id);
-
-                        continue;
-                    }
-
-                    dbContext.BotSignals.Add(new BotSignal
-                    {
-                        BotId = bot.Id,
-                        SignalType = signalType.Value,
-                        RsiValueAtSignal = rsi,
-                        PriceAtSignal = currentPrice,
-                        CreatedAt = DateTime.UtcNow,
-                        Status = BotSignalStatus.Pending
-                    });
+                    await ProcessBotSignalAsync(
+                        dbContext,
+                        tradeExecutor,
+                        bot,
+                        symbol,
+                        currentRsi.Value,
+                        previousRsi,
+                        currentPrice,
+                        cancellationToken);
                 }
-
-                await dbContext.SaveChangesAsync(cancellationToken);
 
                 logger.LogInformation(
                     "Evaluated {BotCount} active bots for {Symbol}. RSI: {Rsi}, Price: {Price}",
                     symbolGroup.Count(),
                     symbol,
-                    rsi,
+                    currentRsi.Value,
                     currentPrice);
             }
             catch (OperationCanceledException)
@@ -183,7 +159,6 @@ public sealed class BotMonitorService(
             }
             catch (Exception ex)
             {
-                // Bir sembolde hata olması diğer sembollerin kontrolünü durdurmaz.
                 logger.LogError(
                     ex,
                     "Failed to evaluate trading bots for symbol {Symbol}.",
@@ -192,16 +167,201 @@ public sealed class BotMonitorService(
         }
     }
 
-    private static BotSignalType? DetermineSignalType(
+    private async Task ProcessBotSignalAsync(
+        AppDbContext dbContext,
+        IBotAutoTradeExecutor tradeExecutor,
         TradingBot bot,
-        decimal rsi)
+        string symbol,
+        decimal currentRsi,
+        decimal? previousRsi,
+        decimal currentPrice,
+        CancellationToken cancellationToken)
     {
-        if (rsi <= bot.BuyRsiThreshold)
-            return BotSignalType.Buy;
+        try
+        {
+            var currentSignalType = RsiSignalEvaluator.DetermineSignalType(
+                currentRsi,
+                bot.BuyRsiThreshold,
+                bot.SellRsiThreshold);
 
-        if (rsi >= bot.SellRsiThreshold)
-            return BotSignalType.Sell;
+            var signalType = RsiSignalEvaluator.DetermineZoneEntrySignal(
+                currentRsi,
+                previousRsi,
+                bot.BuyRsiThreshold,
+                bot.SellRsiThreshold);
 
-        return null;
+            if (signalType is null)
+            {
+                var reason = DescribeZoneEntryNullReason(
+                    currentSignalType,
+                    previousRsi,
+                    bot.BuyRsiThreshold,
+                    bot.SellRsiThreshold);
+
+                logger.LogInformation(
+                    "Zone-entry diagnostic for bot {BotId}: PreviousRsi={PreviousRsi}, CurrentRsi={CurrentRsi}, BuyThreshold={BuyThreshold}, SellThreshold={SellThreshold}, CurrentSignalType={CurrentSignalType}, ZoneEntry=null, Reason={Reason}",
+                    bot.Id,
+                    previousRsi,
+                    currentRsi,
+                    bot.BuyRsiThreshold,
+                    bot.SellRsiThreshold,
+                    FormatSignalType(currentSignalType),
+                    reason);
+                return;
+            }
+
+            // Zone-entry is primary debounce. Extra guards:
+            // 1) legacy Pending of same type
+            // 2) same last bar already executed (Approved/Failed) — prevents 60s re-fire
+            //    on an unchanged candle pair after restart or repeated polls.
+            var pendingExists = await dbContext.BotSignals.AnyAsync(
+                signal =>
+                    signal.BotId == bot.Id &&
+                    signal.SignalType == signalType.Value &&
+                    signal.Status == BotSignalStatus.Pending,
+                cancellationToken);
+
+            if (pendingExists)
+            {
+                logger.LogDebug(
+                    "Skipping auto-execution for bot {BotId}: legacy pending {SignalType} exists.",
+                    bot.Id,
+                    signalType.Value);
+                return;
+            }
+
+            var alreadyExecutedThisBar = await dbContext.BotSignals.AnyAsync(
+                signal =>
+                    signal.BotId == bot.Id &&
+                    signal.SignalType == signalType.Value &&
+                    (signal.Status == BotSignalStatus.Approved ||
+                     signal.Status == BotSignalStatus.Failed) &&
+                    signal.PriceAtSignal == currentPrice &&
+                    signal.RsiValueAtSignal == currentRsi,
+                cancellationToken);
+
+            if (alreadyExecutedThisBar)
+            {
+                logger.LogDebug(
+                    "Skipping auto-execution for bot {BotId}: {SignalType} already processed for this bar.",
+                    bot.Id,
+                    signalType.Value);
+                return;
+            }
+
+            logger.LogInformation(
+                "Zone-entry {SignalType} for bot {BotId} user {UserId} {Symbol} RSI={Rsi} Price={Price}",
+                signalType.Value,
+                bot.Id,
+                bot.UserId,
+                symbol,
+                currentRsi,
+                currentPrice);
+
+            var signal = await tradeExecutor.ExecuteAsync(
+                bot,
+                signalType.Value,
+                currentPrice,
+                currentRsi,
+                cancellationToken);
+
+            if (signal.Status == BotSignalStatus.Approved)
+            {
+                logger.LogInformation(
+                    "Auto-executed {SignalType} for bot {BotId} user {UserId} {Symbol}.",
+                    signalType.Value,
+                    bot.Id,
+                    bot.UserId,
+                    symbol);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Auto-trade failed for bot {BotId} user {UserId} {Symbol} {SignalType}. Status={Status}",
+                    bot.Id,
+                    bot.UserId,
+                    symbol,
+                    signalType.Value,
+                    signal.Status);
+            }
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // One bot must not stop monitoring of others.
+            logger.LogError(
+                ex,
+                "Unexpected error while auto-executing signal for bot {BotId} user {UserId} {Symbol}.",
+                bot.Id,
+                bot.UserId,
+                symbol);
+        }
+    }
+
+    private static string FormatSignalType(BotSignalType? signalType) =>
+        signalType switch
+        {
+            BotSignalType.Buy => "BUY",
+            BotSignalType.Sell => "SELL",
+            null => "None",
+            _ => signalType.ToString() ?? "None"
+        };
+
+    /// <summary>
+    /// Diagnostic-only explanation of why DetermineZoneEntrySignal returned null.
+    /// Mirrors evaluator rules; does not affect trading decisions.
+    /// </summary>
+    private static string DescribeZoneEntryNullReason(
+        BotSignalType? currentSignalType,
+        decimal? previousRsi,
+        decimal buyThreshold,
+        decimal sellThreshold)
+    {
+        if (currentSignalType is null)
+            return "Current RSI is between thresholds.";
+
+        if (previousRsi is null)
+        {
+            // DetermineZoneEntrySignal emits when previous is null and current is in a zone;
+            // this branch should not occur when ZoneEntry is null.
+            return "Unexpected: previous RSI was null while current RSI is in a zone.";
+        }
+
+        if (currentSignalType == BotSignalType.Buy)
+        {
+            return previousRsi.Value <= buyThreshold
+                ? "BUY rejected because previous RSI was already inside buy zone."
+                : "BUY rejected (previous RSI did not qualify as zone entry).";
+        }
+
+        return previousRsi.Value >= sellThreshold
+            ? "SELL rejected because previous RSI was already inside sell zone."
+            : "SELL rejected (previous RSI did not qualify as zone entry).";
+    }
+
+    private async Task ExpireLegacyPendingSignalsAsync(
+        AppDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var cutoff = DateTime.UtcNow.AddMinutes(-_expirationMinutes);
+        var staleSignals = await dbContext.BotSignals
+            .Where(s => s.Status == BotSignalStatus.Pending && s.CreatedAt <= cutoff)
+            .ToListAsync(cancellationToken);
+
+        if (staleSignals.Count == 0)
+            return;
+
+        foreach (var s in staleSignals)
+            s.Status = BotSignalStatus.Expired;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Expired {Count} legacy pending signal(s).",
+            staleSignals.Count);
     }
 }
