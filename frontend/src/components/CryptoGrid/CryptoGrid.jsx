@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useBinancePrices } from '../../hooks/useBinancePrices';
+import { useGlobalPrices } from '../../context/PriceContext';
 import { COIN_META } from '../../data/coinMeta';
 import { TRACKED_SYMBOLS } from '../../data/trackedSymbols';
 import CryptoCard from '../CryptoCard/CryptoCard';
@@ -36,7 +36,7 @@ function compareNumeric(a, b, ascending) {
 }
 
 export default function CryptoGrid() {
-  const { prices, connectionStatus } = useBinancePrices();
+  const { prices } = useGlobalPrices();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('price-desc');
 
@@ -81,14 +81,6 @@ export default function CryptoGrid() {
     <div className="crypto-grid-container">
       <div className="grid-header">
         <h2>Canlı Kripto Para Fiyatları</h2>
-        <div className="connection-status">
-          <span className={`status-dot ${connectionStatus}`}></span>
-          <span className="status-text">
-            {connectionStatus === 'connected' && 'Canlı Bağlantı Aktif'}
-            {connectionStatus === 'connecting' && 'Bağlantı Kuruluyor...'}
-            {connectionStatus === 'disconnected' && 'Bağlantı Koptu'}
-          </span>
-        </div>
       </div>
 
       <div className="grid-toolbar">

@@ -4,7 +4,6 @@ import { useBinancePrices } from '../hooks/useBinancePrices';
 const PriceContext = createContext();
 
 export const PriceProvider = ({ children }) => {
-  
   const binanceData = useBinancePrices();
 
   return (
@@ -12,9 +11,6 @@ export const PriceProvider = ({ children }) => {
       {children}
     </PriceContext.Provider>
   );
-}
-
+};
 
 export const useGlobalPrices = () => useContext(PriceContext);
-
-
