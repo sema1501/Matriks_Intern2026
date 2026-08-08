@@ -4,6 +4,8 @@ using CryptoTracker.API.Models;
 using CryptoTracker.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Moq;
+using System.Text.Json;
 
 namespace CryptoTracker.API.Tests;
 
@@ -606,7 +608,21 @@ public class BotServiceTests
 
     private static BotService CreateService(AppDbContext db)
     {
-        var portfolioService = new PortfolioService(db);
+        // Testlerde Binance'e gerçek istek gitmemesi için sahte istemci kullanılır.
+        // Boş cevap dönünce PortfolioService, istemciden gelen miktar ve fiyata
+        // geri döner — testler bu değerleri doğruluyor.
+        var binanceMock = new Mock<IBinanceTestnetClient>();
+
+        binanceMock
+            .Setup(client => client.CreateOrderAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<decimal?>(),
+                It.IsAny<decimal?>()))
+            .ReturnsAsync(JsonSerializer.Deserialize<JsonElement>("{}"));
+
+        var portfolioService = new PortfolioService(db, binanceMock.Object);
         var opts = Options.Create(new TradingBotOptions { SignalExpirationMinutes = 15 });
         return new BotService(db, portfolioService, opts);
     }

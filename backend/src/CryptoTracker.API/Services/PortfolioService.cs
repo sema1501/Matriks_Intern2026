@@ -2,10 +2,12 @@ using CryptoTracker.API.Data;
 using CryptoTracker.API.DTOs;
 using CryptoTracker.API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text.Json;
 
 namespace CryptoTracker.API.Services;
 
-public class PortfolioService(AppDbContext db) : IPortfolioService
+public class PortfolioService(AppDbContext db, IBinanceTestnetClient binanceClient) : IPortfolioService
 {
     public async Task<decimal> GetBalanceAsync(int userId, CancellationToken cancellationToken = default)
     {
@@ -75,14 +77,40 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
         ValidateTradeInputs(symbol, quantity, pricePerUnit);
 
         var normalizedSymbol = symbol.Trim().ToUpperInvariant();
-        var totalCost = quantity * pricePerUnit;
+        var estimatedCost = quantity * pricePerUnit;
 
         var user = await GetUserOrThrowAsync(userId, cancellationToken);
 
-        if (user.VirtualBalance < totalCost)
+        if (user.VirtualBalance < estimatedCost)
             throw new InvalidOperationException("Yetersiz bakiye.");
 
-        user.VirtualBalance -= totalCost;
+        // 1. Önce Binance Testnet'e gerçek MARKET BUY emri gönder
+        JsonElement orderResult;
+        try
+        {
+            orderResult = await binanceClient.CreateOrderAsync(
+                symbol: normalizedSymbol,
+                side: "BUY",
+                type: "MARKET",
+                quantity: quantity
+            );
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Binance Testnet alış emri başarısız olduğu için işlem iptal edildi: {ex.Message}");
+        }
+
+        // 2. Emrin GERÇEK dolum bilgisini oku (istemcinin gönderdiği fiyatı değil)
+        var (executedQty, actualPrice, actualCost) =
+            ExtractFillInfo(orderResult, quantity, pricePerUnit);
+
+        if (user.VirtualBalance < actualCost)
+            throw new InvalidOperationException(
+                $"Emir Binance'te {actualCost:F2} USDT tutarında gerçekleşti ancak bakiye yetersiz. " +
+                "Testnet ile defter arasında tutarsızlık oluştu, manuel kontrol gerekiyor.");
+
+        // 3. Veritabanını defter olarak güncelle
+        user.VirtualBalance -= actualCost;
 
         var holding = await db.PortfolioHoldings
             .FirstOrDefaultAsync(h => h.UserId == userId && h.Symbol == normalizedSymbol, cancellationToken);
@@ -93,15 +121,15 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
             {
                 UserId = userId,
                 Symbol = normalizedSymbol,
-                Quantity = quantity,
-                AvgBuyPrice = pricePerUnit
+                Quantity = executedQty,
+                AvgBuyPrice = actualPrice
             };
             db.PortfolioHoldings.Add(holding);
         }
         else
         {
-            var totalQuantity = holding.Quantity + quantity;
-            holding.AvgBuyPrice = ((holding.Quantity * holding.AvgBuyPrice) + (quantity * pricePerUnit)) / totalQuantity;
+            var totalQuantity = holding.Quantity + executedQty;
+            holding.AvgBuyPrice = ((holding.Quantity * holding.AvgBuyPrice) + (executedQty * actualPrice)) / totalQuantity;
             holding.Quantity = totalQuantity;
         }
 
@@ -110,8 +138,8 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
             UserId = userId,
             Symbol = normalizedSymbol,
             Type = TransactionType.Buy,
-            Quantity = quantity,
-            Price = pricePerUnit,
+            Quantity = executedQty,
+            Price = actualPrice,
             CreatedAt = DateTime.UtcNow
         };
         db.Transactions.Add(transaction);
@@ -130,7 +158,6 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
         ValidateTradeInputs(symbol, quantity, pricePerUnit);
 
         var normalizedSymbol = symbol.Trim().ToUpperInvariant();
-        var totalProceeds = quantity * pricePerUnit;
 
         var user = await GetUserOrThrowAsync(userId, cancellationToken);
 
@@ -140,25 +167,82 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
         if (holding == null || holding.Quantity < quantity)
             throw new InvalidOperationException("Yetersiz coin miktarı.");
 
-        holding.Quantity -= quantity;
+        // 1. Önce Binance Testnet'e gerçek MARKET SELL emri gönder
+        JsonElement orderResult;
+        try
+        {
+            orderResult = await binanceClient.CreateOrderAsync(
+                symbol: normalizedSymbol,
+                side: "SELL",
+                type: "MARKET",
+                quantity: quantity
+            );
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Binance Testnet satış emri başarısız olduğu için işlem iptal edildi: {ex.Message}");
+        }
+
+        // 2. Emrin GERÇEK dolum bilgisini oku
+        var (executedQty, actualPrice, actualProceeds) =
+            ExtractFillInfo(orderResult, quantity, pricePerUnit);
+
+        // 3. Veritabanını defter olarak güncelle
+        holding.Quantity -= executedQty;
         if (holding.Quantity <= 0)
             db.PortfolioHoldings.Remove(holding);
 
-        user.VirtualBalance += totalProceeds;
+        user.VirtualBalance += actualProceeds;
 
         var transaction = new Transaction
         {
             UserId = userId,
             Symbol = normalizedSymbol,
             Type = TransactionType.Sell,
-            Quantity = quantity,
-            Price = pricePerUnit,
+            Quantity = executedQty,
+            Price = actualPrice,
             CreatedAt = DateTime.UtcNow
         };
         db.Transactions.Add(transaction);
 
         await db.SaveChangesAsync(cancellationToken);
         return MapToDto(transaction);
+    }
+
+    /// <summary>
+    /// Binance emir cevabından gerçekleşen miktarı, ortalama dolum fiyatını ve toplam tutarı çıkarır.
+    /// Alanlar okunamazsa istemciden gelen değerlere geri döner.
+    /// </summary>
+    private static (decimal ExecutedQty, decimal AvgPrice, decimal TotalAmount) ExtractFillInfo(
+        JsonElement order,
+        decimal fallbackQuantity,
+        decimal fallbackPrice)
+    {
+        var executedQty = ReadDecimal(order, "executedQty");
+        var quoteQty = ReadDecimal(order, "cummulativeQuoteQty");
+
+        if (executedQty > 0 && quoteQty > 0)
+            return (executedQty, quoteQty / executedQty, quoteQty);
+
+        // Binance beklenen alanları döndürmediyse istemci değerlerine geri dön
+        return (fallbackQuantity, fallbackPrice, fallbackQuantity * fallbackPrice);
+    }
+
+    private static decimal ReadDecimal(JsonElement element, string propertyName)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+            return 0m;
+
+        if (!element.TryGetProperty(propertyName, out var property))
+            return 0m;
+
+        var raw = property.ValueKind == JsonValueKind.String
+            ? property.GetString()
+            : property.ToString();
+
+        return decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : 0m;
     }
 
     private async Task<User> GetUserOrThrowAsync(int userId, CancellationToken cancellationToken)
