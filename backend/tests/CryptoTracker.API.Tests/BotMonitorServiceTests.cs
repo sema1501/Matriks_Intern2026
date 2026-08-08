@@ -5,7 +5,6 @@ using CryptoTracker.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace CryptoTracker.API.Tests;
@@ -15,8 +14,8 @@ public class BotMonitorServiceTests
     [Fact]
     public async Task MultipleBotsWithSameSymbol_RequestKlinesOnlyOnce()
     {
-        // Arrange
-        await using var serviceProvider = CreateServiceProvider();
+        var portfolioMock = new Mock<IPortfolioService>();
+        await using var serviceProvider = CreateServiceProvider(portfolioMock.Object);
 
         await using (var scope = serviceProvider.CreateAsyncScope())
         {
@@ -56,10 +55,8 @@ public class BotMonitorServiceTests
         var monitorService =
             CreateMonitorService(serviceProvider, klineServiceMock.Object);
 
-        // Act
         await EvaluateBotsAsync(monitorService);
 
-        // Assert
         klineServiceMock.Verify(
             service => service.GetClosingPricesAsync(
                 "BTCUSDT",
@@ -70,19 +67,17 @@ public class BotMonitorServiceTests
     }
 
     [Fact]
-    public async Task BuyThresholdReached_CreatesPendingBuySignal()
+    public async Task BuyThresholdReached_ExecutesBuyOrderDirectly()
     {
-        // Arrange
-        await using var serviceProvider = CreateServiceProvider();
-
-        int botId;
+        var portfolioMock = new Mock<IPortfolioService>();
+        await using var serviceProvider = CreateServiceProvider(portfolioMock.Object);
 
         await using (var scope = serviceProvider.CreateAsyncScope())
         {
             var context =
                 scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var bot = new TradingBot
+            context.TradingBots.Add(new TradingBot
             {
                 UserId = 201,
                 Symbol = "ETHUSDT",
@@ -90,12 +85,9 @@ public class BotMonitorServiceTests
                 BuyRsiThreshold = 30m,
                 SellRsiThreshold = 70m,
                 TradeQuantity = 0.10m
-            };
+            });
 
-            context.TradingBots.Add(bot);
             await context.SaveChangesAsync();
-
-            botId = bot.Id;
         }
 
         // Sürekli düşen fiyatlar RSI değerini alış eşiğine indirir.
@@ -105,63 +97,103 @@ public class BotMonitorServiceTests
             .Select(price => (decimal)price)
             .ToList();
 
+        var expectedPrice = closingPrices[closingPrices.Count - 1];
+
         var klineServiceMock = CreateKlineServiceMock(closingPrices);
 
         var monitorService =
             CreateMonitorService(serviceProvider, klineServiceMock.Object);
 
-        // Act
         await EvaluateBotsAsync(monitorService);
 
-        // Assert
-        await using var assertionScope =
-            serviceProvider.CreateAsyncScope();
+        // Onay beklemeden doğrudan alım emri gönderilmeli
+        portfolioMock.Verify(
+            service => service.BuyAsync(
+                201,
+                "ETHUSDT",
+                0.10m,
+                expectedPrice,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
 
-        var assertionContext =
-            assertionScope.ServiceProvider
-                .GetRequiredService<AppDbContext>();
-
-        var signal = await assertionContext.BotSignals.SingleAsync();
-
-        Assert.Equal(botId, signal.BotId);
-        Assert.Equal(BotSignalType.Buy, signal.SignalType);
-        Assert.Equal(BotSignalStatus.Pending, signal.Status);
-        Assert.Equal(closingPrices[^1], signal.PriceAtSignal);
-        Assert.True(signal.RsiValueAtSignal <= 30m);
+        portfolioMock.Verify(
+            service => service.SellAsync(
+                It.IsAny<int>(),
+                It.IsAny<string>(),
+                It.IsAny<decimal>(),
+                It.IsAny<decimal>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
-    public async Task PendingSignalAlreadyExists_DoesNotCreateDuplicateSignal()
+    public async Task SellThresholdReached_ExecutesSellOrderDirectly()
     {
-        // Arrange
-        await using var serviceProvider = CreateServiceProvider();
+        var portfolioMock = new Mock<IPortfolioService>();
+        await using var serviceProvider = CreateServiceProvider(portfolioMock.Object);
 
         await using (var scope = serviceProvider.CreateAsyncScope())
         {
             var context =
                 scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var bot = new TradingBot
+            context.TradingBots.Add(new TradingBot
             {
-                UserId = 301,
+                UserId = 202,
                 Symbol = "BNBUSDT",
                 IsActive = true,
                 BuyRsiThreshold = 30m,
                 SellRsiThreshold = 70m,
                 TradeQuantity = 0.25m
-            };
+            });
 
-            context.TradingBots.Add(bot);
             await context.SaveChangesAsync();
+        }
 
-            context.BotSignals.Add(new BotSignal
+        // Sürekli yükselen fiyatlar RSI değerini satış eşiğine çıkarır.
+        var closingPrices = Enumerable
+            .Range(1, 100)
+            .Select(price => (decimal)price)
+            .ToList();
+
+        var expectedPrice = closingPrices[closingPrices.Count - 1];
+
+        var klineServiceMock = CreateKlineServiceMock(closingPrices);
+
+        var monitorService =
+            CreateMonitorService(serviceProvider, klineServiceMock.Object);
+
+        await EvaluateBotsAsync(monitorService);
+
+        portfolioMock.Verify(
+            service => service.SellAsync(
+                202,
+                "BNBUSDT",
+                0.25m,
+                expectedPrice,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task SignalTriggered_DoesNotCreatePendingSignal()
+    {
+        var portfolioMock = new Mock<IPortfolioService>();
+        await using var serviceProvider = CreateServiceProvider(portfolioMock.Object);
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var context =
+                scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            context.TradingBots.Add(new TradingBot
             {
-                BotId = bot.Id,
-                SignalType = BotSignalType.Buy,
-                RsiValueAtSignal = 25m,
-                PriceAtSignal = 500m,
-                CreatedAt = DateTime.UtcNow,
-                Status = BotSignalStatus.Pending
+                UserId = 301,
+                Symbol = "SOLUSDT",
+                IsActive = true,
+                BuyRsiThreshold = 30m,
+                SellRsiThreshold = 70m,
+                TradeQuantity = 1m
             });
 
             await context.SaveChangesAsync();
@@ -178,10 +210,9 @@ public class BotMonitorServiceTests
         var monitorService =
             CreateMonitorService(serviceProvider, klineServiceMock.Object);
 
-        // Act
         await EvaluateBotsAsync(monitorService);
 
-        // Assert
+        // Onay akışı kaldırıldığı için Pending kayıt oluşmamalı
         await using var assertionScope =
             serviceProvider.CreateAsyncScope();
 
@@ -189,18 +220,82 @@ public class BotMonitorServiceTests
             assertionScope.ServiceProvider
                 .GetRequiredService<AppDbContext>();
 
-        var signals = await assertionContext.BotSignals.ToListAsync();
+        Assert.Empty(await assertionContext.BotSignals.ToListAsync());
+    }
 
-        Assert.Single(signals);
-        Assert.Equal(BotSignalType.Buy, signals[0].SignalType);
-        Assert.Equal(BotSignalStatus.Pending, signals[0].Status);
+    [Fact]
+    public async Task OrderFails_DoesNotStopOtherBots()
+    {
+        var portfolioMock = new Mock<IPortfolioService>();
+
+        portfolioMock
+            .Setup(service => service.BuyAsync(
+                401,
+                It.IsAny<string>(),
+                It.IsAny<decimal>(),
+                It.IsAny<decimal>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Binance emri başarısız."));
+
+        await using var serviceProvider = CreateServiceProvider(portfolioMock.Object);
+
+        await using (var scope = serviceProvider.CreateAsyncScope())
+        {
+            var context =
+                scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            context.TradingBots.AddRange(
+                new TradingBot
+                {
+                    UserId = 401,
+                    Symbol = "ADAUSDT",
+                    IsActive = true,
+                    BuyRsiThreshold = 30m,
+                    SellRsiThreshold = 70m,
+                    TradeQuantity = 5m
+                },
+                new TradingBot
+                {
+                    UserId = 402,
+                    Symbol = "ADAUSDT",
+                    IsActive = true,
+                    BuyRsiThreshold = 30m,
+                    SellRsiThreshold = 70m,
+                    TradeQuantity = 7m
+                });
+
+            await context.SaveChangesAsync();
+        }
+
+        var closingPrices = Enumerable
+            .Range(1, 100)
+            .Reverse()
+            .Select(price => (decimal)price)
+            .ToList();
+
+        var klineServiceMock = CreateKlineServiceMock(closingPrices);
+
+        var monitorService =
+            CreateMonitorService(serviceProvider, klineServiceMock.Object);
+
+        await EvaluateBotsAsync(monitorService);
+
+        // İlk bot hata verse de ikinci bot işlenmeli
+        portfolioMock.Verify(
+            service => service.BuyAsync(
+                402,
+                "ADAUSDT",
+                7m,
+                It.IsAny<decimal>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
     public async Task InactiveBot_IsNotEvaluated()
     {
-        // Arrange
-        await using var serviceProvider = CreateServiceProvider();
+        var portfolioMock = new Mock<IPortfolioService>();
+        await using var serviceProvider = CreateServiceProvider(portfolioMock.Object);
 
         await using (var scope = serviceProvider.CreateAsyncScope())
         {
@@ -209,8 +304,8 @@ public class BotMonitorServiceTests
 
             context.TradingBots.Add(new TradingBot
             {
-                UserId = 401,
-                Symbol = "SOLUSDT",
+                UserId = 501,
+                Symbol = "XRPUSDT",
                 IsActive = false,
                 BuyRsiThreshold = 30m,
                 SellRsiThreshold = 70m,
@@ -230,10 +325,8 @@ public class BotMonitorServiceTests
         var monitorService =
             CreateMonitorService(serviceProvider, klineServiceMock.Object);
 
-        // Act
         await EvaluateBotsAsync(monitorService);
 
-        // Assert
         klineServiceMock.Verify(
             service => service.GetClosingPricesAsync(
                 It.IsAny<string>(),
@@ -242,17 +335,18 @@ public class BotMonitorServiceTests
                 It.IsAny<CancellationToken>()),
             Times.Never);
 
-        await using var assertionScope =
-            serviceProvider.CreateAsyncScope();
-
-        var assertionContext =
-            assertionScope.ServiceProvider
-                .GetRequiredService<AppDbContext>();
-
-        Assert.Empty(await assertionContext.BotSignals.ToListAsync());
+        portfolioMock.Verify(
+            service => service.BuyAsync(
+                It.IsAny<int>(),
+                It.IsAny<string>(),
+                It.IsAny<decimal>(),
+                It.IsAny<decimal>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
-    private static ServiceProvider CreateServiceProvider()
+    private static ServiceProvider CreateServiceProvider(
+        IPortfolioService portfolioService)
     {
         var services = new ServiceCollection();
 
@@ -263,6 +357,8 @@ public class BotMonitorServiceTests
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseInMemoryDatabase(databaseName));
+
+        services.AddSingleton(portfolioService);
 
         return services.BuildServiceProvider();
     }
@@ -290,15 +386,11 @@ public class BotMonitorServiceTests
             serviceProvider.GetRequiredService<IServiceScopeFactory>();
 
         var logger =
-            serviceProvider.GetRequiredService<
-                ILogger<BotMonitorService>>();
-
-        var botOptions = Options.Create(new TradingBotOptions { SignalExpirationMinutes = 15 });
+            serviceProvider.GetRequiredService<ILogger<BotMonitorService>>();
 
         return new BotMonitorService(
             scopeFactory,
             klineService,
-            botOptions,
             logger);
     }
 

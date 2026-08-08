@@ -51,7 +51,7 @@ builder.Services.AddHttpClient<IBinanceKlineService, BinanceKlineService>(client
     client.BaseAddress = new Uri("https://api.binance.com/");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
-builder.Services.AddHttpClient<BinanceTestnetClient>(client =>
+builder.Services.AddHttpClient<IBinanceTestnetClient, BinanceTestnetClient>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(15);
 });

@@ -48,7 +48,7 @@ public class BotController(IBotService botService) : ControllerBase
             return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
 
         await botService.DeleteBotAsync(userId, id, cancellationToken);
-        return NoContent(); // Veya duruma göre Ok(new { message = "Bot başarıyla silindi." }) dönebilirsiniz.
+        return NoContent();
     }
 
     [HttpGet("{id:int}/signals")]
@@ -59,26 +59,6 @@ public class BotController(IBotService botService) : ControllerBase
 
         var signals = await botService.GetSignalsAsync(userId, id, cancellationToken);
         return Ok(signals);
-    }
-
-    [HttpPost("signals/{signalId:int}/approve")]
-    public async Task<IActionResult> Approve(int signalId, CancellationToken cancellationToken)
-    {
-        if (!TryGetUserId(out var userId))
-            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
-
-        var result = await botService.ApproveSignalAsync(userId, signalId, cancellationToken);
-        return Ok(result);
-    }
-
-    [HttpPost("signals/{signalId:int}/reject")]
-    public async Task<IActionResult> Reject(int signalId, CancellationToken cancellationToken)
-    {
-        if (!TryGetUserId(out var userId))
-            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
-
-        var result = await botService.RejectSignalAsync(userId, signalId, cancellationToken);
-        return Ok(result);
     }
 
     [HttpGet("performance")]
