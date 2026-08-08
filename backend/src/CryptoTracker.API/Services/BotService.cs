@@ -302,11 +302,12 @@ public class BotService(
 
         var total = await userSignalsQuery.CountAsync(cancellationToken);
 
-        if (total == 0) return new BotPerformanceDto(0, 0, 0, 0, 0, 0m, new List<BotActivePosition>());
+        if (total == 0) return new BotPerformanceDto(0, 0, 0, 0, 0, 0, 0m, new List<BotActivePosition>());
 
         var approved = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Approved, cancellationToken);
         var rejected = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Rejected, cancellationToken);
         var expired = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Expired, cancellationToken);
+        var failed = await userSignalsQuery.CountAsync(x => x.Status == BotSignalStatus.Failed, cancellationToken);
 
         double approvalRate = Math.Round(((double)approved / total) * 100, 2);
 
@@ -345,7 +346,7 @@ public class BotService(
         }
 
         
-        return new BotPerformanceDto(total, approved, rejected, expired, approvalRate, botProfitLoss, activePositions);
+        return new BotPerformanceDto(total, approved, rejected, expired, failed, approvalRate, botProfitLoss, activePositions);
     }
 
     private static BotResponse MapToResponse(TradingBot bot) =>

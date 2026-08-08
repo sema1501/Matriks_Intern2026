@@ -11,7 +11,8 @@ public enum BotSignalStatus
     Pending,
     Approved,
     Rejected,
-    Expired
+    Expired,
+    Failed
 }
 
 public class BotSignal
