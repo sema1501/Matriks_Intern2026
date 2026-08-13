@@ -85,7 +85,19 @@
 .bot-signal-type--sell { background: rgba(239, 68, 68, .15); color: #f87171; }
 .bot-signal-meta { margin-top: 4px; color: var(--text-secondary, #94a3b8); font-size: 13px; }
 .bot-signal-date { margin-top: 3px; color: var(--text-secondary, #64748b); font-size: 12px; }
-.bot-signal-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.bot-signal-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+
+.bot-signal-status {
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.bot-signal-status--approved { background: rgba(34, 197, 94, .15); color: #4ade80; }
+.bot-signal-status--failed { background: rgba(239, 68, 68, .15); color: #f87171; }
+.bot-signal-status--pending { background: rgba(245, 158, 11, .14); color: #f59e0b; }
+.bot-signal-status--rejected { background: rgba(148, 163, 184, .15); color: #94a3b8; }
+.bot-signal-status--expired { background: rgba(100, 116, 139, .15); color: #94a3b8; }
 
 @media (max-width: 720px) {
   .bot-signal-card { padding: 18px; }

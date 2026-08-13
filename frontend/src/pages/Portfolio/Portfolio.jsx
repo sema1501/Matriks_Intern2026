@@ -29,7 +29,8 @@ const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: 
   const approvedRate = total > 0 ? ((performance.approvedSignals / total) * 100).toFixed(2) : "0.00";
   const rejectedRate = total > 0 ? ((performance.rejectedSignals / total) * 100).toFixed(2) : "0.00";
   const expiredRate = total > 0 ? ((performance.expiredSignals / total) * 100).toFixed(2) : "0.00";
-  
+  const failedCount = performance.failedSignals ?? 0;
+  const failedRate = total > 0 ? ((failedCount / total) * 100).toFixed(2) : "0.00"; 
   
   let unrealizedPnL = 0;
   
@@ -58,7 +59,7 @@ const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: 
         <div><strong>Toplam Sinyal:</strong> {total}</div>
         
         <div className="text-green">
-          <strong>Onaylanma Oranı:</strong> %{approvedRate} <span style={{fontSize: '0.8rem'}}>({performance.approvedSignals})</span>
+          <strong>Başarı Oranı:</strong> %{approvedRate} <span style={{fontSize: '0.8rem'}}>({performance.approvedSignals})</span>
         </div>
         
         <div className="text-red">
@@ -67,6 +68,10 @@ const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: 
         
         <div style={{ color: '#9ca3af' }}>
           <strong>Süresi Geçme Oranı:</strong> %{expiredRate} <span style={{fontSize: '0.8rem'}}>({performance.expiredSignals})</span>
+        </div>
+
+        <div className="text-red">
+          <strong>Başarısız:</strong> %{failedRate} <span style={{fontSize: '0.8rem'}}>({failedCount})</span>
         </div>
         
         <div className={realTimeBotPnL > 0 ? 'text-green' : realTimeBotPnL < 0 ? 'text-red' : ''} style={{ fontWeight: 'bold', borderLeft: '2px solid #4b5563', paddingLeft: '10px' }}>

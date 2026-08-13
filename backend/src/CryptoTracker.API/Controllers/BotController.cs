@@ -9,7 +9,11 @@ namespace CryptoTracker.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class BotController(IBotService botService) : ControllerBase
+public class BotController(
+    IBotService botService,
+    IBacktestService backtestService,
+    IBotDebugExecuteService debugExecuteService,
+    IDebugEndpointAccess debugEndpointAccess) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetMyBots(CancellationToken cancellationToken)
@@ -61,6 +65,10 @@ public class BotController(IBotService botService) : ControllerBase
         return Ok(signals);
     }
 
+    /// <summary>
+    /// Legacy manual approve for historical Pending signals only.
+    /// New bot signals are auto-executed by BotMonitorService and never require this.
+    /// </summary>
     [HttpPost("signals/{signalId:int}/approve")]
     public async Task<IActionResult> Approve(int signalId, CancellationToken cancellationToken)
     {
@@ -71,6 +79,9 @@ public class BotController(IBotService botService) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Legacy manual reject for historical Pending signals only.
+    /// </summary>
     [HttpPost("signals/{signalId:int}/reject")]
     public async Task<IActionResult> Reject(int signalId, CancellationToken cancellationToken)
     {
@@ -89,6 +100,66 @@ public class BotController(IBotService botService) : ControllerBase
 
         var performance = await botService.GetBotPerformanceAsync(userId, cancellationToken);
         return Ok(performance);
+    }
+
+    /// <summary>
+    /// Pure historical RSI backtest. Never places orders or mutates portfolio/bot state.
+    /// </summary>
+    [HttpPost("{id:int}/backtest")]
+    public async Task<IActionResult> Backtest(
+        int id,
+        [FromBody] BacktestRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var result = await backtestService.RunAsync(userId, id, request, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// DEVELOPMENT / DEBUG ONLY.
+    /// Forces a virtual portfolio BUY/SELL for smoke-testing automatic execution.
+    /// Unavailable outside Development (returns 404). Does not place real/Testnet orders.
+    /// </summary>
+    [HttpPost("{id:int}/debug/execute")]
+    public async Task<IActionResult> DebugExecute(
+        int id,
+        [FromBody] DebugBotExecuteRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!debugEndpointAccess.AllowDebugExecute)
+            return NotFound();
+
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var result = await debugExecuteService.ExecuteAsync(
+            userId, id, request, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// DEVELOPMENT / DEBUG ONLY.
+    /// Proves RsiSignalEvaluator.DetermineZoneEntrySignal + BotAutoTradeExecutor together.
+    /// Unavailable outside Development (returns 404). Virtual portfolio only.
+    /// </summary>
+    [HttpPost("{id:int}/debug/zone-entry")]
+    public async Task<IActionResult> DebugZoneEntry(
+        int id,
+        [FromBody] DebugZoneEntryRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!debugEndpointAccess.AllowDebugExecute)
+            return NotFound();
+
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var result = await debugExecuteService.EvaluateZoneEntryAsync(
+            userId, id, request, cancellationToken);
+        return Ok(result);
     }
 
     private bool TryGetUserId(out int userId)

@@ -12,4 +12,7 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CryptoTracker.API.Tests" />
+  </ItemGroup>
 </Project>
