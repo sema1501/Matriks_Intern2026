@@ -21,12 +21,32 @@ import ResetPassword from './pages/ResetPassword/ResetPassword';
 import Portfolio from './pages/Portfolio/Portfolio';
 import Leaderboard from './pages/Leaderboard/Leaderboard';
 import Bot from './pages/Bot/Bot';
+import AdminBots from './pages/AdminBots/AdminBots';
 
-// PrivateRoute: Giriş yapılmamışsa /signin'e yönlendirir
+// Giriş yapılmamışsa /signin sayfasına yönlendirir
 function PrivateRoute({ children }) {
     const { user, loading } = useAuth();
+
     if (loading) return null;
+
     return user ? children : <Navigate to="/signin" replace />;
+}
+
+// Yalnızca Admin ve SuperAdmin rollerine izin verir
+function AdminRoute({ children }) {
+    const { user, loading } = useAuth();
+
+    if (loading) return null;
+
+    if (!user) {
+        return <Navigate to="/signin" replace />;
+    }
+
+    const roles = user.roles || [];
+    const isAdmin =
+        roles.includes('Admin') || roles.includes('SuperAdmin');
+
+    return isAdmin ? children : <Navigate to="/" replace />;
 }
 
 function App() {
@@ -40,22 +60,44 @@ function App() {
                                 <div className="app-shell">
                                     <Navbar />
                                     <AlertMonitor />
+
                                     <main className="app-main">
                                         <Routes>
                                             {/* Herkese Açık Rotalar */}
                                             <Route path="/" element={<Home />} />
-                                            <Route path="/leaderboard" element={<Leaderboard />} />
+                                            <Route
+                                                path="/leaderboard"
+                                                element={<Leaderboard />}
+                                            />
                                             <Route path="/signin" element={<SignIn />} />
-                                            <Route path="/forgot-password" element={<ForgotPassword />} />
-                                            <Route path="/reset-password/:token" element={<ResetPassword />} />
+                                            <Route
+                                                path="/forgot-password"
+                                                element={<ForgotPassword />}
+                                            />
+                                            <Route
+                                                path="/reset-password/:token"
+                                                element={<ResetPassword />}
+                                            />
                                             <Route path="/signup" element={<SignUp />} />
                                             <Route path="/profile" element={<Profile />} />
-                                            <Route path="/dashboard" element={<Dashboard />} />
-                                            <Route path="/converter" element={<Converter />} />
-                                            <Route path="/coin/:symbol" element={<CoinDetail />} />
-                                            <Route path="/feedback" element={<Feedback />} />
+                                            <Route
+                                                path="/dashboard"
+                                                element={<Dashboard />}
+                                            />
+                                            <Route
+                                                path="/converter"
+                                                element={<Converter />}
+                                            />
+                                            <Route
+                                                path="/coin/:symbol"
+                                                element={<CoinDetail />}
+                                            />
+                                            <Route
+                                                path="/feedback"
+                                                element={<Feedback />}
+                                            />
 
-                                            {/* Oturum Açma Gerektiren (Korumalı) Rotalar */}
+                                            {/* Oturum Açma Gerektiren Rotalar */}
                                             <Route
                                                 path="/portfolio"
                                                 element={
@@ -80,6 +122,16 @@ function App() {
                                                     <PrivateRoute>
                                                         <Bot />
                                                     </PrivateRoute>
+                                                }
+                                            />
+
+                                            {/* Yalnızca Admin/SuperAdmin */}
+                                            <Route
+                                                path="/admin/bots"
+                                                element={
+                                                    <AdminRoute>
+                                                        <AdminBots />
+                                                    </AdminRoute>
                                                 }
                                             />
                                         </Routes>

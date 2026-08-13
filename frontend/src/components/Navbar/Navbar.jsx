@@ -8,6 +8,10 @@ import './Navbar.css';
 export default function Navbar() {
     const { user, logoutUser } = useAuth();
 
+    const roles = user?.roles || [];
+    const isAdmin =
+        roles.includes('Admin') || roles.includes('SuperAdmin');
+
     return (
         <nav className="navbar">
             <div className="navbar__links">
@@ -16,14 +20,18 @@ export default function Navbar() {
                 <Link to="/leaderboard">Liderlik Tablosu</Link>
                 <Link to="/converter">Dönüştürücü</Link>
                 <Link to="/feedback">Geri Bildirim</Link>
-                <Link to="/bot">🤖 Botlarım</Link> {/* Artık giriş yapmayanlara da görünür */}
+                <Link to="/bot">🤖 Botlarım</Link>
 
                 {user ? (
                     <>
-                        <Link to="/watchlist"> 🌟 Favorilerim 🌟</Link>
+                        <Link to="/watchlist">🌟 Favorilerim 🌟</Link>
                         <Link to="/portfolio">Portföyüm</Link>
                         <Link to="/profile">{user.username}</Link>
                         <Link to="/dashboard">Dashboard</Link>
+
+                        {isAdmin && (
+                            <Link to="/admin/bots">Admin Paneli</Link>
+                        )}
 
                         <button type="button" onClick={logoutUser}>
                             Çıkış

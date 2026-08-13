@@ -1,0 +1,132 @@
+.admin-bots-page {
+    width: min(1200px, calc(100% - 32px));
+    margin: 32px auto;
+    color: #1f2937;
+}
+
+.admin-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.admin-page-header h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    color: #f8fafc;
+}
+
+.admin-page-header p {
+    margin: 0;
+    color: #cbd5e1;
+}
+
+.admin-filters {
+    display: flex;
+    gap: 12px;
+}
+
+.admin-filters input,
+.admin-filters select {
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1f2937;
+}
+
+.admin-filters input {
+    width: 290px;
+}
+
+.admin-section {
+    margin-bottom: 28px;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #1f2937;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.admin-section h2 {
+    margin: 0 0 16px;
+    font-size: 20px;
+}
+
+.admin-table-wrapper {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 13px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.admin-table th {
+    background: rgba(148, 163, 184, 0.12);
+    font-size: 14px;
+}
+
+.admin-table tbody tr:hover {
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.admin-status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.admin-status.active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.admin-status.inactive {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.admin-empty {
+    padding: 24px !important;
+    color: #6b7280;
+    text-align: center !important;
+}
+
+.admin-error {
+    margin-top: 40px;
+    padding: 16px;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+@media (max-width: 760px) {
+    .admin-page-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin-filters {
+        flex-direction: column;
+    }
+
+    .admin-filters input {
+        width: auto;
+    }
+}
