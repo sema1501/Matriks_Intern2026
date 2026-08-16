@@ -46,14 +46,6 @@ export const getAlertSignals = (id) => api.get(`/api/Alert/${id}/signals`);
 export const getFeedbacks = () => api.get('/api/Feedback');
 export const createFeedback = (data) => api.post('/api/Feedback', data);
 
-export const getAuditLog = (params = {}) => {
-    const query = {};
-    if (params.from) query.from = params.from;
-    if (params.to) query.to = params.to;
-    if (params.ascending === true || params.ascending === false) query.ascending = params.ascending;
-    return api.get('/api/Admin/audit-log', { params: query });
-};
-
 // Portfolio & Leaderboard
 export const getBalance = () => api.get('/api/Portfolio/balance');
 export const getHoldings = () => api.get('/api/Portfolio/holdings');
@@ -101,8 +93,20 @@ export const rejectBotSignal = async (signalId) => {
 export const deleteBot = async (botId) => {
     return await api.delete(`/api/Bot/${botId}`);
 };
+// Admin
+export const getAdminBots = () => api.get('/api/Admin/bots');
+export const getAdminPortfolios = () => api.get('/api/Admin/portfolios');
+export const killAdminBot = (botId) => api.post(`/api/Admin/bots/${botId}/kill`);
+export const getOvertradingBots = () => api.get('/api/Admin/overtrading');
+export const getAuditLog = (params = {}) => {
+    const query = {};
+    if (params.from) query.from = params.from;
+    if (params.to) query.to = params.to;
+    if (params.ascending === true || params.ascending === false) query.ascending = params.ascending;
+    return api.get('/api/Admin/audit-log', { params: query });
+};
 
-// Backtest: geçmiş veri üzerinde saf simülasyon, gerçek/Testnet emri göndermez.
+// Backtest: geçmiş veri üzerinde saf simülasyon, gerçek/Testnet emri göndermez
 export const runBotBacktest = async (botId, dateRange) => {
     return await api.post(`/api/Bot/${botId}/backtest`, dateRange);
 };

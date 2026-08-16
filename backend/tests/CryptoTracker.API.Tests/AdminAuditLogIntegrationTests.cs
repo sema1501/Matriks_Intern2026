@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using CryptoTracker.API.Data;
 using CryptoTracker.API.DTOs;
 using CryptoTracker.API.Models;
@@ -60,14 +61,12 @@ public class AdminAuditLogIntegrationTests : IClassFixture<AdminApiFactory>
     }
 
     [Fact]
-    public async Task ForceStop_AsAdmin_CreatesBotForceStoppedAudit()
+    public async Task Kill_AsAdmin_StopsBot_AndCreatesBotForceStoppedAudit()
     {
         var botId = await SeedBotAsync(ownerUserId: 1, symbol: "BTCUSDT");
         var client = CreateClient(userId: 10, role: "Admin", username: "admin");
 
-        var response = await client.PatchAsJsonAsync(
-            $"/api/Admin/Bot/{botId}/force-stop",
-            new AdminBotActionRequest("Testnet spam"));
+        var response = await client.PostAsync($"/api/Admin/bots/{botId}/kill", content: null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -78,7 +77,28 @@ public class AdminAuditLogIntegrationTests : IClassFixture<AdminApiFactory>
 
         var log = await db.AuditLogs.SingleAsync(a => a.TargetId == botId && a.Action == AuditLogActions.BotForceStopped);
         Assert.Equal(10, log.ActorUserId);
-        Assert.Contains("Testnet spam", log.Details);
+        Assert.NotEqual(1, log.ActorUserId);
+        Assert.Equal(botId, log.TargetId);
+        Assert.Contains(bot.Symbol, log.Details);
+        Assert.DoesNotContain("password", log.Details, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Bearer", log.Details, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Kill_AlreadyStopped_PreservesWeek8Response_AndDoesNotCreateAudit()
+    {
+        var botId = await SeedBotAsync(ownerUserId: 1, symbol: "ADAUSDT", isActive: false);
+        var auditCountBefore = await CountAuditsAsync();
+        var client = CreateClient(userId: 10, role: "Admin", username: "admin");
+
+        var response = await client.PostAsync($"/api/Admin/bots/{botId}/kill", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(botId, payload.GetProperty("botId").GetInt32());
+        Assert.False(payload.GetProperty("isActive").GetBoolean());
+        Assert.Contains("zaten durdurulmuş", payload.GetProperty("message").GetString());
+        Assert.Equal(auditCountBefore, await CountAuditsAsync());
     }
 
     [Fact]
@@ -100,17 +120,33 @@ public class AdminAuditLogIntegrationTests : IClassFixture<AdminApiFactory>
 
         var log = await db.AuditLogs.SingleAsync(a => a.TargetId == botId && a.Action == AuditLogActions.BotFlagged);
         Assert.Equal(11, log.ActorUserId);
+        Assert.Equal(botId, log.TargetId);
+        Assert.Contains(bot.Symbol, log.Details);
         Assert.Contains("Şüpheli aktivite", log.Details);
+        Assert.DoesNotContain("password", log.Details, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Bearer", log.Details, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task ForceStop_MissingBot_DoesNotCreateAudit()
+    public async Task Kill_MissingBot_DoesNotCreateAudit()
+    {
+        var auditCountBefore = await CountAuditsAsync();
+        var client = CreateClient(userId: 10, role: "Admin", username: "admin");
+
+        var response = await client.PostAsync("/api/Admin/bots/99999/kill", content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(auditCountBefore, await CountAuditsAsync());
+    }
+
+    [Fact]
+    public async Task Flag_MissingBot_DoesNotCreateAudit()
     {
         var auditCountBefore = await CountAuditsAsync();
         var client = CreateClient(userId: 10, role: "Admin", username: "admin");
 
         var response = await client.PatchAsJsonAsync(
-            "/api/Admin/Bot/99999/force-stop",
+            "/api/Admin/Bot/99999/flag",
             new AdminBotActionRequest("ghost"));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -143,14 +179,27 @@ public class AdminAuditLogIntegrationTests : IClassFixture<AdminApiFactory>
     }
 
     [Fact]
-    public async Task ForceStop_NormalUser_Returns403_AndDoesNotAudit()
+    public async Task Kill_NormalUser_Returns403_AndDoesNotAudit()
     {
         var botId = await SeedBotAsync(ownerUserId: 1, symbol: "XRPUSDT");
         var auditCountBefore = await CountAuditsAsync();
         var client = CreateClient(userId: 2, role: "User");
 
+        var response = await client.PostAsync($"/api/Admin/bots/{botId}/kill", content: null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(auditCountBefore, await CountAuditsAsync());
+    }
+
+    [Fact]
+    public async Task Flag_NormalUser_Returns403_AndDoesNotAudit()
+    {
+        var botId = await SeedBotAsync(ownerUserId: 1, symbol: "SOLUSDT");
+        var auditCountBefore = await CountAuditsAsync();
+        var client = CreateClient(userId: 2, role: "User");
+
         var response = await client.PatchAsJsonAsync(
-            $"/api/Admin/Bot/{botId}/force-stop",
+            $"/api/Admin/Bot/{botId}/flag",
             new AdminBotActionRequest("nope"));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -167,7 +216,7 @@ public class AdminAuditLogIntegrationTests : IClassFixture<AdminApiFactory>
         return client;
     }
 
-    private async Task<int> SeedBotAsync(int ownerUserId, string symbol)
+    private async Task<int> SeedBotAsync(int ownerUserId, string symbol, bool isActive = true)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -178,7 +227,7 @@ public class AdminAuditLogIntegrationTests : IClassFixture<AdminApiFactory>
             UserId = ownerUserId,
             Symbol = symbol + Guid.NewGuid().ToString("N")[..6],
             TradeQuantity = 1m,
-            IsActive = true
+            IsActive = isActive
         };
         db.TradingBots.Add(bot);
         await db.SaveChangesAsync();
