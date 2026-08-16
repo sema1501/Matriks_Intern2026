@@ -96,6 +96,8 @@ export const deleteBot = async (botId) => {
 // Admin
 export const getAdminBots = () => api.get('/api/Admin/bots');
 export const getAdminPortfolios = () => api.get('/api/Admin/portfolios');
+export const killAdminBot = (botId) => api.post(`/api/Admin/bots/${botId}/kill`);
+export const getOvertradingBots = () => api.get('/api/Admin/overtrading');
 
 // Backtest: geçmiş veri üzerinde saf simülasyon, gerçek/Testnet emri göndermez
 export const runBotBacktest = async (botId, dateRange) => {
