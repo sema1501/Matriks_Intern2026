@@ -70,6 +70,7 @@ builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
 builder.Services.AddScoped<IBotService, BotService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IBacktestService, BacktestService>();
 builder.Services.AddScoped<IBotAutoTradeExecutor, BotAutoTradeExecutor>();
 builder.Services.AddScoped<IBotDebugExecuteService, BotDebugExecuteService>();
