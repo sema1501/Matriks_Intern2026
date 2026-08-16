@@ -9,6 +9,7 @@ public class TradingBot
 
     public string Symbol { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+    public bool IsFlagged { get; set; }
 
     public decimal BuyRsiThreshold { get; set; } = 30m;
     public decimal SellRsiThreshold { get; set; } = 70m;
