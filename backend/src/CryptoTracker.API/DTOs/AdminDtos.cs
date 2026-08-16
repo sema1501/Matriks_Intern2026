@@ -10,7 +10,19 @@ public record AdminBotDto(
     decimal BuyRsiThreshold,
     decimal SellRsiThreshold,
     decimal TradeQuantity,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int RecentTradeCount,
+    bool IsOvertrading
+);
+
+public record OvertradingBotDto(
+    int BotId,
+    int UserId,
+    string Username,
+    string Symbol,
+    int RecentTradeCount,
+    int WindowMinutes,
+    int Threshold
 );
 
 public record AdminPortfolioDto(
