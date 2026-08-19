@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CryptoTracker.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260816230554_AddEmaCrossoverStrategy")]
+    [Migration("20260819120612_AddEmaCrossoverStrategy")]
     partial class AddEmaCrossoverStrategy
     {
         /// <inheritdoc />
@@ -50,6 +50,43 @@ namespace CryptoTracker.API.Migrations
                     b.HasIndex("TriggeredAt");
 
                     b.ToTable("AlertSignals");
+                });
+
+            modelBuilder.Entity("CryptoTracker.API.Models.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("ActorUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("TargetId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Action");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("CryptoTracker.API.Models.BotSignal", b =>
@@ -271,6 +308,11 @@ namespace CryptoTracker.API.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsFlagged")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("LongEmaPeriod")
                         .HasColumnType("int");
 
@@ -433,6 +475,17 @@ namespace CryptoTracker.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Alert");
+                });
+
+            modelBuilder.Entity("CryptoTracker.API.Models.AuditLog", b =>
+                {
+                    b.HasOne("CryptoTracker.API.Models.User", "ActorUser")
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ActorUser");
                 });
 
             modelBuilder.Entity("CryptoTracker.API.Models.BotSignal", b =>
