@@ -1,6 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getAllUsers, assignRole, removeRole, getRoles, getFeedbacks } from '../../services/apiService';
+import { getAllUsers, assignRole, removeRole, getRoles, getFeedbacks, getAuditLog } from '../../services/apiService';
+
+function parseApiUtcDate(value) {
+  if (!value) return null;
+  const text = String(value);
+  const hasTimezone = /Z|[+-]\d{2}:?\d{2}$/.test(text);
+  return new Date(hasTimezone ? text : `${text}Z`);
+}
+
+function formatAuditDate(value) {
+  const date = parseApiUtcDate(value);
+  if (!date || Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('tr-TR');
+}
+
+function localDateStartUtcIso(dateStr) {
+  if (!dateStr) return undefined;
+  return new Date(`${dateStr}T00:00:00`).toISOString();
+}
+
+function localDateEndUtcIso(dateStr) {
+  if (!dateStr) return undefined;
+  return new Date(`${dateStr}T23:59:59.999`).toISOString();
+}
+
+const AUDIT_ACTION_LABELS = {
+  BotForceStopped: 'Bot zorla durduruldu',
+  BotFlagged: 'Bot işaretlendi'
+};
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -10,6 +38,11 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('summary');
   const [selectedRole, setSelectedRole] = useState('');
   const [feedbacks, setFeedbacks] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState(null);
+  const [auditFrom, setAuditFrom] = useState('');
+  const [auditTo, setAuditTo] = useState('');
 
   const fetchUsers = () => {
     getAllUsers()
@@ -29,6 +62,28 @@ export default function Dashboard() {
       .catch(err => console.error("Geri bildirimler çekilemedi:", err));
   };
 
+  const fetchAuditLogs = () => {
+    if (auditFrom && auditTo && auditFrom > auditTo) {
+      setAuditError('Başlangıç tarihi bitiş tarihinden sonra olamaz.');
+      setAuditLogs([]);
+      return;
+    }
+
+    setAuditLoading(true);
+    setAuditError(null);
+    getAuditLog({
+      from: localDateStartUtcIso(auditFrom),
+      to: localDateEndUtcIso(auditTo)
+    })
+      .then(res => setAuditLogs(res.data || []))
+      .catch(err => {
+        console.error("Denetim günlüğü çekilemedi:", err);
+        setAuditError(err.response?.data?.error || "Denetim günlüğü yüklenemedi.");
+        setAuditLogs([]);
+      })
+      .finally(() => setAuditLoading(false));
+  };
+
   useEffect(() => {
     if (user && (user.roles.includes('Admin') || user.roles.includes('SuperAdmin'))) {
       fetchUsers();
@@ -36,6 +91,12 @@ export default function Dashboard() {
       fetchFeedbacks();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && (user.roles.includes('Admin') || user.roles.includes('SuperAdmin')) && activeTab === 'audit') {
+      fetchAuditLogs();
+    }
+  }, [user, activeTab]);
 
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,6 +152,7 @@ export default function Dashboard() {
           <li style={{ padding: '10px 0', color: '#555', cursor: 'not-allowed', opacity: 0.5 }}>🪙 Kripto Varlıklar</li>
           <li style={getTabStyle('users')} onClick={() => setActiveTab('users')}>👤 Kullanıcı Yönetimi</li>
           <li style={getTabStyle('feedback')} onClick={() => setActiveTab('feedback')}>💬 Geri Bildirimler</li>
+          <li style={getTabStyle('audit')} onClick={() => setActiveTab('audit')}>📋 Denetim Günlüğü</li>
           <li style={{ padding: '10px 0', color: '#555', cursor: 'not-allowed', opacity: 0.5 }}>⚙️ Ayarlar</li>
         </ul>
       </div>
@@ -215,6 +277,100 @@ export default function Dashboard() {
 
             {feedbacks.length === 0 && (
               <p style={{ marginTop: '20px', color: '#666' }}>Henüz geri bildirim bulunmuyor.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'audit' && (
+          <div>
+            <h2 style={{ marginTop: 0 }}>📋 Denetim Günlüğü</h2>
+            <p style={{ color: '#666' }}>Hangi yöneticinin hangi bot üzerinde ne zaman işlem yaptığını görüntüleyin. Kayıtlar varsayılan olarak en yeniden eskiye sıralanır.</p>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ color: '#555' }}>
+                Başlangıç
+                <input
+                  type="date"
+                  value={auditFrom}
+                  onChange={(e) => setAuditFrom(e.target.value)}
+                  style={{ marginLeft: '8px', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                />
+              </label>
+              <label style={{ color: '#555' }}>
+                Bitiş
+                <input
+                  type="date"
+                  value={auditTo}
+                  onChange={(e) => setAuditTo(e.target.value)}
+                  style={{ marginLeft: '8px', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={fetchAuditLogs}
+                style={{ padding: '8px 14px', cursor: 'pointer', border: '1px solid #0066cc', background: '#0066cc', color: '#fff', borderRadius: '4px' }}
+              >
+                Filtrele
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuditFrom('');
+                  setAuditTo('');
+                  setAuditLoading(true);
+                  setAuditError(null);
+                  getAuditLog()
+                    .then(res => setAuditLogs(res.data || []))
+                    .catch(err => {
+                      setAuditError(err.response?.data?.error || "Denetim günlüğü yüklenemedi.");
+                      setAuditLogs([]);
+                    })
+                    .finally(() => setAuditLoading(false));
+                }}
+                style={{ padding: '8px 14px', cursor: 'pointer', border: '1px solid #ccc', background: '#fff', borderRadius: '4px' }}
+              >
+                Temizle
+              </button>
+            </div>
+
+            {auditLoading && (
+              <p style={{ color: '#666' }}>Denetim kayıtları yükleniyor...</p>
+            )}
+
+            {auditError && (
+              <p style={{ color: '#dc3545' }}>{auditError}</p>
+            )}
+
+            {!auditLoading && !auditError && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
+                    <th style={{ padding: '12px', color: '#495057' }}>Yönetici</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>İşlem</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>Hedef</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>Detay</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>Tarih / Saat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map((item) => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '12px' }}>{item.actorUsername || `Kullanıcı #${item.actorUserId}`}</td>
+                      <td style={{ padding: '12px' }}>
+                        {AUDIT_ACTION_LABELS[item.action] || item.action}
+                        <div style={{ fontSize: '12px', color: '#888' }}>{item.action}</div>
+                      </td>
+                      <td style={{ padding: '12px' }}>Bot #{item.targetId}</td>
+                      <td style={{ padding: '12px', color: '#555' }}>{item.details || '-'}</td>
+                      <td style={{ padding: '12px' }}>{formatAuditDate(item.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {!auditLoading && !auditError && auditLogs.length === 0 && (
+              <p style={{ marginTop: '20px', color: '#666' }}>Seçilen aralıkta denetim kaydı bulunmuyor.</p>
             )}
           </div>
         )}

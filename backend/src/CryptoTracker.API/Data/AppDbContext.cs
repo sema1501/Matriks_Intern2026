@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Transaction>   Transactions   => Set<Transaction>();
     public DbSet<TradingBot> TradingBots => Set<TradingBot>();
     public DbSet<BotSignal> BotSignals => Set<BotSignal>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -218,5 +219,33 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<TradingBot>()
            .HasIndex(b => new { b.UserId, b.Symbol })
            .IsUnique();
+
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.IsFlagged)
+            .HasDefaultValue(false);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasOne(a => a.ActorUser)
+            .WithMany()
+            .HasForeignKey(a => a.ActorUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<AuditLog>()
+            .Property(a => a.Action)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        modelBuilder.Entity<AuditLog>()
+            .Property(a => a.Details)
+            .HasMaxLength(2000);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasIndex(a => a.CreatedAt);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasIndex(a => a.ActorUserId);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasIndex(a => a.Action);
     }
 }

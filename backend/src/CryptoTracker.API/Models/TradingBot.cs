@@ -24,6 +24,7 @@ public class TradingBot
 
     public string Symbol { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+    public bool IsFlagged { get; set; }
 
     // ---------- YENİ: strateji seçimi ----------
     public BotStrategy Strategy { get; set; } = BotStrategy.RsiThreshold;

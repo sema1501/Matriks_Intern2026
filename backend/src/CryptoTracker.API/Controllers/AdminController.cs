@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using CryptoTracker.API.Data;
 using CryptoTracker.API.DTOs;
 using CryptoTracker.API.Models;
+using CryptoTracker.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,12 +15,16 @@ namespace CryptoTracker.API.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IAuditLogService _auditLogService;
     private const int OvertradeWindowMinutes = 15;
     private const int OvertradeSignalThreshold = 5;
+    private const int MaxNoteLength = 500;
+    private const int MaxDetailsLength = 2000;
 
-    public AdminController(AppDbContext context)
+    public AdminController(AppDbContext context, IAuditLogService auditLogService)
     {
         _context = context;
+        _auditLogService = auditLogService;
     }
 
     [HttpGet("bots")]
@@ -49,9 +55,12 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("bots/{botId:int}/kill")]
-    public async Task<IActionResult> KillBot(int botId)
+    public async Task<IActionResult> KillBot(int botId, CancellationToken cancellationToken)
     {
-        var bot = await _context.TradingBots.FirstOrDefaultAsync(b => b.Id == botId);
+        if (!TryGetUserId(out var actorUserId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var bot = await _context.TradingBots.FirstOrDefaultAsync(b => b.Id == botId, cancellationToken);
         if (bot is null)
             return NotFound(new { message = "Bot bulunamadı." });
 
@@ -59,7 +68,14 @@ public class AdminController : ControllerBase
             return Ok(new { botId = bot.Id, isActive = false, message = "Bot zaten durdurulmuş." });
 
         bot.IsActive = false;
-        await _context.SaveChangesAsync();
+        _context.AuditLogs.Add(CreateLog(
+            actorUserId,
+            AuditLogActions.BotForceStopped,
+            bot,
+            adminNote: null,
+            "Bot zorla durduruldu."));
+
+        await _context.SaveChangesAsync(cancellationToken);
 
         return Ok(new
         {
@@ -122,5 +138,81 @@ public class AdminController : ControllerBase
             .ToListAsync();
 
         return Ok(portfolios);
+    }
+
+    [HttpPatch("Bot/{id:int}/flag")]
+    public async Task<IActionResult> Flag(
+        int id,
+        [FromBody] AdminBotActionRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetUserId(out var actorUserId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var bot = await _context.TradingBots.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        if (bot is null)
+            return NotFound(new { message = "Bot bulunamadı." });
+
+        bot.IsFlagged = true;
+        _context.AuditLogs.Add(CreateLog(
+            actorUserId,
+            AuditLogActions.BotFlagged,
+            bot,
+            request?.AdminNote,
+            "Bot şüpheli olarak işaretlendi."));
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return Ok(new { message = "Bot şüpheli olarak işaretlendi." });
+    }
+
+    [HttpGet("audit-log")]
+    public async Task<IActionResult> GetAuditLog(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] bool ascending = false,
+        CancellationToken cancellationToken = default)
+    {
+        var logs = await _auditLogService.GetAsync(from, to, ascending, cancellationToken);
+        return Ok(logs);
+    }
+
+    private bool TryGetUserId(out int userId)
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out userId);
+    }
+
+    private static AuditLog CreateLog(
+        int actorUserId,
+        string action,
+        TradingBot bot,
+        string? adminNote,
+        string summary)
+    {
+        var note = SanitizeNote(adminNote);
+        var details = $"{summary} BotId={bot.Id}; Symbol={bot.Symbol}; OwnerUserId={bot.UserId}.";
+        if (note is not null)
+            details += $" Note={note}";
+
+        if (details.Length > MaxDetailsLength)
+            details = details[..MaxDetailsLength];
+
+        return new AuditLog
+        {
+            ActorUserId = actorUserId,
+            Action = action,
+            TargetId = bot.Id,
+            Details = details,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static string? SanitizeNote(string? adminNote)
+    {
+        if (string.IsNullOrWhiteSpace(adminNote))
+            return null;
+
+        var trimmed = adminNote.Trim();
+        return trimmed.Length <= MaxNoteLength ? trimmed : trimmed[..MaxNoteLength];
     }
 }
