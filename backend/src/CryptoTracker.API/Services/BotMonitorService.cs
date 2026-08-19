@@ -6,7 +6,8 @@ using Microsoft.Extensions.Options;
 namespace CryptoTracker.API.Services;
 
 /// <summary>
-/// Evaluates active bots and automatically executes virtual portfolio trades on RSI zone entry.
+/// Evaluates active bots and automatically executes virtual portfolio trades.
+/// Supports two strategies: RSI threshold (zone entry) and EMA crossover.
 /// No manual approve/reject step is required for newly generated signals.
 /// </summary>
 public sealed class BotMonitorService(
@@ -95,11 +96,14 @@ public sealed class BotMonitorService(
 
             try
             {
+                // EMA bots may need more candles than the RSI default.
+                var klineLimit = DetermineKlineLimit(symbolGroup);
+
                 var closingPrices =
                     await klineService.GetClosingPricesAsync(
                         symbol,
                         RsiSignalEvaluator.Interval,
-                        RsiSignalEvaluator.LiveKlineLimit,
+                        klineLimit,
                         cancellationToken);
 
                 if (closingPrices.Count < RsiSignalEvaluator.Period + 1)
@@ -134,15 +138,41 @@ public sealed class BotMonitorService(
 
                 foreach (var bot in symbolGroup)
                 {
-                    await ProcessBotSignalAsync(
-                        dbContext,
-                        tradeExecutor,
-                        bot,
-                        symbol,
-                        currentRsi.Value,
-                        previousRsi,
-                        currentPrice,
-                        cancellationToken);
+                    switch (bot.Strategy)
+                    {
+                        case BotStrategy.RsiThreshold:
+                            await ProcessBotSignalAsync(
+                                dbContext,
+                                tradeExecutor,
+                                bot,
+                                symbol,
+                                currentRsi.Value,
+                                previousRsi,
+                                currentPrice,
+                                cancellationToken);
+                            break;
+
+                        case BotStrategy.EmaCrossover:
+                            await ProcessEmaBotSignalAsync(
+                                dbContext,
+                                tradeExecutor,
+                                bot,
+                                symbol,
+                                closingPrices,
+                                currentRsi.Value,
+                                currentPrice,
+                                cancellationToken);
+                            break;
+
+                        default:
+                            // Logged rather than thrown: one misconfigured bot
+                            // must not stop the others in this symbol group.
+                            logger.LogError(
+                                "Bot {BotId} has an unsupported strategy: {Strategy}.",
+                                bot.Id,
+                                bot.Strategy);
+                            break;
+                    }
                 }
 
                 logger.LogInformation(
@@ -296,6 +326,201 @@ public sealed class BotMonitorService(
             logger.LogError(
                 ex,
                 "Unexpected error while auto-executing signal for bot {BotId} user {UserId} {Symbol}.",
+                bot.Id,
+                bot.UserId,
+                symbol);
+        }
+    }
+
+    /// <summary>
+    /// EMA bots with a long period larger than the RSI default need more candles.
+    /// Returns the largest requirement across every bot in the symbol group.
+    /// </summary>
+    private static int DetermineKlineLimit(IEnumerable<TradingBot> bots)
+    {
+        var limit = RsiSignalEvaluator.LiveKlineLimit;
+
+        foreach (var bot in bots)
+        {
+            if (bot.Strategy != BotStrategy.EmaCrossover || bot.LongEmaPeriod is null)
+                continue;
+
+            var required =
+                EmaCrossoverEvaluator.RequiredCandleCount(bot.LongEmaPeriod.Value) +
+                EmaCrossoverEvaluator.SeedWarmupCandles;
+
+            if (required > limit)
+                limit = required;
+        }
+
+        return limit;
+    }
+
+    /// <summary>
+    /// EMA crossover evaluation. Mirrors ProcessBotSignalAsync, including its
+    /// duplicate-execution guards, so both strategies behave consistently.
+    /// </summary>
+    private async Task ProcessEmaBotSignalAsync(
+        AppDbContext dbContext,
+        IBotAutoTradeExecutor tradeExecutor,
+        TradingBot bot,
+        string symbol,
+        IReadOnlyList<decimal> closingPrices,
+        decimal currentRsi,
+        decimal currentPrice,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (bot.ShortEmaPeriod is null || bot.LongEmaPeriod is null)
+            {
+                logger.LogWarning(
+                    "Bot {BotId} uses EmaCrossover but its EMA periods are not configured.",
+                    bot.Id);
+                return;
+            }
+
+            var shortPeriod = bot.ShortEmaPeriod.Value;
+            var longPeriod = bot.LongEmaPeriod.Value;
+
+            if (shortPeriod >= longPeriod)
+            {
+                logger.LogWarning(
+                    "Bot {BotId} has an invalid EMA configuration: short {Short} >= long {Long}.",
+                    bot.Id,
+                    shortPeriod,
+                    longPeriod);
+                return;
+            }
+
+            var requiredCandles = EmaCrossoverEvaluator.RequiredCandleCount(longPeriod);
+
+            if (closingPrices.Count < requiredCandles)
+            {
+                logger.LogWarning(
+                    "Not enough closing prices for EMA bot {BotId} on {Symbol}. Have {Have}, need {Need}.",
+                    bot.Id,
+                    symbol,
+                    closingPrices.Count,
+                    requiredCandles);
+                return;
+            }
+
+            var shortEma = EmaCalculator.CalculateSeries(closingPrices, shortPeriod);
+            var longEma = EmaCalculator.CalculateSeries(closingPrices, longPeriod);
+
+            var last = closingPrices.Count - 1;
+
+            var signalType = EmaCrossoverEvaluator.DetermineCrossoverSignal(
+                shortEma[last - 1],
+                longEma[last - 1],
+                shortEma[last],
+                longEma[last]);
+
+            if (signalType is null)
+            {
+                logger.LogInformation(
+                    "No EMA crossover for bot {BotId} on {Symbol}. " +
+                    "PrevShort={PrevShort}, PrevLong={PrevLong}, Short={Short}, Long={Long}",
+                    bot.Id,
+                    symbol,
+                    shortEma[last - 1],
+                    longEma[last - 1],
+                    shortEma[last],
+                    longEma[last]);
+                return;
+            }
+
+            // Same guards as the RSI path.
+            var pendingExists = await dbContext.BotSignals.AnyAsync(
+                signal =>
+                    signal.BotId == bot.Id &&
+                    signal.SignalType == signalType.Value &&
+                    signal.Status == BotSignalStatus.Pending,
+                cancellationToken);
+
+            if (pendingExists)
+            {
+                logger.LogDebug(
+                    "Skipping EMA auto-execution for bot {BotId}: legacy pending {SignalType} exists.",
+                    bot.Id,
+                    signalType.Value);
+                return;
+            }
+
+            var alreadyExecutedThisBar = await dbContext.BotSignals.AnyAsync(
+                signal =>
+                    signal.BotId == bot.Id &&
+                    signal.SignalType == signalType.Value &&
+                    (signal.Status == BotSignalStatus.Approved ||
+                     signal.Status == BotSignalStatus.Failed) &&
+                    signal.PriceAtSignal == currentPrice &&
+                    signal.RsiValueAtSignal == currentRsi,
+                cancellationToken);
+
+            if (alreadyExecutedThisBar)
+            {
+                logger.LogDebug(
+                    "Skipping EMA auto-execution for bot {BotId}: {SignalType} already processed for this bar.",
+                    bot.Id,
+                    signalType.Value);
+                return;
+            }
+
+            logger.LogInformation(
+                "EMA crossover {SignalType} for bot {BotId} user {UserId} {Symbol}. " +
+                "EMA{Short}={ShortValue} EMA{Long}={LongValue} Price={Price}",
+                signalType.Value,
+                bot.Id,
+                bot.UserId,
+                symbol,
+                shortPeriod,
+                shortEma[last],
+                longPeriod,
+                longEma[last],
+                currentPrice);
+
+            // RsiValueAtSignal stores the RSI observed at signal time. It did not
+            // trigger this signal, but the recorded value is accurate and the
+            // shared BotSignal table stays unchanged.
+            var signal = await tradeExecutor.ExecuteAsync(
+                bot,
+                signalType.Value,
+                currentPrice,
+                currentRsi,
+                cancellationToken);
+
+            if (signal.Status == BotSignalStatus.Approved)
+            {
+                logger.LogInformation(
+                    "Auto-executed EMA {SignalType} for bot {BotId} user {UserId} {Symbol}.",
+                    signalType.Value,
+                    bot.Id,
+                    bot.UserId,
+                    symbol);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "EMA auto-trade failed for bot {BotId} user {UserId} {Symbol} {SignalType}. Status={Status}",
+                    bot.Id,
+                    bot.UserId,
+                    symbol,
+                    signalType.Value,
+                    signal.Status);
+            }
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // One bot must not stop monitoring of others.
+            logger.LogError(
+                ex,
+                "Unexpected error while auto-executing EMA signal for bot {BotId} user {UserId} {Symbol}.",
                 bot.Id,
                 bot.UserId,
                 symbol);

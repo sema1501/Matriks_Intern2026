@@ -35,14 +35,32 @@ public class BotService(
         if (request.TradeQuantity <= 0)
             throw new ArgumentException("İşlem miktarı sıfırdan büyük olmalıdır.");
 
-        if (request.BuyRsiThreshold < 0 || request.BuyRsiThreshold > 100)
-            throw new ArgumentException("Alış RSI eşiği 0-100 arasında olmalıdır.");
+        if (request.Strategy == BotStrategy.RsiThreshold)
+        {
+            if (request.BuyRsiThreshold < 0 || request.BuyRsiThreshold > 100)
+                throw new ArgumentException("Alış RSI eşiği 0-100 arasında olmalıdır.");
 
-        if (request.SellRsiThreshold < 0 || request.SellRsiThreshold > 100)
-            throw new ArgumentException("Satış RSI eşiği 0-100 arasında olmalıdır.");
+            if (request.SellRsiThreshold < 0 || request.SellRsiThreshold > 100)
+                throw new ArgumentException("Satış RSI eşiği 0-100 arasında olmalıdır.");
 
-        if (request.BuyRsiThreshold >= request.SellRsiThreshold)
-            throw new ArgumentException("Alış RSI eşiği, satış RSI eşiğinden düşük olmalıdır.");
+            if (request.BuyRsiThreshold >= request.SellRsiThreshold)
+                throw new ArgumentException("Alış RSI eşiği, satış RSI eşiğinden düşük olmalıdır.");
+        }
+        else if (request.Strategy == BotStrategy.EmaCrossover)
+        {
+            if (request.ShortEmaPeriod is null || request.LongEmaPeriod is null)
+                throw new ArgumentException("EMA stratejisi için kısa ve uzun periyot zorunludur.");
+
+            if (request.ShortEmaPeriod < 1 || request.LongEmaPeriod < 1)
+                throw new ArgumentException("EMA periyotları en az 1 olmalıdır.");
+
+            if (request.ShortEmaPeriod >= request.LongEmaPeriod)
+                throw new ArgumentException("Kısa EMA periyodu, uzun EMA periyodundan küçük olmalıdır.");
+        }
+        else
+        {
+            throw new ArgumentException($"Desteklenmeyen strateji: {request.Strategy}");
+        }
 
         var normalizedSymbol = request.Symbol.Trim().ToUpperInvariant();
 
@@ -57,12 +75,21 @@ public class BotService(
         {
             UserId = userId,
             Symbol = normalizedSymbol,
+            Strategy = request.Strategy,
             BuyRsiThreshold = request.BuyRsiThreshold,
             SellRsiThreshold = request.SellRsiThreshold,
+            ShortEmaPeriod = request.Strategy == BotStrategy.EmaCrossover
+                ? request.ShortEmaPeriod
+                : null,
+            LongEmaPeriod = request.Strategy == BotStrategy.EmaCrossover
+                ? request.LongEmaPeriod
+                : null,
             TradeQuantity = request.TradeQuantity,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
+
+        bot.Validate();
 
         db.TradingBots.Add(bot);
 
@@ -316,28 +343,28 @@ public class BotService(
             .ToListAsync(cancellationToken);
 
         decimal botProfitLoss = 0m;
-        var activePositions = new List<BotActivePosition>(); 
-        
+        var activePositions = new List<BotActivePosition>();
+
         var symbolGroups = approvedSignals.GroupBy(x => x.Bot.Symbol);
 
         foreach (var group in symbolGroups)
         {
             decimal buyTotalCost = group.Where(x => x.SignalType == BotSignalType.Buy).Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
             decimal buyQty = group.Where(x => x.SignalType == BotSignalType.Buy).Sum(x => x.Bot.TradeQuantity);
-            
+
             decimal sellTotalRevenue = group.Where(x => x.SignalType == BotSignalType.Sell).Sum(x => x.Bot.TradeQuantity * x.PriceAtSignal);
             decimal sellQty = group.Where(x => x.SignalType == BotSignalType.Sell).Sum(x => x.Bot.TradeQuantity);
-            
-            decimal currentQty = buyQty - sellQty; 
+
+            decimal currentQty = buyQty - sellQty;
 
             if (sellQty > 0 && buyQty > 0)
             {
-                decimal avgBuyPrice = buyTotalCost / buyQty; 
-                decimal costOfSold = avgBuyPrice * sellQty;  
-                botProfitLoss += (sellTotalRevenue - costOfSold); 
+                decimal avgBuyPrice = buyTotalCost / buyQty;
+                decimal costOfSold = avgBuyPrice * sellQty;
+                botProfitLoss += (sellTotalRevenue - costOfSold);
             }
 
-            
+
             if (currentQty > 0)
             {
                 decimal avgBuyPrice = buyQty > 0 ? (buyTotalCost / buyQty) : 0;
@@ -345,13 +372,14 @@ public class BotService(
             }
         }
 
-        
+
         return new BotPerformanceDto(total, approved, rejected, expired, failed, approvalRate, botProfitLoss, activePositions);
     }
 
     private static BotResponse MapToResponse(TradingBot bot) =>
         new(bot.Id, bot.Symbol, bot.IsActive, bot.BuyRsiThreshold,
-            bot.SellRsiThreshold, bot.TradeQuantity, bot.CreatedAt);
+            bot.SellRsiThreshold, bot.TradeQuantity, bot.CreatedAt,
+            bot.Strategy, bot.ShortEmaPeriod, bot.LongEmaPeriod);
 
     private static BotSignalResponse MapToSignalResponse(BotSignal signal) =>
         new(signal.Id, signal.BotId, signal.SignalType, signal.RsiValueAtSignal,
