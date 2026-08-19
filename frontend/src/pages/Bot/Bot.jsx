@@ -11,6 +11,10 @@ const ALL_SYMBOLS = [
     'SHIBUSDT', 'PEPEUSDT', 'SUIUSDT', 'ARBUSDT', 'OPUSDT'
 ];
 
+// Backend enum degerleri: BotStrategy.RsiThreshold = 0, BotStrategy.EmaCrossover = 1
+const STRATEGY_RSI = 0;
+const STRATEGY_EMA = 1;
+
 export default function Bot() {
     const [bots, setBots] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -20,6 +24,9 @@ export default function Bot() {
     const [backtestBot, setBacktestBot] = useState(null);
 
     const [symbol, setSymbol] = useState('BTCUSDT');
+    const [strategy, setStrategy] = useState(STRATEGY_RSI);
+    const [shortEmaPeriod, setShortEmaPeriod] = useState(9);
+    const [longEmaPeriod, setLongEmaPeriod] = useState(21);
     const [buyRsiThreshold, setBuyRsiThreshold] = useState(30);
     const [sellRsiThreshold, setSellRsiThreshold] = useState(70);
     const [tradeQuantity, setTradeQuantity] = useState(0.01);
@@ -45,9 +52,21 @@ export default function Bot() {
         e.preventDefault();
         setFormError(null);
 
-        if (Number(buyRsiThreshold) >= Number(sellRsiThreshold)) {
-            setFormError("AL eşiği (Buy RSI), SAT eşiğinden (Sell RSI) küçük olmalıdır!");
-            return;
+        // Doğrulama stratejiye göre değişir.
+        if (strategy === STRATEGY_RSI) {
+            if (Number(buyRsiThreshold) >= Number(sellRsiThreshold)) {
+                setFormError("AL eşiği (Buy RSI), SAT eşiğinden (Sell RSI) küçük olmalıdır!");
+                return;
+            }
+        } else {
+            if (Number(shortEmaPeriod) >= Number(longEmaPeriod)) {
+                setFormError("Kısa EMA periyodu, uzun EMA periyodundan küçük olmalıdır!");
+                return;
+            }
+            if (Number(shortEmaPeriod) < 1 || Number(longEmaPeriod) < 2) {
+                setFormError("EMA periyotları geçerli bir değer olmalıdır.");
+                return;
+            }
         }
 
         if (Number(tradeQuantity) <= 0) {
@@ -57,12 +76,22 @@ export default function Bot() {
 
         try {
             setSubmitting(true);
-            await createBot({
+
+            const payload = {
                 symbol: symbol.toUpperCase(),
+                strategy,
+                tradeQuantity: parseFloat(tradeQuantity),
                 buyRsiThreshold: parseInt(buyRsiThreshold, 10),
-                sellRsiThreshold: parseInt(sellRsiThreshold, 10),
-                tradeQuantity: parseFloat(tradeQuantity)
-            });
+                sellRsiThreshold: parseInt(sellRsiThreshold, 10)
+            };
+
+            // EMA parametreleri yalnızca ilgili stratejide gönderilir.
+            if (strategy === STRATEGY_EMA) {
+                payload.shortEmaPeriod = parseInt(shortEmaPeriod, 10);
+                payload.longEmaPeriod = parseInt(longEmaPeriod, 10);
+            }
+
+            await createBot(payload);
 
             setFormError(null);
             fetchBots();
@@ -104,7 +133,7 @@ export default function Bot() {
         <div style={styles.container}>
             <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>🤖 Alım-Satım Botu Yönetimi</h2>
             <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px' }}>
-                RSI stratejinize göre otomatik sinyal üreten sanal botlarınızı buradan kurabilir ve yönetebilirsiniz.
+                RSI eşiği veya EMA kesişimi stratejisiyle otomatik sinyal üreten sanal botlarınızı buradan kurabilir ve yönetebilirsiniz.
             </p>
 
             {/* BOT KURULUM FORMU */}
@@ -132,30 +161,77 @@ export default function Bot() {
                     </div>
 
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>AL RSI Eşiği (Varsayılan: 30)</label>
-                        <input
-                            type="number"
-                            value={buyRsiThreshold}
-                            onChange={(e) => setBuyRsiThreshold(e.target.value)}
-                            min="1"
-                            max="99"
-                            required
-                            style={styles.input}
-                        />
+                        <label style={styles.label}>Strateji</label>
+                        <select
+                            value={strategy}
+                            onChange={(e) => setStrategy(Number(e.target.value))}
+                            style={styles.select}
+                        >
+                            <option value={STRATEGY_RSI} style={styles.option}>RSI Eşiği</option>
+                            <option value={STRATEGY_EMA} style={styles.option}>EMA Kesişimi</option>
+                        </select>
                     </div>
 
-                    <div style={styles.formGroup}>
-                        <label style={styles.label}>SAT RSI Eşiği (Varsayılan: 70)</label>
-                        <input
-                            type="number"
-                            value={sellRsiThreshold}
-                            onChange={(e) => setSellRsiThreshold(e.target.value)}
-                            min="1"
-                            max="99"
-                            required
-                            style={styles.input}
-                        />
-                    </div>
+                    {/* Yalnızca seçili stratejinin parametreleri gösterilir. */}
+                    {strategy === STRATEGY_RSI && (
+                        <>
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>AL RSI Eşiği (Varsayılan: 30)</label>
+                                <input
+                                    type="number"
+                                    value={buyRsiThreshold}
+                                    onChange={(e) => setBuyRsiThreshold(e.target.value)}
+                                    min="1"
+                                    max="99"
+                                    required
+                                    style={styles.input}
+                                />
+                            </div>
+
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>SAT RSI Eşiği (Varsayılan: 70)</label>
+                                <input
+                                    type="number"
+                                    value={sellRsiThreshold}
+                                    onChange={(e) => setSellRsiThreshold(e.target.value)}
+                                    min="1"
+                                    max="99"
+                                    required
+                                    style={styles.input}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {strategy === STRATEGY_EMA && (
+                        <>
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>Kısa EMA Periyodu (Varsayılan: 9)</label>
+                                <input
+                                    type="number"
+                                    value={shortEmaPeriod}
+                                    onChange={(e) => setShortEmaPeriod(e.target.value)}
+                                    min="1"
+                                    max="200"
+                                    required
+                                    style={styles.input}
+                                />
+                            </div>
+
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>Uzun EMA Periyodu (Varsayılan: 21)</label>
+                                <input
+                                    type="number"
+                                    value={longEmaPeriod}
+                                    onChange={(e) => setLongEmaPeriod(e.target.value)}
+                                    min="2"
+                                    max="400"
+                                    required
+                                    style={styles.input}
+                                />
+                            </div>
+                        </>
+                    )}
 
                     <div style={styles.formGroup}>
                         <label style={styles.label}>İşlem Miktarı (Quantity)</label>
@@ -193,8 +269,9 @@ export default function Bot() {
                             <thead>
                                 <tr style={styles.thRow}>
                                     <th style={styles.th}>Sembol</th>
-                                    <th style={styles.th}>AL Eşiği (RSI)</th>
-                                    <th style={styles.th}>SAT Eşiği (RSI)</th>
+                                    <th style={styles.th}>Strateji</th>
+                                    <th style={styles.th}>Parametre 1</th>
+                                    <th style={styles.th}>Parametre 2</th>
                                     <th style={styles.th}>Miktar</th>
                                     <th style={styles.th}>Durum</th>
                                     <th style={styles.th}>İşlem</th>
@@ -204,8 +281,19 @@ export default function Bot() {
                                 {bots.map((bot) => (
                                     <tr key={bot.id} style={styles.tr}>
                                         <td style={{ ...styles.td, fontWeight: 'bold' }}>{bot.symbol}</td>
-                                        <td style={{ ...styles.td, color: '#00b4d8' }}>≤ {bot.buyRsiThreshold}</td>
-                                        <td style={{ ...styles.td, color: '#ef233c' }}>≥ {bot.sellRsiThreshold}</td>
+                                        <td style={styles.td}>
+                                            {bot.strategy === STRATEGY_EMA ? 'EMA Kesişimi' : 'RSI Eşiği'}
+                                        </td>
+                                        <td style={{ ...styles.td, color: '#00b4d8' }}>
+                                            {bot.strategy === STRATEGY_EMA
+                                                ? `Kısa EMA: ${bot.shortEmaPeriod}`
+                                                : `AL ≤ ${bot.buyRsiThreshold}`}
+                                        </td>
+                                        <td style={{ ...styles.td, color: '#ef233c' }}>
+                                            {bot.strategy === STRATEGY_EMA
+                                                ? `Uzun EMA: ${bot.longEmaPeriod}`
+                                                : `SAT ≥ ${bot.sellRsiThreshold}`}
+                                        </td>
                                         <td style={styles.td}>{bot.tradeQuantity}</td>
                                         <td style={styles.td}>
                                             <span style={{
