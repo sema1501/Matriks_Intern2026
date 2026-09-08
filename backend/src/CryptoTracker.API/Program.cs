@@ -78,6 +78,21 @@ builder.Services.AddSingleton<IDebugEndpointAccess, DevelopmentOnlyDebugEndpoint
 builder.Services.Configure<TradingBotOptions>(
     builder.Configuration.GetSection(TradingBotOptions.SectionName));
 
+// ── E-posta bildirimleri (Görev 40) ───────────────────────────────
+builder.Services.Configure<SmtpOptions>(
+    builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.Configure<NotificationOptions>(
+    builder.Configuration.GetSection(NotificationOptions.SectionName));
+
+// Gerçek SMTP ayarı (Smtp:Host) varsa SMTP ile gönder; yoksa geliştirme için logla.
+var smtpOptions = builder.Configuration.GetSection(SmtpOptions.SectionName).Get<SmtpOptions>();
+if (smtpOptions?.IsConfigured == true)
+    builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+else
+    builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
 // ── CORS ─────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {

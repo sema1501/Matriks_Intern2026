@@ -8,6 +8,7 @@ import {
   deleteAlert,
   toggleAlert,
   getAlertSignals,
+  setEmailNotifications,
 } from '../../services/apiService';
 
 const inputStyle = { width: '100%', padding: '0.5rem', marginTop: '0.25rem' };
@@ -73,6 +74,8 @@ export default function Profile() {
   const [signalsByAlertId, setSignalsByAlertId] = useState({});
   const [signalsLoadingId, setSignalsLoadingId] = useState(null);
   const [signalsError, setSignalsError] = useState('');
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifError, setNotifError]     = useState('');
 
   useEffect(() => {
     if (authLoading) return;
@@ -182,6 +185,20 @@ export default function Profile() {
     }
   };
 
+  const handleToggleNotifications = async () => {
+    const next = !profile.emailNotificationsEnabled;
+    setNotifLoading(true);
+    setNotifError('');
+    try {
+      const res = await setEmailNotifications(next);
+      setProfile(res.data);
+    } catch (err) {
+      setNotifError(getErrorMessage(err));
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
   const handleProfileChange = (e) => {
     setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
   };
@@ -257,6 +274,23 @@ export default function Profile() {
         <p><strong>Email:</strong> {profile.email}</p>
         <p><strong>Roller:</strong> {profile.roles?.join(', ') || '—'}</p>
         <p><strong>Üyelik Tarihi:</strong> {formatDate(profile.createdAt)}</p>
+
+        <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={!!profile.emailNotificationsEnabled}
+              onChange={handleToggleNotifications}
+              disabled={notifLoading}
+            />
+            <span>E-posta bildirimleri (alarm/bot sinyalleri)</span>
+          </label>
+          {notifLoading && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>Kaydediliyor...</span>}
+        </div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)', marginTop: '0.25rem' }}>
+          Kapalıysa alarm veya bot sinyali tetiklendiğinde e-posta gönderilmez.
+        </p>
+        {notifError && <p style={{ color: 'red' }}>{notifError}</p>}
       </section>
 
       <section style={sectionStyle}>

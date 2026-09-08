@@ -54,6 +54,14 @@ public class AuthController(IAuthService authService, IUserService userService) 
         return NoContent();
     }
 
+    [Authorize]
+    [HttpPut("me/notifications")]
+    public async Task<IActionResult> UpdateNotifications([FromBody] UpdateNotificationsRequest request)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return Ok(await userService.SetEmailNotificationsAsync(userId, request.Enabled));
+    }
+
     [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpGet("users")]
     public async Task<IActionResult> GetAllUsers()

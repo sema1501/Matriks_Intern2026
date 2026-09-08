@@ -16,6 +16,7 @@ export const login = (data) => api.post('/api/Auth/login', data);
 export const getMe = () => api.get('/api/Auth/me');
 export const updateProfile = (data) => api.put('/api/Auth/me', data);
 export const changePassword = (data) => api.put('/api/Auth/me/password', data);
+export const setEmailNotifications = (enabled) => api.put('/api/Auth/me/notifications', { enabled });
 export const getAllUsers = () => api.get('/api/Auth/users');
 export const forgotPassword = (data) => api.post('/api/Auth/forgot-password', data);
 export const resetPassword = (data) => api.post('/api/Auth/reset-password', data);

@@ -66,6 +66,9 @@ public sealed class BotMonitorService(
             scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var tradeExecutor =
             scope.ServiceProvider.GetRequiredService<IBotAutoTradeExecutor>();
+        // Opsiyonel: testlerde register edilmeyebilir, bu yüzden GetService kullanılır (Görev 40).
+        var notifier =
+            scope.ServiceProvider.GetService<INotificationService>();
 
         // Legacy Pending signals (pre-auto-execution) may still expire.
         await ExpireLegacyPendingSignalsAsync(dbContext, cancellationToken);
@@ -137,6 +140,7 @@ public sealed class BotMonitorService(
                     await ProcessBotSignalAsync(
                         dbContext,
                         tradeExecutor,
+                        notifier,
                         bot,
                         symbol,
                         currentRsi.Value,
@@ -170,6 +174,7 @@ public sealed class BotMonitorService(
     private async Task ProcessBotSignalAsync(
         AppDbContext dbContext,
         IBotAutoTradeExecutor tradeExecutor,
+        INotificationService? notifier,
         TradingBot bot,
         string symbol,
         decimal currentRsi,
@@ -273,6 +278,19 @@ public sealed class BotMonitorService(
                     bot.Id,
                     bot.UserId,
                     symbol);
+
+                // Uygulama kapalıyken de haber vermek için e-posta bildirimi (Görev 40).
+                // Tercih ve cooldown kontrolü NotificationService içindedir.
+                if (notifier is not null)
+                {
+                    await notifier.NotifyBotSignalAsync(
+                        bot,
+                        signalType.Value,
+                        currentPrice,
+                        currentRsi,
+                        DateTime.UtcNow,
+                        cancellationToken);
+                }
             }
             else
             {
