@@ -5,18 +5,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CryptoTracker.API.Services;
 
-public class AlertService(AppDbContext db) : IAlertService
+public class AlertService(AppDbContext db, IBinancePriceService? priceService = null) : IAlertService
 {
     public async Task<AlertResponse> CreateAsync(int userId, CreateAlertRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Symbol))
             throw new ArgumentException("Sembol boş olamaz.");
 
-        if (request.TargetPrice <= 0)
-            throw new ArgumentException("Hedef fiyat sıfırdan büyük olmalıdır.");
-
         if (!Enum.IsDefined(typeof(AlertDirection), request.Direction))
             throw new ArgumentException("Geçersiz alarm yönü. Above veya Below olmalıdır.");
+
+        if (!Enum.IsDefined(typeof(AlertType), request.Type))
+            throw new ArgumentException("Geçersiz alarm tipi.");
 
         if (!Enum.IsDefined(typeof(AlertInterval), request.Interval))
             throw new ArgumentException("Geçersiz alarm aralığı.");
@@ -24,22 +24,68 @@ public class AlertService(AppDbContext db) : IAlertService
         if (!AlertConditionEvaluator.IsIntervalSupported(request.Interval))
             throw new ArgumentException(AlertConditionEvaluator.UnsupportedIntervalMessage);
 
+        var symbol = request.Symbol.Trim().ToUpperInvariant();
+
         var alert = new PriceAlert
         {
             UserId      = userId,
-            Symbol      = request.Symbol.Trim().ToUpperInvariant(),
-            TargetPrice = request.TargetPrice,
+            Symbol      = symbol,
             Direction   = request.Direction,
             Interval    = request.Interval,
+            Type        = request.Type,
             IsActive    = true,
             IsTriggered = false,
             CreatedAt   = DateTime.UtcNow
         };
 
+        if (request.Type == AlertType.PercentChange)
+        {
+            // Yüzde-değişim alarmı: eşik zorunlu, referans fiyat şu anki fiyattan alınır (Görev 46).
+            if (request.PercentChangeThreshold is not { } threshold || threshold <= 0)
+                throw new ArgumentException("Yüzde değişim eşiği sıfırdan büyük olmalıdır.");
+
+            alert.PercentChangeThreshold = threshold;
+            alert.ReferencePrice = await GetCurrentPriceAsync(symbol, cancellationToken);
+        }
+        else
+        {
+            // Sabit fiyat alarmı: mevcut davranış.
+            if (request.TargetPrice <= 0)
+                throw new ArgumentException("Hedef fiyat sıfırdan büyük olmalıdır.");
+
+            alert.TargetPrice = request.TargetPrice;
+        }
+
         db.PriceAlerts.Add(alert);
         await db.SaveChangesAsync(cancellationToken);
 
         return MapToResponse(alert, signalCount: 0, lastTriggeredAt: null);
+    }
+
+    private async Task<decimal> GetCurrentPriceAsync(string symbol, CancellationToken cancellationToken)
+    {
+        if (priceService is null)
+            throw new InvalidOperationException("Fiyat servisi kullanılamıyor; yüzde alarmı için referans fiyat alınamadı.");
+
+        IReadOnlyDictionary<string, decimal> prices;
+        try
+        {
+            prices = await priceService.GetPricesAsync(new[] { symbol }, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Geçersiz sembol veya geçici erişim hatası → 500 yerine anlaşılır 400 döndürülür (Görev 46).
+            throw new ArgumentException($"'{symbol}' için güncel fiyat alınamadı. Geçerli bir sembol girin (örn. BTCUSDT) veya daha sonra tekrar deneyin.");
+        }
+
+        if (!prices.TryGetValue(symbol, out var price) || price <= 0)
+            throw new ArgumentException($"'{symbol}' için güncel fiyat alınamadı. Geçerli bir sembol girin (örn. BTCUSDT).");
+
+        return price;
     }
 
     public async Task<IEnumerable<AlertResponse>> GetByUserAsync(int userId, CancellationToken cancellationToken = default)
@@ -132,6 +178,9 @@ public class AlertService(AppDbContext db) : IAlertService
             alert.Interval,
             signalCount,
             lastTriggeredAt,
-            alert.CreatedAt
+            alert.CreatedAt,
+            alert.Type,
+            alert.PercentChangeThreshold,
+            alert.ReferencePrice
         );
 }

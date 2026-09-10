@@ -77,6 +77,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .Property(a => a.TargetPrice)
             .HasPrecision(18, 8);
 
+        // Yüzde-değişim alarmı alanları (Görev 46)
+        modelBuilder.Entity<PriceAlert>()
+            .Property(a => a.ReferencePrice)
+            .HasPrecision(18, 8);
+
+        modelBuilder.Entity<PriceAlert>()
+            .Property(a => a.PercentChangeThreshold)
+            .HasPrecision(9, 4);
+
         modelBuilder.Entity<PriceAlert>()
             .Property(a => a.IsActive)
             .HasDefaultValue(true);

@@ -5,15 +5,49 @@ namespace CryptoTracker.API.Services;
 public static class AlertConditionEvaluator
 {
     /// <summary>
-    /// Returns true when the alert's direction/target condition is satisfied
-    /// for the given current price. Unknown directions return false.
+    /// Returns true when the alert's condition is satisfied for the given current price.
+    /// Handles both fixed-price alerts and percent-change alerts (Görev 46).
+    /// Unknown directions/types return false.
     /// </summary>
     public static bool IsConditionSatisfied(PriceAlert alert, decimal currentPrice)
+    {
+        return alert.Type switch
+        {
+            AlertType.Price => IsPriceConditionSatisfied(alert, currentPrice),
+            AlertType.PercentChange => IsPercentChangeConditionSatisfied(alert, currentPrice),
+            _ => false
+        };
+    }
+
+    private static bool IsPriceConditionSatisfied(PriceAlert alert, decimal currentPrice)
     {
         return alert.Direction switch
         {
             AlertDirection.Above => currentPrice >= alert.TargetPrice,
             AlertDirection.Below => currentPrice <= alert.TargetPrice,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Percent-change alert: compares the current price against the reference price captured
+    /// when the alert was created. Above = rose by at least the threshold; Below = fell by at least it.
+    /// Missing reference/threshold or non-positive reference returns false (cannot evaluate safely).
+    /// </summary>
+    private static bool IsPercentChangeConditionSatisfied(PriceAlert alert, decimal currentPrice)
+    {
+        if (alert.ReferencePrice is not { } reference || reference <= 0m)
+            return false;
+
+        if (alert.PercentChangeThreshold is not { } threshold || threshold <= 0m)
+            return false;
+
+        var changePercent = (currentPrice - reference) / reference * 100m;
+
+        return alert.Direction switch
+        {
+            AlertDirection.Above => changePercent >= threshold,
+            AlertDirection.Below => changePercent <= -threshold,
             _ => false
         };
     }

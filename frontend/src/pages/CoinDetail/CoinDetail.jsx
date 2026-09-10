@@ -24,7 +24,9 @@ export default function CoinDetail() {
     const { user } = useAuth();
     const { formatPrice } = useCurrency();
 
+    const [alertType, setAlertType] = useState('price'); // 'price' | 'percent' (Görev 46)
     const [targetPrice, setTargetPrice] = useState('');
+    const [percentThreshold, setPercentThreshold] = useState('');
     const [direction, setDirection] = useState('above');
     const [alertInterval, setAlertInterval] = useState(0);
     const [alertLoading, setAlertLoading] = useState(false);
@@ -64,12 +66,6 @@ export default function CoinDetail() {
             return;
         }
 
-        const price = Number(targetPrice);
-        if (!targetPrice || !Number.isFinite(price) || price <= 0) {
-            setAlertError('Geçerli bir hedef fiyat girin (pozitif sayı).');
-            return;
-        }
-
         if (direction !== 'above' && direction !== 'below') {
             setAlertError('Yön seçimi geçersiz.');
             return;
@@ -81,16 +77,43 @@ export default function CoinDetail() {
             return;
         }
 
-        setAlertLoading(true);
-        try {
-            await createAlert({
+        // Alarm tipine göre gövde hazırlanır (Görev 46).
+        let payload;
+        if (alertType === 'percent') {
+            const threshold = Number(percentThreshold);
+            if (!percentThreshold || !Number.isFinite(threshold) || threshold <= 0) {
+                setAlertError('Geçerli bir yüzde değeri girin (pozitif sayı).');
+                return;
+            }
+            payload = {
+                symbol: fullSymbol,
+                targetPrice: 0,
+                direction: direction === 'above' ? 0 : 1,
+                interval,
+                type: 1,
+                percentChangeThreshold: threshold,
+            };
+        } else {
+            const price = Number(targetPrice);
+            if (!targetPrice || !Number.isFinite(price) || price <= 0) {
+                setAlertError('Geçerli bir hedef fiyat girin (pozitif sayı).');
+                return;
+            }
+            payload = {
                 symbol: fullSymbol,
                 targetPrice: price,
                 direction: direction === 'above' ? 0 : 1,
                 interval,
-            });
+                type: 0,
+            };
+        }
+
+        setAlertLoading(true);
+        try {
+            await createAlert(payload);
             setAlertSuccess('Alarm başarıyla oluşturuldu.');
             setTargetPrice('');
+            setPercentThreshold('');
             setAlertInterval(0);
             window.dispatchEvent(new Event('alerts-changed'));
         } catch (err) {
@@ -177,19 +200,49 @@ export default function CoinDetail() {
                         {alertSuccess && <p className="alarm-message alarm-message--success">{alertSuccess}</p>}
                         <form onSubmit={handleAlertSubmit} className="alarm-form" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div className="alarm-field" style={{ margin: 0 }}>
-                                <label htmlFor="targetPrice" style={{ fontSize: '12px', marginBottom: '4px' }}>Hedef Fiyat (USD)</label>
-                                <input
-                                    id="targetPrice"
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    value={targetPrice}
-                                    onChange={(e) => setTargetPrice(e.target.value)}
-                                    placeholder={coinData ? String(coinData.currentPrice) : '0.00'}
+                                <label htmlFor="alertType" style={{ fontSize: '12px', marginBottom: '4px' }}>Alarm Tipi</label>
+                                <select
+                                    id="alertType"
+                                    value={alertType}
+                                    onChange={(e) => setAlertType(e.target.value)}
                                     disabled={!user || alertLoading}
                                     className="alarm-input"
-                                />
+                                >
+                                    <option value="price">Hedef Fiyat</option>
+                                    <option value="percent">Yüzde Değişim</option>
+                                </select>
                             </div>
+                            {alertType === 'price' ? (
+                                <div className="alarm-field" style={{ margin: 0 }}>
+                                    <label htmlFor="targetPrice" style={{ fontSize: '12px', marginBottom: '4px' }}>Hedef Fiyat (USD)</label>
+                                    <input
+                                        id="targetPrice"
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={targetPrice}
+                                        onChange={(e) => setTargetPrice(e.target.value)}
+                                        placeholder={coinData ? String(coinData.currentPrice) : '0.00'}
+                                        disabled={!user || alertLoading}
+                                        className="alarm-input"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="alarm-field" style={{ margin: 0 }}>
+                                    <label htmlFor="percentThreshold" style={{ fontSize: '12px', marginBottom: '4px' }}>Yüzde Değişim (%)</label>
+                                    <input
+                                        id="percentThreshold"
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        value={percentThreshold}
+                                        onChange={(e) => setPercentThreshold(e.target.value)}
+                                        placeholder="Örn. 5"
+                                        disabled={!user || alertLoading}
+                                        className="alarm-input"
+                                    />
+                                </div>
+                            )}
                             <div className="alarm-field" style={{ margin: 0 }}>
                                 <label htmlFor="direction" style={{ fontSize: '12px', marginBottom: '4px' }}>Yön</label>
                                 <select
@@ -199,8 +252,17 @@ export default function CoinDetail() {
                                     disabled={!user || alertLoading}
                                     className="alarm-input"
                                 >
-                                    <option value="above">Yukarı (fiyat hedefin üstüne çıkınca)</option>
-                                    <option value="below">Aşağı (fiyat hedefin altına inince)</option>
+                                    {alertType === 'price' ? (
+                                        <>
+                                            <option value="above">Yukarı (fiyat hedefin üstüne çıkınca)</option>
+                                            <option value="below">Aşağı (fiyat hedefin altına inince)</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="above">Yükseliş (referanstan %X yükselince)</option>
+                                            <option value="below">Düşüş (referanstan %X düşünce)</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                             <div className="alarm-field" style={{ margin: 0 }}>
