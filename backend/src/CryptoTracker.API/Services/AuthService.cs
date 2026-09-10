@@ -6,7 +6,12 @@ using System.Security.Cryptography;
 
 namespace CryptoTracker.API.Services;
 
-public class AuthService(AppDbContext db, IJwtService jwtService, ILogger<AuthService> logger) : IAuthService
+public class AuthService(
+    AppDbContext db,
+    IJwtService jwtService,
+    ILogger<AuthService> logger,
+    IEmailSender? emailSender = null,
+    IConfiguration? configuration = null) : IAuthService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
@@ -87,7 +92,21 @@ public class AuthService(AppDbContext db, IJwtService jwtService, ILogger<AuthSe
         db.PasswordResetTokens.Add(resetToken);
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Password reset token for {Email}: {Token}", user.Email, token);
+        // Sıfırlama bağlantısını gerçek e-postayla gönder (Görev 50; Görev 40 altyapısını kullanır).
+        // SMTP yapılandırılmamışsa geliştirme için bağlantı loglanır.
+        var baseUrl = configuration?["App:FrontendBaseUrl"] ?? "http://localhost:3000";
+        var link = $"{baseUrl}/reset-password/{token}";
+        var subject = "CryptoTracker - Şifre Sıfırlama";
+        var body =
+            $"Merhaba {user.Username},\n\n" +
+            "Şifreni sıfırlamak için aşağıdaki bağlantıya tıkla:\n" +
+            $"{link}\n\n" +
+            "Bu bağlantı 30 dakika geçerlidir. Bu talebi sen yapmadıysan bu e-postayı yok sayabilirsin.\n";
+
+        if (emailSender is not null)
+            await emailSender.SendAsync(user.Email, subject, body);
+        else
+            logger.LogInformation("Şifre sıfırlama bağlantısı ({Email}): {Link}", user.Email, link);
 
         return message;
     }
