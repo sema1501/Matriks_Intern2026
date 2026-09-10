@@ -93,20 +93,25 @@ const Portfolio = () => {
   const [loading, setLoading] = useState(true);
   const { prices } = useBinancePrices();
 
+  // İşlem geçmişi: sayfalama + filtreleme durumu (Görev 51)
+  const [txPage, setTxPage] = useState(1);
+  const [txTotalPages, setTxTotalPages] = useState(1);
+  const [txSymbol, setTxSymbol] = useState('');
+  const [txType, setTxType] = useState(''); // '' = hepsi, '0' = Alış, '1' = Satış
+  const [txLoading, setTxLoading] = useState(false);
+
   useEffect(() => {
     const fetchPortfolio = async () => {
       try {
         setLoading(true);
-        const [balanceRes, holdingsRes, transactionsRes] = await Promise.all([
+        const [balanceRes, holdingsRes] = await Promise.all([
           getBalance(),
-          getHoldings(),
-          getTransactions()
+          getHoldings()
         ]);
 
         setBalance(balanceRes.data.balance);
-        setInitialBalance(balanceRes.data.initialBalance || 10000); 
+        setInitialBalance(balanceRes.data.initialBalance || 10000);
         setHoldings(holdingsRes.data || []);
-        setTransactions(transactionsRes.data || []);
       } catch (error) {
         console.error("Portföy verileri çekilirken hata oluştu:", error);
       } finally {
@@ -116,6 +121,28 @@ const Portfolio = () => {
 
     fetchPortfolio();
   }, []);
+
+  // İşlem geçmişini sayfa/filtre değiştikçe ayrı çek (Görev 51).
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        setTxLoading(true);
+        const params = { pageNumber: txPage, pageSize: 10 };
+        if (txSymbol.trim()) params.symbol = txSymbol.trim();
+        if (txType !== '') params.type = Number(txType);
+
+        const res = await getTransactions(params);
+        setTransactions(res.data.items || []);
+        setTxTotalPages(res.data.totalPages || 1);
+      } catch (error) {
+        console.error("İşlem geçmişi çekilirken hata oluştu:", error);
+      } finally {
+        setTxLoading(false);
+      }
+    };
+
+    fetchTransactions();
+  }, [txPage, txSymbol, txType]);
 
   const enrichedHoldings = holdings.map((holding) => {
     const priceObj = prices[holding.symbol];
@@ -227,6 +254,27 @@ const Portfolio = () => {
       
       <div className="portfolio-section">
         <h2>İşlem Geçmişi</h2>
+
+        {/* Filtreleme (Görev 51): sembol + işlem türü */}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <input
+            type="text"
+            placeholder="Sembol (örn. BTCUSDT)"
+            value={txSymbol}
+            onChange={(e) => { setTxPage(1); setTxSymbol(e.target.value); }}
+            style={{ padding: '0.4rem', flex: '1 1 200px' }}
+          />
+          <select
+            value={txType}
+            onChange={(e) => { setTxPage(1); setTxType(e.target.value); }}
+            style={{ padding: '0.4rem' }}
+          >
+            <option value="">Tüm işlemler</option>
+            <option value="0">Sadece Alım</option>
+            <option value="1">Sadece Satım</option>
+          </select>
+        </div>
+
         <div className="table-responsive">
           <table className="portfolio-table">
             <thead>
@@ -239,9 +287,13 @@ const Portfolio = () => {
               </tr>
             </thead>
             <tbody>
-              {transactions.length === 0 ? (
+              {txLoading ? (
                 <tr>
-                  <td colSpan="5" className="empty-row">Henüz işlem geçmişiniz bulunmuyor.</td>
+                  <td colSpan="5" className="empty-row">Yükleniyor...</td>
+                </tr>
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="empty-row">Bu kritere uygun işlem bulunmuyor.</td>
                 </tr>
               ) : (
                 transactions.map((t, i) => (
@@ -261,6 +313,29 @@ const Portfolio = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Sayfalama (Görev 51) */}
+        {txTotalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
+            <button
+              type="button"
+              onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+              disabled={txPage <= 1 || txLoading}
+              style={{ padding: '0.4rem 0.9rem', cursor: 'pointer' }}
+            >
+              ← Önceki
+            </button>
+            <span>Sayfa {txPage} / {txTotalPages}</span>
+            <button
+              type="button"
+              onClick={() => setTxPage((p) => Math.min(txTotalPages, p + 1))}
+              disabled={txPage >= txTotalPages || txLoading}
+              style={{ padding: '0.4rem 0.9rem', cursor: 'pointer' }}
+            >
+              Sonraki →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

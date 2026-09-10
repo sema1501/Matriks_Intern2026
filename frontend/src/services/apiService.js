@@ -51,7 +51,7 @@ export const createFeedback = (data) => api.post('/api/Feedback', data);
 // Portfolio & Leaderboard
 export const getBalance = () => api.get('/api/Portfolio/balance');
 export const getHoldings = () => api.get('/api/Portfolio/holdings');
-export const getTransactions = () => api.get('/api/Portfolio/transactions');
+export const getTransactions = (params) => api.get('/api/Portfolio/transactions', { params });
 export const getLeaderboard = () => api.get('/api/Portfolio/leaderboard');
 
 export const buyCoin = async (data) => {
