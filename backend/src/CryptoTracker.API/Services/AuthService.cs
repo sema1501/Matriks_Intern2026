@@ -13,7 +13,7 @@ public class AuthService(
     IEmailSender? emailSender = null,
     IConfiguration? configuration = null) : IAuthService
 {
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
+    public async Task<string> RegisterAsync(RegisterRequest request)
     {
         bool emailExists    = await db.Users.AnyAsync(u => u.Email    == request.Email);
         bool usernameExists = await db.Users.AnyAsync(u => u.Username == request.Username);
@@ -29,6 +29,7 @@ public class AuthService(
             Email        = request.Email,
             PasswordHash = passwordHash,
             VirtualBalance = 10_000m,
+            EmailConfirmed = false, // Doğrulanana kadar giriş yapılamaz (Görev 48)
             CreatedAt    = DateTime.UtcNow
         };
         db.Users.Add(user);
@@ -41,14 +42,52 @@ public class AuthService(
             await db.SaveChangesAsync();
         }
 
-        var roles = await db.Set<UserRole>()
-            .Where(ur => ur.UserId == user.Id)
-            .Select(ur => ur.Role.Name)
-            .ToListAsync();
+        // Doğrulama token'ı üret ve doğrulama e-postası gönder (Görev 48; Görev 40 altyapısı).
+        string verificationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        db.EmailVerificationTokens.Add(new EmailVerificationToken
+        {
+            UserId = user.Id,
+            Token = verificationToken,
+            ExpiresAt = DateTime.UtcNow.AddHours(24),
+            IsUsed = false
+        });
+        await db.SaveChangesAsync();
 
-        string token = jwtService.GenerateToken(user, roles);
+        await SendVerificationEmailAsync(user, verificationToken);
 
-        return new AuthResponse(token, user.Username, roles);
+        return "Kaydınız alındı. Hesabınızı etkinleştirmek için e-postanıza gönderilen doğrulama bağlantısına tıklayın.";
+    }
+
+    private async Task SendVerificationEmailAsync(User user, string token)
+    {
+        var baseUrl = configuration?["App:FrontendBaseUrl"] ?? "http://localhost:3000";
+        var link = $"{baseUrl}/confirm-email/{token}";
+        var subject = "CryptoTracker - E-posta Doğrulama";
+        var body =
+            $"Merhaba {user.Username},\n\n" +
+            "CryptoTracker hesabını etkinleştirmek için aşağıdaki bağlantıya tıkla:\n" +
+            $"{link}\n\n" +
+            "Bu bağlantı 24 saat geçerlidir. Bu kaydı sen yapmadıysan bu e-postayı yok sayabilirsin.\n";
+
+        if (emailSender is not null)
+            await emailSender.SendAsync(user.Email, subject, body);
+        else
+            logger.LogInformation("E-posta doğrulama bağlantısı ({Email}): {Link}", user.Email, link);
+    }
+
+    public async Task ConfirmEmailAsync(string token)
+    {
+        var verification = await db.EmailVerificationTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Token == token);
+
+        if (verification == null) throw new ArgumentException("Doğrulama bağlantısı geçersiz.");
+        if (verification.IsUsed) throw new InvalidOperationException("Bu doğrulama bağlantısı zaten kullanılmış.");
+        if (verification.ExpiresAt <= DateTime.UtcNow) throw new InvalidOperationException("Doğrulama bağlantısının süresi dolmuş.");
+
+        verification.User.EmailConfirmed = true;
+        verification.IsUsed = true;
+        await db.SaveChangesAsync();
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -64,6 +103,10 @@ public class AuthService(
 
         bool valid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
         if (!valid) throw new Exception("Şifre hatalı.");
+
+        // Doğrulanmamış hesaplar giriş yapamaz (Görev 48).
+        if (!user.EmailConfirmed)
+            throw new InvalidOperationException("Lütfen önce e-posta adresinizi doğrulayın. Doğrulama bağlantısı kayıt sırasında e-postanıza gönderildi.");
 
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
 

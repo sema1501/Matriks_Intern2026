@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { Link } from 'react-router-dom';
 import { register } from '../../services/apiService';
 
 export default function SignUp() {
-    const { loginUser } = useAuth();
-    const navigate = useNavigate();
-
     const [form, setForm] = useState({
         username: '',
         email: '',
@@ -25,6 +21,7 @@ export default function SignUp() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [successMessage, setSuccessMessage] = useState(''); // Görev 48: e-posta doğrulama bildirimi
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -81,8 +78,11 @@ export default function SignUp() {
                 email: form.email,
                 password: form.password,
             });
-            loginUser(res.data.token, res.data);
-            navigate('/');
+            // Kayıt sonrası otomatik giriş yok; kullanıcı e-postasını doğrulamalı (Görev 48).
+            setSuccessMessage(
+                res.data?.message ||
+                'Kaydınız alındı. Hesabınızı etkinleştirmek için e-postanıza gönderilen doğrulama bağlantısına tıklayın.'
+            );
         } catch (err) {
             setErrors({
                 ...errors,
@@ -92,6 +92,21 @@ export default function SignUp() {
             setLoading(false);
         }
     };
+
+    // Kayıt başarılıysa formu gizle, e-posta doğrulama bildirimini göster (Görev 48).
+    if (successMessage) {
+        return (
+            <div className="auth-container">
+                <div className="auth-card">
+                    <h2 className="auth-title">Kayıt Ol</h2>
+                    <div className="auth-success-alert" style={{ color: 'green', marginBottom: '1rem' }}>
+                        {successMessage}
+                    </div>
+                    <Link to="/signin" className="auth-link">Giriş sayfasına dön</Link>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="auth-container">

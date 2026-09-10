@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AlertSignal>   AlertSignals   => Set<AlertSignal>();
     public DbSet<Feedback>      Feedbacks      => Set<Feedback>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
     public DbSet<PortfolioHolding> PortfolioHoldings => Set<PortfolioHolding>();
     public DbSet<Transaction>   Transactions   => Set<Transaction>();
@@ -114,6 +115,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // PasswordResetToken → User
         modelBuilder.Entity<PasswordResetToken>().HasOne(prt => prt.User).WithMany().HasForeignKey(prt => prt.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<PasswordResetToken>().HasIndex(prt => prt.Token).IsUnique();
+
+        // EmailVerificationToken → User (Görev 48)
+        modelBuilder.Entity<EmailVerificationToken>().HasOne(evt => evt.User).WithMany().HasForeignKey(evt => evt.UserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<EmailVerificationToken>().HasIndex(evt => evt.Token).IsUnique();
+
+        // Mevcut kullanıcılar doğrulanmış sayılır; yeni kayıtlar kodda false set eder (Görev 48).
+        modelBuilder.Entity<User>()
+            .Property(u => u.EmailConfirmed)
+            .HasDefaultValue(true);
 
         // User.VirtualBalance
         modelBuilder.Entity<User>()
