@@ -68,8 +68,23 @@ public class UserService(AppDbContext db) : IUserService
         await db.SaveChangesAsync();
     }
 
+    public async Task<UserDto> SetEmailNotificationsAsync(int id, bool enabled)
+    {
+        var user = await db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user == null) throw new Exception("Kullanıcı bulunamadı.");
+
+        user.EmailNotificationsEnabled = enabled;
+        await db.SaveChangesAsync();
+        return MapToDto(user);
+    }
+
     private static UserDto MapToDto(User user) =>
         new(user.Id, user.Username, user.Email,
             user.UserRoles.Select(ur => ur.Role.Name),
-            user.CreatedAt);
+            user.CreatedAt,
+            user.EmailNotificationsEnabled);
 }

@@ -112,6 +112,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasPrecision(18, 8)
             .HasDefaultValue(10_000m);
 
+        // E-posta bildirimleri varsayılan olarak açık (Görev 40)
+        modelBuilder.Entity<User>()
+            .Property(u => u.EmailNotificationsEnabled)
+            .HasDefaultValue(true);
+
         // PortfolioHolding → User (bir kullanıcı aynı symbol'ü bir kez tutabilir)
         modelBuilder.Entity<PortfolioHolding>()
             .HasIndex(h => new { h.UserId, h.Symbol })

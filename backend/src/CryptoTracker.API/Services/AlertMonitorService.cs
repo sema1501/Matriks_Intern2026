@@ -81,7 +81,8 @@ public record AlertMonitoringCycleResult(
 
 public class AlertMonitoringProcessor(
     ILogger<AlertMonitoringProcessor> logger,
-    IClock clock) : IAlertMonitoringProcessor
+    IClock clock,
+    INotificationService? notifier = null) : IAlertMonitoringProcessor
 {
     public async Task<AlertMonitoringCycleResult> ProcessAsync(
         AppDbContext db,
@@ -150,6 +151,7 @@ public class AlertMonitoringProcessor(
         }
 
         var signals = new List<AlertSignal>();
+        var triggered = new List<(PriceAlert Alert, decimal Price)>();
         var checkedAny = false;
 
         foreach (var alert in dueAlerts)
@@ -176,6 +178,7 @@ public class AlertMonitoringProcessor(
                     PriceAtTrigger = currentPrice,
                     TriggeredAt = now
                 });
+                triggered.Add((alert, currentPrice));
             }
             catch (Exception ex)
             {
@@ -189,6 +192,14 @@ public class AlertMonitoringProcessor(
 
         if (signals.Count > 0 || checkedAny)
             await db.SaveChangesAsync(cancellationToken);
+
+        // Uygulama kapalıyken de haber vermek için tetiklenen alarmlar e-postayla bildirilir (Görev 40).
+        // Kullanıcı tercihi ve cooldown kontrolü NotificationService içindedir.
+        if (notifier is not null)
+        {
+            foreach (var (alert, price) in triggered)
+                await notifier.NotifyPriceAlertAsync(alert, price, now, cancellationToken);
+        }
 
         logger.LogInformation(
             "Alert monitoring cycle complete: DueAlerts={ActiveAlertCount}, UniqueSymbols={UniqueSymbolCount}, GeneratedSignals={GeneratedSignalCount}, Skipped={SkippedAlertCount}",

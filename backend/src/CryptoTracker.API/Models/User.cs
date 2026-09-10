@@ -7,6 +7,13 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     /// <summary>Sanal USD bakiyesi. Yeni kullanıcılar 10.000 ile başlar.</summary>
     public decimal VirtualBalance { get; set; } = 10_000m;
+
+    /// <summary>
+    /// Alarm/bot sinyali tetiklendiğinde kullanıcıya e-posta bildirimi gönderilsin mi?
+    /// Varsayılan açık; kullanıcı profilinden kapatabilir (Görev 40).
+    /// </summary>
+    public bool EmailNotificationsEnabled { get; set; } = true;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<PriceAlert> PriceAlerts { get; set; } = new List<PriceAlert>();

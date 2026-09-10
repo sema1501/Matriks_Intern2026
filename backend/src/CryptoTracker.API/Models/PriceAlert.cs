@@ -30,6 +30,12 @@ public class PriceAlert
     /// </summary>
     public DateTime? LastCheckedAt { get; set; }
 
+    /// <summary>
+    /// Bu alarm için en son e-posta bildiriminin gönderildiği UTC zaman.
+    /// Spam önleme (cooldown) için kullanılır; null ise henüz bildirim gönderilmemiştir.
+    /// </summary>
+    public DateTime? LastEmailNotifiedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User User { get; set; } = null!;

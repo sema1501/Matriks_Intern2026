@@ -15,6 +15,12 @@ public class TradingBot
     public decimal SellRsiThreshold { get; set; } = 70m;
     public decimal TradeQuantity { get; set; }
 
+    /// <summary>
+    /// Bu bot için en son e-posta bildiriminin gönderildiği UTC zaman.
+    /// Spam önleme (cooldown) için kullanılır; null ise henüz bildirim gönderilmemiştir.
+    /// </summary>
+    public DateTime? LastEmailNotifiedAt { get; set; }
+
     public ICollection<BotSignal> Signals { get; set; } = new List<BotSignal>();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
