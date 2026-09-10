@@ -12,7 +12,14 @@ public class AuthController(IAuthService authService, IUserService userService) 
 {
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
-        => Ok(await authService.RegisterAsync(request));
+        => Ok(new { message = await authService.RegisterAsync(request) });
+
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request)
+    {
+        await authService.ConfirmEmailAsync(request.Token);
+        return Ok(new { message = "E-posta adresiniz doğrulandı. Artık giriş yapabilirsiniz." });
+    }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)

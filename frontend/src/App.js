@@ -18,6 +18,7 @@ import Converter from './pages/Converter/Converter';
 import Feedback from './pages/Feedback/Feedback';
 import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
 import ResetPassword from './pages/ResetPassword/ResetPassword';
+import ConfirmEmail from './pages/ConfirmEmail/ConfirmEmail';
 import Portfolio from './pages/Portfolio/Portfolio';
 import Leaderboard from './pages/Leaderboard/Leaderboard';
 import Bot from './pages/Bot/Bot';
@@ -77,6 +78,10 @@ function App() {
                                             <Route
                                                 path="/reset-password/:token"
                                                 element={<ResetPassword />}
+                                            />
+                                            <Route
+                                                path="/confirm-email/:token"
+                                                element={<ConfirmEmail />}
                                             />
                                             <Route path="/signup" element={<SignUp />} />
                                             <Route path="/profile" element={<Profile />} />

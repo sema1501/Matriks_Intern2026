@@ -20,6 +20,7 @@ export const setEmailNotifications = (enabled) => api.put('/api/Auth/me/notifica
 export const getAllUsers = () => api.get('/api/Auth/users');
 export const forgotPassword = (data) => api.post('/api/Auth/forgot-password', data);
 export const resetPassword = (data) => api.post('/api/Auth/reset-password', data);
+export const confirmEmail = (token) => api.post('/api/Auth/confirm-email', { token });
 
 // Role
 export const getRoles = () => api.get('/api/Role');

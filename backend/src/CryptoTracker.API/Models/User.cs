@@ -14,6 +14,13 @@ public class User
     /// </summary>
     public bool EmailNotificationsEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Kullanıcının e-posta adresi doğrulandı mı? Yeni kayıtlar false başlar ve
+    /// doğrulama linkine tıklayana kadar giriş yapamaz (Görev 48).
+    /// Migration mevcut kullanıcıları true işaretler (geriye uyumluluk).
+    /// </summary>
+    public bool EmailConfirmed { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<PriceAlert> PriceAlerts { get; set; } = new List<PriceAlert>();
