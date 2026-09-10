@@ -6,7 +6,9 @@ public record CreateAlertRequest(
     string Symbol,
     decimal TargetPrice,
     AlertDirection Direction,
-    AlertInterval Interval = AlertInterval.Minute
+    AlertInterval Interval = AlertInterval.Minute,
+    AlertType Type = AlertType.Price,
+    decimal? PercentChangeThreshold = null
 );
 
 public record ToggleAlertRequest(bool IsActive);
@@ -21,7 +23,10 @@ public record AlertResponse(
     AlertInterval Interval,
     int SignalCount,
     DateTime? LastTriggeredAt,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    AlertType Type,
+    decimal? PercentChangeThreshold,
+    decimal? ReferencePrice
 );
 
 public record AlertSignalDto(

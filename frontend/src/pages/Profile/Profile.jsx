@@ -346,6 +346,10 @@ export default function Profile() {
               const targetPrice = getAlertField(alert, 'targetPrice', 'TargetPrice');
               const direction = getAlertField(alert, 'direction', 'Direction');
               const interval = getAlertField(alert, 'interval', 'Interval');
+              const alertType = getAlertField(alert, 'type', 'Type');
+              const percentThreshold = getAlertField(alert, 'percentChangeThreshold', 'PercentChangeThreshold');
+              const referencePrice = getAlertField(alert, 'referencePrice', 'ReferencePrice');
+              const isPercent = alertType === 1 || alertType === '1';
               const isActive = getAlertField(alert, 'isActive', 'IsActive');
               const signalCount = Number(getAlertField(alert, 'signalCount', 'SignalCount') ?? 0);
               const lastTriggeredAt = getAlertField(alert, 'lastTriggeredAt', 'LastTriggeredAt');
@@ -377,7 +381,10 @@ export default function Profile() {
                       )}
                       <br />
                       <span style={{ fontSize: '0.9rem', color: 'var(--text-muted, #64748b)' }}>
-                        Hedef: ${Number(targetPrice).toLocaleString()} — {formatDirection(direction)}
+                        {isPercent
+                          ? `Hedef: %${Number(percentThreshold)} ${direction === 0 || direction === '0' ? 'yükseliş' : 'düşüş'}` +
+                            (referencePrice != null ? ` (referans: $${Number(referencePrice).toLocaleString()})` : '')
+                          : `Hedef: $${Number(targetPrice).toLocaleString()} — ${formatDirection(direction)}`}
                       </span>
                       <br />
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
