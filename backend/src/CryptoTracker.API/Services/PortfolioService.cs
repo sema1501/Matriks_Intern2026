@@ -23,15 +23,49 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<TransactionDto>> GetTransactionHistoryAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<TransactionDto>> GetTransactionHistoryAsync(
+        int userId,
+        int pageNumber = 1,
+        int pageSize = 20,
+        string? symbol = null,
+        TransactionType? type = null,
+        CancellationToken cancellationToken = default)
     {
-        var transactions = await db.Transactions
+        // Sayfa parametrelerini güvenli aralığa çek (Görev 51).
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var query = db.Transactions
             .AsNoTracking()
-            .Where(t => t.UserId == userId)
+            .Where(t => t.UserId == userId);
+
+        // Opsiyonel filtreler — sembolde kısmi arama ("eth" → ETHUSDT bulunur) (Görev 51)
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            var normalized = symbol.Trim().ToUpperInvariant();
+            query = query.Where(t => t.Symbol.Contains(normalized));
+        }
+
+        if (type is not null)
+            query = query.Where(t => t.Type == type);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var transactions = await query
             .OrderByDescending(t => t.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return transactions.Select(MapToDto).ToList();
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PagedResult<TransactionDto>(
+            transactions.Select(MapToDto).ToList(),
+            totalCount,
+            pageNumber,
+            pageSize,
+            totalPages);
     }
 
     public async Task<List<LeaderboardDto>> GetLeaderboardAsync(CancellationToken cancellationToken = default)

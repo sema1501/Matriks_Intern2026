@@ -1,4 +1,5 @@
 using CryptoTracker.API.DTOs;
+using CryptoTracker.API.Models;
 using CryptoTracker.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,12 +33,18 @@ public class PortfolioController(IPortfolioService portfolioService) : Controlle
     }
 
     [HttpGet("transactions")]
-    public async Task<IActionResult> GetTransactions(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetTransactions(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? symbol = null,
+        [FromQuery] TransactionType? type = null,
+        CancellationToken cancellationToken = default)
     {
         if (!TryGetUserId(out var userId))
             return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
 
-        var transactions = await portfolioService.GetTransactionHistoryAsync(userId, cancellationToken);
+        var transactions = await portfolioService.GetTransactionHistoryAsync(
+            userId, pageNumber, pageSize, symbol, type, cancellationToken);
         return Ok(transactions);
     }
 
