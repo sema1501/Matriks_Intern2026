@@ -169,9 +169,29 @@ const Portfolio = () => {
 
   const totalPortfolioValue = balance + totalHoldingsValue;
   
-  const totalPnL = initialBalance > 0 
-    ? ((totalPortfolioValue - initialBalance) / initialBalance) * 100 
+  const totalPnL = initialBalance > 0
+    ? ((totalPortfolioValue - initialBalance) / initialBalance) * 100
     : 0;
+
+  // Portföy dağılımı (Görev 44): her coin'in güncel değerinin toplam içindeki payı
+  const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#ec4899', '#84cc16'];
+  const distribution = enrichedHoldings
+    .filter((h) => h.hasPrice && h.currentValue > 0)
+    .map((h, i) => ({
+      symbol: h.symbol,
+      value: h.currentValue,
+      percent: totalHoldingsValue > 0 ? (h.currentValue / totalHoldingsValue) * 100 : 0,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+    }));
+
+  let _pieAcc = 0;
+  const pieGradient = distribution
+    .map((d) => {
+      const start = _pieAcc;
+      _pieAcc += d.percent;
+      return `${d.color} ${start}% ${_pieAcc}%`;
+    })
+    .join(', ');
 
   if (loading) {
     return <div className="portfolio-loading">Portföy verileri yükleniyor...</div>;
@@ -202,6 +222,36 @@ const Portfolio = () => {
         totalPortfolioProfit={totalPortfolioValue - initialBalance} 
         prices={prices} 
       />
+
+      {/* Portföy dağılım grafiği (Görev 44) */}
+      {distribution.length > 0 && (
+        <div className="portfolio-section">
+          <h2>Portföy Dağılımı</h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2rem' }}>
+            <div
+              style={{
+                width: '180px',
+                height: '180px',
+                borderRadius: '50%',
+                background: `conic-gradient(${pieGradient})`,
+                flexShrink: 0,
+              }}
+              aria-label="Portföy dağılım pasta grafiği"
+            />
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {distribution.map((d) => (
+                <li key={d.symbol} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: d.color, display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600 }}>{d.symbol}</span>
+                  <span style={{ color: 'var(--text-muted, #64748b)' }}>
+                    %{d.percent.toFixed(1)} — ${d.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <div className="portfolio-section">
         <h2>Varlıklarım</h2>
