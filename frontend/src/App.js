@@ -21,6 +21,7 @@ import ResetPassword from './pages/ResetPassword/ResetPassword';
 import ConfirmEmail from './pages/ConfirmEmail/ConfirmEmail';
 import Portfolio from './pages/Portfolio/Portfolio';
 import Leaderboard from './pages/Leaderboard/Leaderboard';
+import Compare from './pages/Compare/Compare';
 import Bot from './pages/Bot/Bot';
 import AdminBots from './pages/AdminBots/AdminBots';
 
@@ -70,6 +71,7 @@ function App() {
                                                 path="/leaderboard"
                                                 element={<Leaderboard />}
                                             />
+                                            <Route path="/compare" element={<Compare />} />
                                             <Route path="/signin" element={<SignIn />} />
                                             <Route
                                                 path="/forgot-password"
