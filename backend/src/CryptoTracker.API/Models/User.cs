@@ -21,6 +21,12 @@ public class User
     /// </summary>
     public bool EmailConfirmed { get; set; }
 
+    /// <summary>
+    /// Kullanıcının profil fotoğrafı; base64 data URL olarak saklanır (Görev 43).
+    /// Null ise varsayılan/placeholder gösterilir.
+    /// </summary>
+    public string? AvatarUrl { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<PriceAlert> PriceAlerts { get; set; } = new List<PriceAlert>();

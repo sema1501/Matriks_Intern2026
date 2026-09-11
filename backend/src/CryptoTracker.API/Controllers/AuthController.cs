@@ -69,6 +69,14 @@ public class AuthController(IAuthService authService, IUserService userService) 
         return Ok(await userService.SetEmailNotificationsAsync(userId, request.Enabled));
     }
 
+    [Authorize]
+    [HttpPut("me/avatar")]
+    public async Task<IActionResult> UpdateAvatar([FromBody] UpdateAvatarRequest request)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return Ok(await userService.SetAvatarAsync(userId, request.AvatarUrl));
+    }
+
     [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpGet("users")]
     public async Task<IActionResult> GetAllUsers()

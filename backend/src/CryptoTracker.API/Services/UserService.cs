@@ -82,9 +82,28 @@ public class UserService(AppDbContext db) : IUserService
         return MapToDto(user);
     }
 
+    public async Task<UserDto> SetAvatarAsync(int id, string? avatarUrl)
+    {
+        // Base64 fotoğraf için boyut sınırı (~3MB'lik görsel) — DB'yi ve isteği şişirmesin (Görev 43).
+        if (avatarUrl is not null && avatarUrl.Length > 4_000_000)
+            throw new ArgumentException("Fotoğraf çok büyük. Lütfen daha küçük bir görsel seçin.");
+
+        var user = await db.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user == null) throw new Exception("Kullanıcı bulunamadı.");
+
+        user.AvatarUrl = avatarUrl;
+        await db.SaveChangesAsync();
+        return MapToDto(user);
+    }
+
     private static UserDto MapToDto(User user) =>
         new(user.Id, user.Username, user.Email,
             user.UserRoles.Select(ur => ur.Role.Name),
             user.CreatedAt,
-            user.EmailNotificationsEnabled);
+            user.EmailNotificationsEnabled,
+            user.AvatarUrl);
 }
