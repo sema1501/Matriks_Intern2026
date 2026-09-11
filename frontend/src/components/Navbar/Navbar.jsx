@@ -18,6 +18,7 @@ export default function Navbar() {
                 {/* Herkese açık bağlantılar */}
                 <Link to="/">Ana Sayfa</Link>
                 <Link to="/leaderboard">Liderlik Tablosu</Link>
+                <Link to="/compare">Karşılaştır</Link>
                 <Link to="/converter">Dönüştürücü</Link>
                 <Link to="/feedback">Geri Bildirim</Link>
                 <Link to="/bot">🤖 Botlarım</Link>
