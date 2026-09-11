@@ -7,4 +7,5 @@ public interface IUserService
     Task<UserDto> UpdateProfileAsync(int id, UpdateProfileRequest request);
     Task ChangePasswordAsync(int id, ChangePasswordRequest request);
     Task<UserDto> SetEmailNotificationsAsync(int id, bool enabled);
+    Task<UserDto> SetAvatarAsync(int id, string? avatarUrl);
 }

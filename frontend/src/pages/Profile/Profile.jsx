@@ -9,6 +9,7 @@ import {
   toggleAlert,
   getAlertSignals,
   setEmailNotifications,
+  setAvatar,
 } from '../../services/apiService';
 
 const inputStyle = { width: '100%', padding: '0.5rem', marginTop: '0.25rem' };
@@ -76,6 +77,8 @@ export default function Profile() {
   const [signalsError, setSignalsError] = useState('');
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifError, setNotifError]     = useState('');
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarError, setAvatarError]     = useState('');
 
   useEffect(() => {
     if (authLoading) return;
@@ -199,6 +202,42 @@ export default function Profile() {
     }
   };
 
+  // Görev 43: Seçilen fotoğrafı base64'e çevirip yükler.
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Lütfen bir görsel dosyası seçin.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setAvatarError("Fotoğraf 3MB'dan küçük olmalıdır.");
+      return;
+    }
+
+    setAvatarError('');
+    setAvatarLoading(true);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const res = await setAvatar(reader.result);
+        setProfile(res.data);
+        setUser(res.data);
+      } catch (err) {
+        setAvatarError(getErrorMessage(err));
+      } finally {
+        setAvatarLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      setAvatarError('Dosya okunamadı.');
+      setAvatarLoading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleProfileChange = (e) => {
     setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
   };
@@ -265,15 +304,55 @@ export default function Profile() {
   }
 
   return (
-    <div style={{ maxWidth: '600px' }}>
+    <div style={{ maxWidth: '900px' , margin: '0 auto'}}>
       <h2>Profil</h2>
 
       <section style={sectionStyle}>
         <h3>Bilgilerim</h3>
-        <p><strong>Kullanıcı Adı:</strong> {profile.username}</p>
-        <p><strong>Email:</strong> {profile.email}</p>
-        <p><strong>Roller:</strong> {profile.roles?.join(', ') || '—'}</p>
-        <p><strong>Üyelik Tarihi:</strong> {formatDate(profile.createdAt)}</p>
+
+        {/* Profil kartı: bilgiler solda, avatar sağda (Görev 43) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          {/* Sol: bilgiler */}
+          <div>
+            <p><strong>Kullanıcı Adı:</strong> {profile.username}</p>
+            <p><strong>Email:</strong> {profile.email}</p>
+            <p><strong>Roller:</strong> {profile.roles?.join(', ') || '—'}</p>
+            <p><strong>Üyelik Tarihi:</strong> {formatDate(profile.createdAt)}</p>
+          </div>
+
+          {/* Sağ: avatar + fotoğraf yükle */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', flexShrink: 0, marginTop: '-48px' }}>
+            {profile.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt="Profil fotoğrafı"
+                style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color, #e2e8f0)' }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '120px', height: '120px', borderRadius: '50%',
+                  background: '#cbd5e1', color: '#fff', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 600,
+                }}
+                aria-label="Varsayılan profil fotoğrafı"
+              >
+                {profile.username?.[0]?.toUpperCase() || '?'}
+              </div>
+            )}
+            <label style={{ display: 'inline-block', padding: '0.35rem 0.7rem', border: '1px solid var(--border-color, #94a3b8)', borderRadius: '6px', cursor: avatarLoading ? 'default' : 'pointer', fontSize: '0.85rem' }}>
+              {avatarLoading ? 'Yükleniyor...' : 'Fotoğraf Yükle'}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                disabled={avatarLoading}
+                style={{ display: 'none' }}
+              />
+            </label>
+            {avatarError && <p style={{ color: 'red', margin: 0, fontSize: '0.8rem' }}>{avatarError}</p>}
+          </div>
+        </div>
 
         <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
