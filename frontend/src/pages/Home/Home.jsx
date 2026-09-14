@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useGlobalPrices } from '../../context/PriceContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useLanguage } from '../../context/LanguageContext';
 import CryptoGrid from '../../components/CryptoGrid/CryptoGrid';
 
 export default function Home() {
     const { user } = useAuth();
     const { prices, connectionStatus } = useGlobalPrices();
     const { formatPrice } = useCurrency();
+    const { t } = useLanguage();
     const navigate = useNavigate();
 
     const { topGainers, topLosers, stats } = useMemo(() => {
@@ -104,7 +106,7 @@ export default function Home() {
                     })
                 ) : (
                     <div style={{ padding: '24px', textAlign: 'center', color: '#888', fontSize: '14px', backgroundColor: 'rgba(255, 255, 255, 0.01)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.05)' }}>
-                        {isGainerSection ? 'Yükseliş yaşayan varlık bulunmuyor.' : 'Düşüş yaşayan varlık bulunmuyor. 🚀'}
+                        {isGainerSection ? t('home.noGainers') : t('home.noLosers')}
                     </div>
                 )}
             </div>
@@ -142,13 +144,13 @@ export default function Home() {
                 </div>
             ) : (
                 <div style={styles.gridContainer}>
-                    {renderList('↗ Top 5 Yükselen', topGainers, true)}
-                    {renderList('↘ Top 5 Düşen', topLosers, false)}
+                    {renderList(t('home.topGainers'), topGainers, true)}
+                    {renderList(t('home.topLosers'), topLosers, false)}
                 </div>
             )}
 
             <div style={{ marginTop: '32px' }}>
-                <h3 style={{ marginBottom: '16px' }}>Tüm Kripto Para Piyasası</h3>
+                <h3 style={{ marginBottom: '16px' }}>{t('home.allMarket')}</h3>
                 <CryptoGrid />
             </div>
         </div>

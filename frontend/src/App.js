@@ -4,8 +4,10 @@ import { PriceProvider } from './context/PriceContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { WatchlistProvider } from './context/WatchlistContext';
+import { LanguageProvider } from './context/LanguageContext';
 
 import Navbar from './components/Navbar/Navbar';
+import LanguageToggle from './components/LanguageToggle/LanguageToggle';
 import AlertMonitor from './components/AlertMonitor/AlertMonitor';
 import Home from './pages/Home/Home';
 import SignIn from './pages/SignIn/SignIn';
@@ -57,11 +59,13 @@ function App() {
             <PriceProvider>
                 <CurrencyProvider>
                     <ThemeProvider>
+                        <LanguageProvider>
                         <WatchlistProvider>
                             <BrowserRouter>
                                 <div className="app-shell">
                                     <Navbar />
                                     <AlertMonitor />
+                                    <LanguageToggle />
 
                                     <main className="app-main">
                                         <Routes>
@@ -146,6 +150,7 @@ function App() {
                                 </div>
                             </BrowserRouter>
                         </WatchlistProvider>
+                        </LanguageProvider>
                     </ThemeProvider>
                 </CurrencyProvider>
             </PriceProvider>

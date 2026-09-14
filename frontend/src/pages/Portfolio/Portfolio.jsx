@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getBalance, getHoldings, getTransactions, getBotPerformance } from '../../services/apiService';
 import { useBinancePrices } from '../../hooks/useBinancePrices';
-import './Portfolio.css'; 
+import { useLanguage } from '../../context/LanguageContext';
+import './Portfolio.css';
 
 const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: prices prop'u eklendi
   const [performance, setPerformance] = useState(null);
@@ -92,6 +93,7 @@ const Portfolio = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const { prices } = useBinancePrices();
+  const { t } = useLanguage();
 
   // İşlem geçmişi: sayfalama + filtreleme durumu (Görev 51)
   const [txPage, setTxPage] = useState(1);
@@ -194,7 +196,7 @@ const Portfolio = () => {
     .join(', ');
 
   if (loading) {
-    return <div className="portfolio-loading">Portföy verileri yükleniyor...</div>;
+    return <div className="portfolio-loading">{t('portfolio.loading')}</div>;
   }
 
   return (
@@ -202,18 +204,18 @@ const Portfolio = () => {
       {/* 1. ÜST ÖZET KARTI */}
       <div className="portfolio-summary-card">
         <div>
-          <h1 className="portfolio-title">Portföyüm</h1>
+          <h1 className="portfolio-title">{t('portfolio.title')}</h1>
           <p className="portfolio-balance-text">
-            Kullanılabilir Bakiye: <span>${balance.toLocaleString()}</span>
+            {t('portfolio.availableBalance')}: <span>${balance.toLocaleString()}</span>
           </p>
         </div>
         <div className="portfolio-total-wrapper">
-          <p className="portfolio-total-label">Toplam Portföy Değeri</p>
+          <p className="portfolio-total-label">{t('portfolio.totalValue')}</p>
           <p className="portfolio-total-value">
             ${totalPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className={`portfolio-pnl ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
-            {totalPnL >= 0 ? '▲' : '▼'} {totalPnL.toFixed(2)}% Genel Kâr/Zarar
+            {totalPnL >= 0 ? '▲' : '▼'} {totalPnL.toFixed(2)}% {t('portfolio.totalPnL')}
           </p>
         </div>
       </div>
@@ -226,7 +228,7 @@ const Portfolio = () => {
       {/* Portföy dağılım grafiği (Görev 44) */}
       {distribution.length > 0 && (
         <div className="portfolio-section">
-          <h2>Portföy Dağılımı</h2>
+          <h2>{t('portfolio.distribution')}</h2>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2rem' }}>
             <div
               style={{
@@ -254,23 +256,23 @@ const Portfolio = () => {
       )}
 
       <div className="portfolio-section">
-        <h2>Varlıklarım</h2>
+        <h2>{t('portfolio.myAssets')}</h2>
         <div className="table-responsive">
           <table className="portfolio-table">
             <thead>
               <tr>
-                <th>Coin</th>
-                <th>Miktar</th>
-                <th>Ortalama Alış Fiyatı</th>
-                <th>Güncel Fiyat</th>
-                <th>Güncel Değer</th>
-                <th>Kâr / Zarar %</th>
+                <th>{t('portfolio.coin')}</th>
+                <th>{t('portfolio.quantity')}</th>
+                <th>{t('portfolio.avgBuyPrice')}</th>
+                <th>{t('portfolio.currentPrice')}</th>
+                <th>{t('portfolio.currentValue')}</th>
+                <th>{t('portfolio.pnlPercent')}</th>
               </tr>
             </thead>
             <tbody>
               {enrichedHoldings.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="empty-row">Henüz sahip olduğunuz bir coin bulunmuyor.</td>
+                  <td colSpan="6" className="empty-row">{t('portfolio.noCoins')}</td>
                 </tr>
               ) : (
                 enrichedHoldings.map((h, i) => (
@@ -279,7 +281,7 @@ const Portfolio = () => {
                     <td>{h.quantity}</td>
                     <td>${h.avgBuyPrice.toLocaleString()}</td>
                     <td>
-                      {h.hasPrice ? `$${h.currentPrice.toLocaleString()}` : <span className="loading-text">Yükleniyor...</span>}
+                      {h.hasPrice ? `$${h.currentPrice.toLocaleString()}` : <span className="loading-text">{t('common.loading')}</span>}
                     </td>
                     <td>
                       {h.hasPrice ? `$${h.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
@@ -303,7 +305,7 @@ const Portfolio = () => {
 
       
       <div className="portfolio-section">
-        <h2>İşlem Geçmişi</h2>
+        <h2>{t('portfolio.txHistory')}</h2>
 
         {/* Filtreleme (Görev 51): sembol + işlem türü */}
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -319,9 +321,9 @@ const Portfolio = () => {
             onChange={(e) => { setTxPage(1); setTxType(e.target.value); }}
             style={{ padding: '0.4rem' }}
           >
-            <option value="">Tüm işlemler</option>
-            <option value="0">Sadece Alım</option>
-            <option value="1">Sadece Satım</option>
+            <option value="">{t('portfolio.allTx')}</option>
+            <option value="0">{t('portfolio.onlyBuy')}</option>
+            <option value="1">{t('portfolio.onlySell')}</option>
           </select>
         </div>
 
@@ -329,21 +331,21 @@ const Portfolio = () => {
           <table className="portfolio-table">
             <thead>
               <tr>
-                <th>Tarih</th>
-                <th>İşlem Türü</th>
-                <th>Coin</th>
-                <th>Miktar</th>
-                <th>İşlem Fiyatı</th>
+                <th>{t('portfolio.date')}</th>
+                <th>{t('portfolio.txType')}</th>
+                <th>{t('portfolio.coin')}</th>
+                <th>{t('portfolio.quantity')}</th>
+                <th>{t('portfolio.txPrice')}</th>
               </tr>
             </thead>
             <tbody>
               {txLoading ? (
                 <tr>
-                  <td colSpan="5" className="empty-row">Yükleniyor...</td>
+                  <td colSpan="5" className="empty-row">{t('common.loading')}</td>
                 </tr>
               ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="empty-row">Bu kritere uygun işlem bulunmuyor.</td>
+                  <td colSpan="5" className="empty-row">{t('portfolio.noTx')}</td>
                 </tr>
               ) : (
                 transactions.map((t, i) => (
@@ -373,16 +375,16 @@ const Portfolio = () => {
               disabled={txPage <= 1 || txLoading}
               style={{ padding: '0.4rem 0.9rem', cursor: 'pointer' }}
             >
-              ← Önceki
+              {t('portfolio.prev')}
             </button>
-            <span>Sayfa {txPage} / {txTotalPages}</span>
+            <span>{t('portfolio.page')} {txPage} / {txTotalPages}</span>
             <button
               type="button"
               onClick={() => setTxPage((p) => Math.min(txTotalPages, p + 1))}
               disabled={txPage >= txTotalPages || txLoading}
               style={{ padding: '0.4rem 0.9rem', cursor: 'pointer' }}
             >
-              Sonraki →
+              {t('portfolio.next')}
             </button>
           </div>
         )}

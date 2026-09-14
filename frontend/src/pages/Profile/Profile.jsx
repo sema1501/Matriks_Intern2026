@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   getMe,
   updateProfile,
@@ -54,6 +55,7 @@ function getAlertField(alert, camel, pascal) {
 
 export default function Profile() {
   const { user: authUser, loading: authLoading, setUser } = useAuth();
+  const { t } = useLanguage();
 
   const [profile, setProfile]       = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -292,7 +294,7 @@ export default function Profile() {
   };
 
   if (authLoading || loading) {
-    return <p>Profil yükleniyor...</p>;
+    return <p>{t('common.loading')}</p>;
   }
 
   if (!authUser) {
@@ -305,19 +307,19 @@ export default function Profile() {
 
   return (
     <div style={{ maxWidth: '900px' , margin: '0 auto'}}>
-      <h2>Profil</h2>
+      <h2>{t('profile.title')}</h2>
 
       <section style={sectionStyle}>
-        <h3>Bilgilerim</h3>
+        <h3>{t('profile.info')}</h3>
 
         {/* Profil kartı: bilgiler solda, avatar sağda (Görev 43) */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           {/* Sol: bilgiler */}
           <div>
-            <p><strong>Kullanıcı Adı:</strong> {profile.username}</p>
-            <p><strong>Email:</strong> {profile.email}</p>
-            <p><strong>Roller:</strong> {profile.roles?.join(', ') || '—'}</p>
-            <p><strong>Üyelik Tarihi:</strong> {formatDate(profile.createdAt)}</p>
+            <p><strong>{t('profile.username')}:</strong> {profile.username}</p>
+            <p><strong>{t('profile.email')}:</strong> {profile.email}</p>
+            <p><strong>{t('profile.roles')}:</strong> {profile.roles?.join(', ') || '—'}</p>
+            <p><strong>{t('profile.memberSince')}:</strong> {formatDate(profile.createdAt)}</p>
           </div>
 
           {/* Sağ: avatar + fotoğraf yükle */}
@@ -341,7 +343,7 @@ export default function Profile() {
               </div>
             )}
             <label style={{ display: 'inline-block', padding: '0.35rem 0.7rem', border: '1px solid var(--border-color, #94a3b8)', borderRadius: '6px', cursor: avatarLoading ? 'default' : 'pointer', fontSize: '0.85rem' }}>
-              {avatarLoading ? 'Yükleniyor...' : 'Fotoğraf Yükle'}
+              {avatarLoading ? t('common.loading') : t('profile.uploadPhoto')}
               <input
                 type="file"
                 accept="image/*"
@@ -362,9 +364,9 @@ export default function Profile() {
               onChange={handleToggleNotifications}
               disabled={notifLoading}
             />
-            <span>E-posta bildirimleri (alarm/bot sinyalleri)</span>
+            <span>{t('profile.emailNotifications')}</span>
           </label>
-          {notifLoading && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>Kaydediliyor...</span>}
+          {notifLoading && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>{t('common.loading')}</span>}
         </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)', marginTop: '0.25rem' }}>
           Kapalıysa alarm veya bot sinyali tetiklendiğinde e-posta gönderilmez.
@@ -373,7 +375,7 @@ export default function Profile() {
       </section>
 
       <section style={sectionStyle}>
-        <h3>Profili Düzenle</h3>
+        <h3>{t('profile.edit')}</h3>
         {profileError && <p style={{ color: 'red' }}>{profileError}</p>}
         {profileSuccess && <p style={{ color: 'green' }}>{profileSuccess}</p>}
         <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -391,7 +393,7 @@ export default function Profile() {
             />
           </div>
           <div>
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">{t('profile.email')}</label>
             <br />
             <input
               id="email"
@@ -404,14 +406,14 @@ export default function Profile() {
             />
           </div>
           <button type="submit" disabled={profileLoading} style={{ padding: '0.6rem', cursor: 'pointer' }}>
-            {profileLoading ? 'Kaydediliyor...' : 'Kaydet'}
+            {profileLoading ? t('common.loading') : t('profile.save')}
           </button>
         </form>
       </section>
 
       <section style={sectionStyle}>
-        <h3>Alarmlarım</h3>
-        {alertsLoading && <p>Alarmlar yükleniyor...</p>}
+        <h3>{t('profile.myAlerts')}</h3>
+        {alertsLoading && <p>{t('common.loading')}</p>}
         {alertsError && <p style={{ color: 'red' }}>{alertsError}</p>}
         {alertsActionMessage && <p style={{ color: 'green' }}>{alertsActionMessage}</p>}
         {!alertsLoading && !alertsError && alerts.length === 0 && (
@@ -467,7 +469,7 @@ export default function Profile() {
                       </span>
                       <br />
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
-                        Aralık: {formatInterval(interval)} · Durum: {active ? 'Aktif' : 'Pasif'}
+                        {t('profile.interval')}: {formatInterval(interval)} · {t('profile.status')}: {active ? t('profile.active') : t('profile.passive')}
                       </span>
                       <br />
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
@@ -481,7 +483,7 @@ export default function Profile() {
                         disabled={togglingId === id}
                         style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
                       >
-                        {togglingId === id ? 'Güncelleniyor...' : active ? 'Pasifleştir' : 'Aktifleştir'}
+                        {togglingId === id ? t('common.loading') : active ? t('profile.deactivate') : t('profile.activate')}
                       </button>
                       <button
                         type="button"
@@ -503,7 +505,7 @@ export default function Profile() {
 
                   {expandedSignalAlertId === id && (
                     <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border-color, #e2e8f0)', paddingTop: '0.75rem' }}>
-                      {signalsLoadingId === id && <p>Sinyaller yükleniyor...</p>}
+                      {signalsLoadingId === id && <p>{t('common.loading')}</p>}
                       {signalsError && expandedSignalAlertId === id && (
                         <p style={{ color: 'red' }}>{signalsError}</p>
                       )}
@@ -541,7 +543,7 @@ export default function Profile() {
       </section>
 
       <section style={sectionStyle}>
-        <h3>Şifre Değiştir</h3>
+        <h3>{t('profile.changePassword')}</h3>
         {passwordError && <p style={{ color: 'red' }}>{passwordError}</p>}
         {passwordSuccess && <p style={{ color: 'green' }}>{passwordSuccess}</p>}
         <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

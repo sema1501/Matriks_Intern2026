@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { createFeedback } from "../../services/apiService";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function Feedback() {
+  const { t } = useLanguage();
   const [message, setMessage] = useState("");
   const [rating, setRating] = useState("");
   const [result, setResult] = useState("");
@@ -15,21 +17,21 @@ export default function Feedback() {
         rating: rating === "" ? null : Number(rating),
       });
 
-      setResult("Geri bildiriminiz başarıyla gönderildi.");
+      setResult(t('feedback.success'));
       setMessage("");
       setRating("");
     } catch (err) {
-      setResult("Gönderme işlemi başarısız.");
+      setResult(t('feedback.error'));
     }
   };
 
   return (
     <div style={{ padding: "40px", maxWidth: "600px", margin: "auto" }}>
-      <h2>Geri Bildirim</h2>
+      <h2>{t('feedback.title')}</h2>
 
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: "20px" }}>
-          <label>Mesaj</label>
+          <label>{t('feedback.message')}</label>
 
           <textarea
             rows="6"
@@ -41,14 +43,14 @@ export default function Feedback() {
         </div>
 
         <div style={{ marginBottom: "20px" }}>
-          <label>Puan (1-5)</label>
+          <label>{t('feedback.rating')}</label>
 
           <select
             value={rating}
             onChange={(e) => setRating(e.target.value)}
             style={{ width: "100%", padding: "10px", marginTop: "10px" }}
           >
-            <option value="">Puan vermek istemiyorum</option>
+            <option value="">{t('feedback.noRating')}</option>
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
@@ -58,7 +60,7 @@ export default function Feedback() {
         </div>
 
         <button type="submit">
-          Gönder
+          {t('feedback.send')}
         </button>
       </form>
 

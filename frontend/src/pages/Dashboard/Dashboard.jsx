@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getAllUsers, assignRole, removeRole, getRoles, getFeedbacks, getAuditLog } from '../../services/apiService';
 
 function parseApiUtcDate(value) {
@@ -32,6 +33,7 @@ const AUDIT_ACTION_LABELS = {
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
+  const { t } = useLanguage();
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [rolesList, setRolesList] = useState([]);
@@ -121,14 +123,14 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Yükleniyor...</div>;
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>{t('common.loading')}</div>;
   }
 
   if (!user || !user.roles || (!user.roles.includes('Admin') && !user.roles.includes('SuperAdmin'))) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8f9fa' }}>
         <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ color: '#dc3545', margin: '0 0 10px 0' }}>Yetkisiz Erişim!</h2>
+          <h2 style={{ color: '#dc3545', margin: '0 0 10px 0' }}>{t('dashboard.unauthorized')}</h2>
           <p style={{ color: '#6c757d', margin: 0 }}>Bu sayfayı görüntülemek için Admin veya SuperAdmin yetkisine sahip olmalısınız.</p>
         </div>
       </div>
@@ -146,7 +148,7 @@ export default function Dashboard() {
     <div style={{ display: 'flex', minHeight: 'calc(100vh - 60px)', fontFamily: 'sans-serif' }}>
       {/* Sol Menü (Sidebar) */}
       <div style={{ width: '240px', backgroundColor: '#f4f4f4', padding: '20px', borderRight: '1px solid #ddd' }}>
-        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Admin Paneli</h3>
+        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>{t('dashboard.adminPanel')}</h3>
         <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
           <li style={getTabStyle('summary')} onClick={() => setActiveTab('summary')}>📊 Özet Raporlar</li>
           <li style={{ padding: '10px 0', color: '#555', cursor: 'not-allowed', opacity: 0.5 }}>🪙 Kripto Varlıklar</li>
@@ -161,21 +163,21 @@ export default function Dashboard() {
       <div style={{ flex: 1, padding: '30px', backgroundColor: '#fff' }}>
       {activeTab === 'summary' && (
       <div>
-      <h2 style={{ marginTop: 0 }}>📊 Sistem Özet Raporları</h2>
+      <h2 style={{ marginTop: 0 }}>{t('dashboard.reports')}</h2>
       <p style={{ color: '#666' }}>CryptoTracker sistemindeki anlık veriler ve yönetim araçları.</p>
 
       {/* Örnek Bilgi Kartları */}
       <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
         <div style={{ flex: 1, padding: '20px', backgroundColor: '#e6f2ff', borderRadius: '8px', border: '1px solid #b3d7ff' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#004085' }}>Toplam Kullanıcı</h4>
+          <h4 style={{ margin: '0 0 10px 0', color: '#004085' }}>{t('dashboard.totalUsers')}</h4>
           <span style={{ fontSize: '24px', fontWeight: 'bold' }}>1,240</span>
         </div>
         <div style={{ flex: 1, padding: '20px', backgroundColor: '#d4edda', borderRadius: '8px', border: '1px solid #c3e6cb' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>Aktif Kripto Paralar</h4>
+          <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>{t('dashboard.activeCoins')}</h4>
           <span style={{ fontSize: '24px', fontWeight: 'bold' }}>85</span>
         </div>
         <div style={{ flex: 1, padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '1px solid #ffeeba' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>Günlük İşlem Hacmi</h4>
+          <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>{t('dashboard.dailyVolume')}</h4>
           <span style={{ fontSize: '24px', fontWeight: 'bold' }}>$45,210</span>
         </div>
       </div>
@@ -184,13 +186,13 @@ export default function Dashboard() {
 
  {activeTab === 'users' && (
           <div>
-            <h2 style={{ marginTop: 0 }}> Kullanıcı Yönetimi Tablosu</h2>
+            <h2 style={{ marginTop: 0 }}>{t('dashboard.userMgmt')}</h2>
             <p style={{ color: '#666' }}>Sistemdeki kullanıcıları arayın, filtreleyin ve rollerini yönetin.</p>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
               <input
                 type="text"
-                placeholder="Kullanıcı veya E-posta ara..."
+                placeholder={t('dashboard.searchUser')}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={{ padding: '8px', width: '250px', border: '1px solid #ccc', borderRadius: '4px' }}
             />
@@ -249,17 +251,17 @@ export default function Dashboard() {
 
         {activeTab === 'feedback' && (
           <div>
-            <h2 style={{ marginTop: 0 }}>💬 Geri Bildirimler</h2>
+            <h2 style={{ marginTop: 0 }}>{t('dashboard.feedbacks')}</h2>
             <p style={{ color: '#666' }}>Kullanıcılardan gelen geri bildirim, şikayet ve öneriler.</p>
 
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
                   <th style={{ padding: '12px', color: '#495057' }}>ID</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>Mesaj</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>Puan</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>Kullanıcı</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>Tarih</th>
+                  <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.message')}</th>
+                  <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.score')}</th>
+                  <th style={{ padding: '12px', color: '#495057' }}>{t('profile.username')}</th>
+                  <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -268,7 +270,7 @@ export default function Dashboard() {
                     <td style={{ padding: '12px' }}>{item.id}</td>
                     <td style={{ padding: '12px' }}>{item.message}</td>
                     <td style={{ padding: '12px' }}>{item.rating ?? '-'}</td>
-                    <td style={{ padding: '12px' }}>{item.userId ?? 'Misafir'}</td>
+                    <td style={{ padding: '12px' }}>{item.userId ?? t('dashboard.guest')}</td>
                     <td style={{ padding: '12px' }}>{new Date(item.createdAt).toLocaleString('tr-TR')}</td>
                   </tr>
                 ))}
@@ -276,14 +278,14 @@ export default function Dashboard() {
             </table>
 
             {feedbacks.length === 0 && (
-              <p style={{ marginTop: '20px', color: '#666' }}>Henüz geri bildirim bulunmuyor.</p>
+              <p style={{ marginTop: '20px', color: '#666' }}>{t('dashboard.noFeedback')}</p>
             )}
           </div>
         )}
 
         {activeTab === 'audit' && (
           <div>
-            <h2 style={{ marginTop: 0 }}>📋 Denetim Günlüğü</h2>
+            <h2 style={{ marginTop: 0 }}>{t('dashboard.auditLog')}</h2>
             <p style={{ color: '#666' }}>Hangi yöneticinin hangi bot üzerinde ne zaman işlem yaptığını görüntüleyin. Kayıtlar varsayılan olarak en yeniden eskiye sıralanır.</p>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -345,10 +347,10 @@ export default function Dashboard() {
               <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                    <th style={{ padding: '12px', color: '#495057' }}>Yönetici</th>
-                    <th style={{ padding: '12px', color: '#495057' }}>İşlem</th>
-                    <th style={{ padding: '12px', color: '#495057' }}>Hedef</th>
-                    <th style={{ padding: '12px', color: '#495057' }}>Detay</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.admin')}</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.action')}</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.target')}</th>
+                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.detail')}</th>
                     <th style={{ padding: '12px', color: '#495057' }}>Tarih / Saat</th>
                   </tr>
                 </thead>

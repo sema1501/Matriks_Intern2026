@@ -2,17 +2,19 @@ import { useWatchlist }    from '../../context/WatchlistContext';
 import { useGlobalPrices } from '../../context/PriceContext';
 import { COIN_META }       from '../../data/coinMeta';
 import CryptoCard          from '../../components/CryptoCard/CryptoCard';
+import { useLanguage }      from '../../context/LanguageContext';
 import './Watchlist.css';
 
 export default function Watchlist() {
   const { watchlist, loading } = useWatchlist();
   const { prices }             = useGlobalPrices();
+  const { t }                  = useLanguage();
 
   if (loading) {
     return (
       <div className="watchlist-page">
         <div className="watchlist-page__header">
-          <h1 className="watchlist-page__title">⭐ Favorilerim</h1>
+          <h1 className="watchlist-page__title">{t('watchlist.title')}</h1>
         </div>
         <div className="watchlist-skeleton-grid">
           {[1, 2, 3].map(n => (
@@ -27,7 +29,7 @@ export default function Watchlist() {
     <div className="watchlist-page">
       <div className="watchlist-page__header">
         <div>
-          <h1 className="watchlist-page__title">⭐ Favorilerim</h1>
+          <h1 className="watchlist-page__title">{t('watchlist.title')}</h1>
           <p className="watchlist-page__subtitle">
             Takip ettiğin {watchlist.length} coin
           </p>
@@ -37,9 +39,9 @@ export default function Watchlist() {
       {watchlist.length === 0 ? (
         <div className="watchlist-empty">
           <div className="watchlist-empty__icon">☆</div>
-          <h2 className="watchlist-empty__title">Henüz favori yok</h2>
+          <h2 className="watchlist-empty__title">{t('watchlist.empty')}</h2>
           <p className="watchlist-empty__text">
-            Ana sayfada coin kartlarındaki yıldıza tıklayarak favorilerine ekleyebilirsin.
+            {t('watchlist.emptyText')}
           </p>
         </div>
       ) : (

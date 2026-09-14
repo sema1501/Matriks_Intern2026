@@ -1,7 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { getLeaderboard } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function Leaderboard() {
+    const { t } = useLanguage();
     const [leaderboard, setLeaderboard] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -14,7 +16,7 @@ export default function Leaderboard() {
                 setLeaderboard(data.slice(0, 10));
             } catch (err) {
                 console.error("Liderlik tablosu çekilemedi:", err);
-                setError("Liderlik tablosu verileri yüklenirken bir sorun oluştu.");
+                setError(t('leaderboard.error'));
             } finally {
                 setLoading(false);
             }
@@ -26,9 +28,9 @@ export default function Leaderboard() {
     return (
         <div style={{ padding: '32px', color: 'var(--text-primary)', maxWidth: '1000px', margin: '0 auto' }}>
             <div style={styles.headerContainer}>
-                <h2 style={{ fontSize: '28px', fontWeight: '700', margin: 0 }}>🏆 Liderlik Tablosu (Top 10)</h2>
+                <h2 style={{ fontSize: '28px', fontWeight: '700', margin: 0 }}>{t('leaderboard.title')}</h2>
                 <p style={{ color: '#888', marginTop: '8px', fontSize: '14px' }}>
-                    Sanal bakiye ve portföy performansına göre en yüksek kâr oranına sahip kullanıcılar listelenmektedir.
+                    {t('leaderboard.subtitle')}
                 </p>
             </div>
 
@@ -77,7 +79,7 @@ export default function Leaderboard() {
                     </div>
                 ) : (
                     <div style={{ padding: '32px', textAlign: 'center', color: '#888', fontSize: '14px' }}>
-                        Henüz sıralama verisi bulunmuyor.
+                        {t('leaderboard.empty')}
                     </div>
                 )}
             </div>
