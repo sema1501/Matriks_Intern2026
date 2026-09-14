@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { resetPassword } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function ResetPassword() {
     const { token } = useParams();
+    const { t } = useLanguage();
     const navigate = useNavigate();
 
     const [form, setForm] = useState({ newPassword: '', confirmPassword: '' });
@@ -21,7 +23,7 @@ export default function ResetPassword() {
         setMessage('');
 
         if (form.newPassword !== form.confirmPassword) {
-            setError('Şifreler eşleşmiyor.');
+            setError(t('reset.mismatch'));
             return;
         }
 
@@ -29,13 +31,13 @@ export default function ResetPassword() {
 
         try {
             await resetPassword({ token, newPassword: form.newPassword });
-            setMessage('Şifreniz başarıyla değiştirildi. Giriş sayfasına yönlendiriliyorsunuz.');
+            setMessage(t('reset.success'));
 
             setTimeout(() => {
                 navigate('/signin', { replace: true });
             }, 1500);
         } catch (err) {
-            setError(err.response?.data?.error || 'Şifre değiştirme işlemi başarısız oldu.');
+            setError(err.response?.data?.error || t('forgot.error'));
         } finally {
             setLoading(false);
         }
@@ -43,7 +45,7 @@ export default function ResetPassword() {
 
     return (
         <div style={{ maxWidth: '400px', margin: '80px auto', padding: '2rem' }}>
-            <h2>Yeni Şifre Belirle</h2>
+            <h2>{t('reset.title')}</h2>
 
             {message && (
                 <p style={{ color: 'green', marginBottom: '1rem' }}>{message}</p>
@@ -55,7 +57,7 @@ export default function ResetPassword() {
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                    <label htmlFor="newPassword">Yeni Şifre</label>
+                    <label htmlFor="newPassword">{t('reset.newPassword')}</label>
                     <br />
                     <input
                         id="newPassword"
@@ -69,7 +71,7 @@ export default function ResetPassword() {
                 </div>
 
                 <div>
-                    <label htmlFor="confirmPassword">Yeni Şifre Tekrar</label>
+                    <label htmlFor="confirmPassword">{t('reset.confirmPassword')}</label>
                     <br />
                     <input
                         id="confirmPassword"
@@ -83,12 +85,12 @@ export default function ResetPassword() {
                 </div>
 
                 <button type="submit" disabled={loading} style={{ padding: '0.6rem', cursor: 'pointer' }}>
-                    {loading ? 'Değiştiriliyor...' : 'Şifreyi Değiştir'}
+                    {loading ? t('common.loading') : t('reset.submit')}
                 </button>
             </form>
 
             <p style={{ marginTop: '1rem' }}>
-                <Link to="/signin">Giriş sayfasına dön</Link>
+                <Link to="/signin">{t('signup.backToSignin')}</Link>
             </p>
         </div>
     );

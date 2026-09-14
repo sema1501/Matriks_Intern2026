@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { login } from '../../services/apiService';
 
 export default function SignIn() {
     const { loginUser } = useAuth();
+    const { t } = useLanguage();
     const navigate = useNavigate();
 
     const [form, setForm] = useState({ usernameOrEmail: '', password: '' });
@@ -22,14 +24,14 @@ export default function SignIn() {
         let localErrors = { usernameOrEmail: '', password: '', global: '' };
 
         if (!form.usernameOrEmail.trim()) {
-            localErrors.usernameOrEmail = 'Kullanıcı adı veya e-posta alanı boş bırakılamaz.';
+            localErrors.usernameOrEmail = t('auth.usernameOrEmailRequired');
             isValid = false;
         }
         if (!form.password) {
-            localErrors.password = 'Şifre alanı boş bırakılamaz.';
+            localErrors.password = t('auth.passwordRequired');
             isValid = false;
         } else if (form.password.length < 6) {
-            localErrors.password = 'Şifre en az 6 karakter olmalıdır.';
+            localErrors.password = t('auth.passwordMinLength');
             isValid = false;
         }
 
@@ -49,7 +51,7 @@ export default function SignIn() {
         } catch (err) {
             setErrors({
                 ...errors,
-                global: err.response?.data?.message || 'Giriş başarısız. Bilgilerinizi kontrol edin.'
+                global: err.response?.data?.message || t('auth.loginFailed')
             });
         } finally {
             setLoading(false);
@@ -59,7 +61,7 @@ export default function SignIn() {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h2 className="auth-title">Giriş Yap</h2>
+                <h2 className="auth-title">{t('auth.signinTitle')}</h2>
 
                 {errors.global && (
                     <div className="auth-error-alert">{errors.global}</div>
@@ -67,7 +69,7 @@ export default function SignIn() {
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">
-                        <label htmlFor="usernameOrEmail">Kullanıcı Adı veya Email</label>
+                        <label htmlFor="usernameOrEmail">{t('auth.usernameOrEmail')}</label>
                         <input
                             id="usernameOrEmail"
                             name="usernameOrEmail"
@@ -75,13 +77,13 @@ export default function SignIn() {
                             className={`form-input ${errors.usernameOrEmail ? 'input-error' : ''}`}
                             value={form.usernameOrEmail}
                             onChange={handleChange}
-                            placeholder="Kullanıcı adınızı veya e-postanızı girin"
+                            placeholder={t('auth.usernameOrEmailPlaceholder')}
                         />
                         {errors.usernameOrEmail && <span className="error-text">{errors.usernameOrEmail}</span>}
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">Şifre</label>
+                        <label htmlFor="password">{t('auth.password')}</label>
                         <div className="password-input-wrapper">
                             <input
                                 id="password"
@@ -90,7 +92,7 @@ export default function SignIn() {
                                 className={`form-input ${errors.password ? 'input-error' : ''}`}
                                 value={form.password}
                                 onChange={handleChange}
-                                placeholder="Şifrenizi girin"
+                                placeholder={t('auth.passwordPlaceholder')}
                             />
                             <button
                                 type="button"
@@ -105,17 +107,17 @@ export default function SignIn() {
                     </div>
 
                     <button type="submit" disabled={loading} className="auth-submit-btn">
-                        {loading ? <span className="spinner"></span> : 'Giriş Yap'}
+                        {loading ? <span className="spinner"></span> : t('auth.signinTitle')}
                     </button>
                 </form>
 
                 <div className="auth-footer-links">
                     <span>
-                        Hesabın yok mu? <Link to="/signup" className="auth-link">Kayıt Ol</Link>
+                        {t('auth.noAccount')} <Link to="/signup" className="auth-link">{t('auth.signupTitle')}</Link>
                     </span>
                     <span className="divider">|</span>
                     <Link to="/forgot-password" className="auth-link">
-                        Şifreni mi unuttun?
+                        {t('auth.forgotPassword')}
                     </Link>
                 </div>
             </div>

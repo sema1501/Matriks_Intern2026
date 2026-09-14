@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import ConnectionStatus from '../ConnectionStatus/ConnectionStatus';
 import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import CurrencyToggle from '../CurrencyToggle/CurrencyToggle';
@@ -7,6 +8,7 @@ import './Navbar.css';
 
 export default function Navbar() {
     const { user, logoutUser } = useAuth();
+    const { t } = useLanguage();
 
     const roles = user?.roles || [];
     const isAdmin =
@@ -16,32 +18,32 @@ export default function Navbar() {
         <nav className="navbar">
             <div className="navbar__links">
                 {/* Herkese açık bağlantılar */}
-                <Link to="/">Ana Sayfa</Link>
-                <Link to="/leaderboard">Liderlik Tablosu</Link>
-                <Link to="/compare">Karşılaştır</Link>
-                <Link to="/converter">Dönüştürücü</Link>
-                <Link to="/feedback">Geri Bildirim</Link>
-                <Link to="/bot">🤖 Botlarım</Link>
+                <Link to="/">{t('nav.home')}</Link>
+                <Link to="/leaderboard">{t('nav.leaderboard')}</Link>
+                <Link to="/compare">{t('nav.compare')}</Link>
+                <Link to="/converter">{t('nav.converter')}</Link>
+                <Link to="/feedback">{t('nav.feedback')}</Link>
+                <Link to="/bot">{t('nav.bots')}</Link>
 
                 {user ? (
                     <>
-                        <Link to="/watchlist">🌟 Favorilerim 🌟</Link>
-                        <Link to="/portfolio">Portföyüm</Link>
+                        <Link to="/watchlist">{t('nav.watchlist')}</Link>
+                        <Link to="/portfolio">{t('nav.portfolio')}</Link>
                         <Link to="/profile">{user.username}</Link>
-                        <Link to="/dashboard">Dashboard</Link>
+                        <Link to="/dashboard">{t('nav.dashboard')}</Link>
 
                         {isAdmin && (
-                            <Link to="/admin/bots">Admin Paneli</Link>
+                            <Link to="/admin/bots">{t('nav.admin')}</Link>
                         )}
 
                         <button type="button" onClick={logoutUser}>
-                            Çıkış
+                            {t('nav.logout')}
                         </button>
                     </>
                 ) : (
                     <>
-                        <Link to="/signin">Giriş Yap</Link>
-                        <Link to="/signup">Kayıt Ol</Link>
+                        <Link to="/signin">{t('nav.signin')}</Link>
+                        <Link to="/signup">{t('nav.signup')}</Link>
                     </>
                 )}
             </div>

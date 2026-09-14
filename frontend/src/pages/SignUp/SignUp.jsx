@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '../../context/LanguageContext';
 import { register } from '../../services/apiService';
 
 export default function SignUp() {
+    const { t } = useLanguage();
     const [form, setForm] = useState({
         username: '',
         email: '',
@@ -33,33 +35,33 @@ export default function SignUp() {
         let localErrors = { username: '', email: '', password: '', confirmPassword: '', global: '' };
 
         if (!form.username.trim()) {
-            localErrors.username = 'Kullanıcı adı alanı boş bırakılamaz.';
+            localErrors.username = t('signup.usernameRequired');
             isValid = false;
         }
 
         if (!form.email.trim()) {
-            localErrors.email = 'Email alanı boş bırakılamaz.';
+            localErrors.email = t('signup.emailRequired');
             isValid = false;
         } else if (!/\S+@\S+\.\S+/.test(form.email)) {
-            localErrors.email = 'Geçerli bir e-posta adresi giriniz.';
+            localErrors.email = t('signup.emailInvalid');
             isValid = false;
         }
 
         if (!form.password) {
-            localErrors.password = 'Şifre alanı boş bırakılamaz.';
+            localErrors.password = t('auth.passwordRequired');
             isValid = false;
         } else if (form.password.length < 6) {
-            localErrors.password = 'Şifre en az 6 karakter olmalıdır.';
+            localErrors.password = t('auth.passwordMinLength');
             isValid = false;
         }
 
         if (!form.confirmPassword) {
-            localErrors.confirmPassword = 'Şifre tekrar alanı boş bırakılamaz.';
+            localErrors.confirmPassword = t('signup.confirmPasswordRequired');
             isValid = false;
         }
 
         if (form.password && form.confirmPassword && form.password !== form.confirmPassword) {
-            localErrors.confirmPassword = 'Şifreler eşleşmiyor.';
+            localErrors.confirmPassword = t('signup.passwordsMismatch');
             isValid = false;
         }
 
@@ -79,14 +81,11 @@ export default function SignUp() {
                 password: form.password,
             });
             // Kayıt sonrası otomatik giriş yok; kullanıcı e-postasını doğrulamalı (Görev 48).
-            setSuccessMessage(
-                res.data?.message ||
-                'Kaydınız alındı. Hesabınızı etkinleştirmek için e-postanıza gönderilen doğrulama bağlantısına tıklayın.'
-            );
+            setSuccessMessage(res.data?.message || t('signup.successMessage'));
         } catch (err) {
             setErrors({
                 ...errors,
-                global: err.response?.data?.message || 'Kayıt başarısız. Lütfen tekrar deneyin.'
+                global: err.response?.data?.message || t('signup.registerFailed')
             });
         } finally {
             setLoading(false);
@@ -98,11 +97,11 @@ export default function SignUp() {
         return (
             <div className="auth-container">
                 <div className="auth-card">
-                    <h2 className="auth-title">Kayıt Ol</h2>
+                    <h2 className="auth-title">{t('auth.signupTitle')}</h2>
                     <div className="auth-success-alert" style={{ color: 'green', marginBottom: '1rem' }}>
                         {successMessage}
                     </div>
-                    <Link to="/signin" className="auth-link">Giriş sayfasına dön</Link>
+                    <Link to="/signin" className="auth-link">{t('signup.backToSignin')}</Link>
                 </div>
             </div>
         );
@@ -119,7 +118,7 @@ export default function SignUp() {
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">
-                        <label htmlFor="username">Kullanıcı Adı</label>
+                        <label htmlFor="username">{t('signup.username')}</label>
                         <input
                             id="username"
                             name="username"
@@ -127,13 +126,13 @@ export default function SignUp() {
                             className={`form-input ${errors.username ? 'input-error' : ''}`}
                             value={form.username}
                             onChange={handleChange}
-                            placeholder="Kullanıcı adınızı belirleyin"
+                            placeholder={t('signup.usernamePlaceholder')}
                         />
                         {errors.username && <span className="error-text">{errors.username}</span>}
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="email">Email</label>
+                        <label htmlFor="email">{t('signup.email')}</label>
                         <input
                             id="email"
                             name="email"
@@ -141,13 +140,13 @@ export default function SignUp() {
                             className={`form-input ${errors.email ? 'input-error' : ''}`}
                             value={form.email}
                             onChange={handleChange}
-                            placeholder="E-posta adresinizi girin"
+                            placeholder={t('signup.emailPlaceholder')}
                         />
                         {errors.email && <span className="error-text">{errors.email}</span>}
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">Şifre</label>
+                        <label htmlFor="password">{t('auth.password')}</label>
                         <div className="password-input-wrapper">
                             <input
                                 id="password"
@@ -156,7 +155,7 @@ export default function SignUp() {
                                 className={`form-input ${errors.password ? 'input-error' : ''}`}
                                 value={form.password}
                                 onChange={handleChange}
-                                placeholder="Güçlü bir şifre girin"
+                                placeholder={t('signup.passwordPlaceholder')}
                             />
                             <button
                                 type="button"
@@ -171,7 +170,7 @@ export default function SignUp() {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="confirmPassword">Şifre Tekrar</label>
+                        <label htmlFor="confirmPassword">{t('signup.confirmPassword')}</label>
                         <div className="password-input-wrapper">
                             <input
                                 id="confirmPassword"
@@ -180,7 +179,7 @@ export default function SignUp() {
                                 className={`form-input ${errors.confirmPassword ? 'input-error' : ''}`}
                                 value={form.confirmPassword}
                                 onChange={handleChange}
-                                placeholder="Şifrenizi tekrar girin"
+                                placeholder={t('signup.confirmPasswordPlaceholder')}
                             />
                             <button
                                 type="button"
@@ -195,7 +194,7 @@ export default function SignUp() {
                     </div>
 
                     <button type="submit" disabled={loading} className="auth-submit-btn">
-                        {loading ? <span className="spinner"></span> : 'Kayıt Ol'}
+                        {loading ? <span className="spinner"></span> : t('auth.signupTitle')}
                     </button>
                 </form>
 

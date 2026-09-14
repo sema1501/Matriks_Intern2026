@@ -5,6 +5,7 @@ import { useGlobalPrices } from '../../context/PriceContext';
 import { useAuth } from '../../context/AuthContext';
 import { createAlert } from '../../services/apiService';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useLanguage } from '../../context/LanguageContext';
 import ChartModule from '../../components/ChartModule/ChartModule';
 import IndicatorPanel from '../../components/IndicatorPanel/IndicatorPanel';
 import TradeForm from '../../components/TradeForm/TradeForm';
@@ -23,6 +24,7 @@ export default function CoinDetail() {
     const { prices } = useGlobalPrices();
     const { user } = useAuth();
     const { formatPrice } = useCurrency();
+    const { t } = useLanguage();
 
     const [alertType, setAlertType] = useState('price'); // 'price' | 'percent' (Görev 46)
     const [targetPrice, setTargetPrice] = useState('');
@@ -126,7 +128,7 @@ export default function CoinDetail() {
     if (!meta) {
         return (
             <div className="coin-detail-container">
-                <h1 className="coin-detail-title">Coin Bulunamadı</h1>
+                <h1 className="coin-detail-title">{t('coin.notFound')}</h1>
                 <p style={{ marginTop: '15px', color: '#64748b' }}>"{symbol}" şu an takip ettiğimiz coinler arasında yer almıyor.</p>
                 <button className="btn-back" onClick={() => navigate('/')} style={{ marginTop: '20px' }}>Listeye Dön</button>
             </div>
@@ -190,17 +192,17 @@ export default function CoinDetail() {
                     />
 
                     <section className="alarm-section" style={{ margin: 0, width: '100%' }}>
-                        <h2 className="alarm-title" style={{ fontSize: '20px', marginBottom: '15px' }}>Alarm Kur</h2>
+                        <h2 className="alarm-title" style={{ fontSize: '20px', marginBottom: '15px' }}>{t('coin.setAlarm')}</h2>
                         {!user && (
                             <p className="alarm-hint" style={{ marginBottom: '15px' }}>
-                                Alarm kurmak için <Link to="/signin">giriş yapın</Link>.
+                                {t('coin.signinToAlarm')} <Link to="/signin">{t('coin.signin')}</Link>.
                             </p>
                         )}
                         {alertError && <p className="alarm-message alarm-message--error">{alertError}</p>}
                         {alertSuccess && <p className="alarm-message alarm-message--success">{alertSuccess}</p>}
                         <form onSubmit={handleAlertSubmit} className="alarm-form" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div className="alarm-field" style={{ margin: 0 }}>
-                                <label htmlFor="alertType" style={{ fontSize: '12px', marginBottom: '4px' }}>Alarm Tipi</label>
+                                <label htmlFor="alertType" style={{ fontSize: '12px', marginBottom: '4px' }}>{t('coin.alarmType')}</label>
                                 <select
                                     id="alertType"
                                     value={alertType}
@@ -208,13 +210,13 @@ export default function CoinDetail() {
                                     disabled={!user || alertLoading}
                                     className="alarm-input"
                                 >
-                                    <option value="price">Hedef Fiyat</option>
-                                    <option value="percent">Yüzde Değişim</option>
+                                    <option value="price">{t('coin.targetPriceType')}</option>
+                                    <option value="percent">{t('coin.percentType')}</option>
                                 </select>
                             </div>
                             {alertType === 'price' ? (
                                 <div className="alarm-field" style={{ margin: 0 }}>
-                                    <label htmlFor="targetPrice" style={{ fontSize: '12px', marginBottom: '4px' }}>Hedef Fiyat (USD)</label>
+                                    <label htmlFor="targetPrice" style={{ fontSize: '12px', marginBottom: '4px' }}>{t('coin.targetPriceLabel')}</label>
                                     <input
                                         id="targetPrice"
                                         type="number"
@@ -229,7 +231,7 @@ export default function CoinDetail() {
                                 </div>
                             ) : (
                                 <div className="alarm-field" style={{ margin: 0 }}>
-                                    <label htmlFor="percentThreshold" style={{ fontSize: '12px', marginBottom: '4px' }}>Yüzde Değişim (%)</label>
+                                    <label htmlFor="percentThreshold" style={{ fontSize: '12px', marginBottom: '4px' }}>{t('coin.percentLabel')}</label>
                                     <input
                                         id="percentThreshold"
                                         type="number"
@@ -237,14 +239,14 @@ export default function CoinDetail() {
                                         step="any"
                                         value={percentThreshold}
                                         onChange={(e) => setPercentThreshold(e.target.value)}
-                                        placeholder="Örn. 5"
+                                        placeholder={t('coin.percentPlaceholder')}
                                         disabled={!user || alertLoading}
                                         className="alarm-input"
                                     />
                                 </div>
                             )}
                             <div className="alarm-field" style={{ margin: 0 }}>
-                                <label htmlFor="direction" style={{ fontSize: '12px', marginBottom: '4px' }}>Yön</label>
+                                <label htmlFor="direction" style={{ fontSize: '12px', marginBottom: '4px' }}>{t('coin.direction')}</label>
                                 <select
                                     id="direction"
                                     value={direction}
@@ -254,13 +256,13 @@ export default function CoinDetail() {
                                 >
                                     {alertType === 'price' ? (
                                         <>
-                                            <option value="above">Yukarı (fiyat hedefin üstüne çıkınca)</option>
-                                            <option value="below">Aşağı (fiyat hedefin altına inince)</option>
+                                            <option value="above">{t('coin.priceUp')}</option>
+                                            <option value="below">{t('coin.priceDown')}</option>
                                         </>
                                     ) : (
                                         <>
-                                            <option value="above">Yükseliş (referanstan %X yükselince)</option>
-                                            <option value="below">Düşüş (referanstan %X düşünce)</option>
+                                            <option value="above">{t('coin.percentUp')}</option>
+                                            <option value="below">{t('coin.percentDown')}</option>
                                         </>
                                     )}
                                 </select>
@@ -274,9 +276,9 @@ export default function CoinDetail() {
                                     disabled={!user || alertLoading}
                                     className="alarm-input"
                                 >
-                                    <option value={0}>Dakikalık</option>
-                                    <option value={1}>Saatlik</option>
-                                    <option value={2}>Günlük</option>
+                                    <option value={0}>{t('coin.minutely')}</option>
+                                    <option value={1}>{t('coin.hourly')}</option>
+                                    <option value={2}>{t('coin.daily')}</option>
                                 </select>
                             </div>
                             <button

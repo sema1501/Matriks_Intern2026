@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { COIN_META } from '../../data/coinMeta';
 import { useGlobalPrices } from '../../context/PriceContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useLanguage } from '../../context/LanguageContext';
 import './Converter.css';
 
 function getNumberValue(source, keys) {
@@ -23,6 +24,7 @@ function getNumberValue(source, keys) {
 }
 
 export default function Converter() {
+  const { t } = useLanguage();
   const { prices } = useGlobalPrices();
 
   const {
@@ -114,8 +116,8 @@ export default function Converter() {
     <div className="converter-page">
       <section className="converter-card">
         <div className="converter-header">
-          <span className="converter-eyebrow">Kripto Dönüştürücü</span>
-          <h1>Coin miktarını USD ve TRY değerine çevir</h1>
+          <span className="converter-eyebrow">{t('converter.eyebrow')}</span>
+          <h1>{t('converter.title')}</h1>
           <p>
             Canlı fiyat verisi üzerinden seçtiğin coin miktarının yaklaşık
             karşılığını hesapla.
@@ -131,7 +133,7 @@ export default function Converter() {
               value={coinSearch}
               onChange={(event) => setCoinSearch(event.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="BTC, ETH, Bitcoin, Ethereum..."
+              placeholder={t('converter.coinPlaceholder')}
               className="converter-search-input"
             />
 
@@ -152,7 +154,7 @@ export default function Converter() {
                   </option>
                 ))
               ) : (
-                <option value="">Sonuç bulunamadı</option>
+                <option value="">{t('converter.noResult')}</option>
               )}
             </select>
           </label>
@@ -165,7 +167,7 @@ export default function Converter() {
               step="any"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
-              placeholder="Örn: 1.5"
+              placeholder={t('converter.amountPlaceholder')}
             />
           </label>
         </div>

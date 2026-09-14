@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getBots, createBot, toggleBot, deleteBot } from '../../services/apiService';
 import BotSignalApproval from '../../components/BotSignalApproval/BotSignalApproval';
 import BacktestReport from '../../components/BacktestReport/BacktestReport';
+import { useLanguage } from '../../context/LanguageContext';
 
 const ALL_SYMBOLS = [
     'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'LTCUSDT',
@@ -12,6 +13,7 @@ const ALL_SYMBOLS = [
 ];
 
 export default function Bot() {
+    const { t } = useLanguage();
     const [bots, setBots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -102,14 +104,14 @@ export default function Bot() {
 
     return (
         <div style={styles.container}>
-            <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>🤖 Alım-Satım Botu Yönetimi</h2>
+            <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>{t('bot.title')}</h2>
             <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px' }}>
                 RSI stratejinize göre otomatik sinyal üreten sanal botlarınızı buradan kurabilir ve yönetebilirsiniz.
             </p>
 
             {/* BOT KURULUM FORMU */}
             <div style={styles.card}>
-                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Yeni Bot Kur</h3>
+                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>{t('bot.newBot')}</h3>
 
                 {formError && (
                     <div style={styles.errorBanner}>{formError}</div>
@@ -179,10 +181,10 @@ export default function Bot() {
 
             {/* BOT LISTESI TABLOSU */}
             <div style={{ ...styles.card, marginTop: '32px' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Mevcut Botlarım</h3>
+                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>{t('bot.myBots')}</h3>
 
                 {loading ? (
-                    <p style={{ color: '#888' }}>Botlar yükleniyor...</p>
+                    <p style={{ color: '#888' }}>{t('bot.loading')}</p>
                 ) : error ? (
                     <p style={{ color: '#ef233c' }}>{error}</p>
                 ) : bots.length === 0 ? (
@@ -192,12 +194,12 @@ export default function Bot() {
                         <table style={styles.table}>
                             <thead>
                                 <tr style={styles.thRow}>
-                                    <th style={styles.th}>Sembol</th>
+                                    <th style={styles.th}>{t('bot.symbol')}</th>
                                     <th style={styles.th}>AL Eşiği (RSI)</th>
                                     <th style={styles.th}>SAT Eşiği (RSI)</th>
-                                    <th style={styles.th}>Miktar</th>
-                                    <th style={styles.th}>Durum</th>
-                                    <th style={styles.th}>İşlem</th>
+                                    <th style={styles.th}>{t('bot.amount')}</th>
+                                    <th style={styles.th}>{t('bot.status')}</th>
+                                    <th style={styles.th}>{t('bot.action')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -227,7 +229,7 @@ export default function Bot() {
                                                     backgroundColor: bot.isActive ? '#e0a96d' : '#2b9348'
                                                 }}
                                             >
-                                                {bot.isActive ? 'Durdur' : 'Başlat'}
+                                                {bot.isActive ? t('bot.stop') : t('bot.start')}
                                             </button>
 
                                             <button

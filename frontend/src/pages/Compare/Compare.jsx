@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useBinancePrices } from '../../hooks/useBinancePrices';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { COIN_META } from '../../data/coinMeta';
 
 // Görev 42: İki coini yan yana karşılaştırma sayfası.
 export default function Compare() {
   const { prices } = useBinancePrices();
   const { formatPrice } = useCurrency();
+  const { t } = useLanguage();
   const symbols = Object.keys(COIN_META);
 
   const [left, setLeft] = useState('BTCUSDT');
@@ -40,15 +42,15 @@ export default function Compare() {
 
   return (
     <div style={{ width: '100%', padding: '0 1rem', boxSizing: 'border-box' }}>
-      <h2>Coin Karşılaştırma</h2>
+      <h2>{t('compare.title')}</h2>
       <p style={{ color: 'var(--text-muted, #64748b)', marginBottom: '1rem' }}>
-        İki coini seçip güncel piyasa verilerini yan yana karşılaştırın.
+        {t('compare.subtitle')}
       </p>
 
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={th}>Metrik</th>
+            <th style={th}>{t('compare.metric')}</th>
             <th style={th}>
               <select value={left} onChange={(e) => setLeft(e.target.value)} style={selectStyle}>
                 {options}
@@ -63,22 +65,22 @@ export default function Compare() {
         </thead>
         <tbody>
           <tr>
-            <td style={td}>Güncel Fiyat</td>
+            <td style={td}>{t('compare.currentPrice')}</td>
             <td style={td}>{cellPrice(left, 'currentPrice')}</td>
             <td style={td}>{cellPrice(right, 'currentPrice')}</td>
           </tr>
           <tr>
-            <td style={td}>24s Değişim</td>
+            <td style={td}>{t('compare.change24h')}</td>
             <td style={td}>{renderChange(prices[left]?.priceChangePercentage24h)}</td>
             <td style={td}>{renderChange(prices[right]?.priceChangePercentage24h)}</td>
           </tr>
           <tr>
-            <td style={td}>24s En Yüksek</td>
+            <td style={td}>{t('compare.high24h')}</td>
             <td style={td}>{cellPrice(left, 'high24h')}</td>
             <td style={td}>{cellPrice(right, 'high24h')}</td>
           </tr>
           <tr>
-            <td style={td}>24s En Düşük</td>
+            <td style={td}>{t('compare.low24h')}</td>
             <td style={td}>{cellPrice(left, 'low24h')}</td>
             <td style={td}>{cellPrice(right, 'low24h')}</td>
           </tr>
@@ -87,7 +89,7 @@ export default function Compare() {
 
       {(!prices[left] || !prices[right]) && (
         <p style={{ color: 'var(--text-muted, #64748b)', marginTop: '1rem' }}>
-          Fiyatlar yükleniyor... (canlı veri birkaç saniye içinde gelir)
+          {t('compare.loadingPrices')}
         </p>
       )}
     </div>

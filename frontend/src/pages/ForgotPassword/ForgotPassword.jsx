@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { forgotPassword } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function ForgotPassword() {
+    const { t } = useLanguage();
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
@@ -18,7 +20,7 @@ export default function ForgotPassword() {
             const res = await forgotPassword({ email });
             setMessage(res.data.message);
         } catch (err) {
-            setError(err.response?.data?.error || 'İşlem başarısız oldu.');
+            setError(err.response?.data?.error || t('forgot.error'));
         } finally {
             setLoading(false);
         }
@@ -26,9 +28,9 @@ export default function ForgotPassword() {
 
     return (
         <div style={{ maxWidth: '400px', margin: '80px auto', padding: '2rem' }}>
-            <h2>Şifremi Unuttum</h2>
+            <h2>{t('forgot.title')}</h2>
 
-            <p>Şifre sıfırlama bağlantısı oluşturmak için e-posta adresinizi girin.</p>
+            <p>{t('forgot.subtitle')}</p>
 
             {message && (
                 <p style={{ color: 'green', marginBottom: '1rem' }}>{message}</p>
@@ -40,7 +42,7 @@ export default function ForgotPassword() {
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                    <label htmlFor="email">Email</label>
+                    <label htmlFor="email">{t('signup.email')}</label>
                     <br />
                     <input
                         id="email"
@@ -54,12 +56,12 @@ export default function ForgotPassword() {
                 </div>
 
                 <button type="submit" disabled={loading} style={{ padding: '0.6rem', cursor: 'pointer' }}>
-                    {loading ? 'Gönderiliyor...' : 'Sıfırlama Bağlantısı Oluştur'}
+                    {loading ? t('forgot.sending') : t('forgot.submit')}
                 </button>
             </form>
 
             <p style={{ marginTop: '1rem' }}>
-                <Link to="/signin">Giriş sayfasına dön</Link>
+                <Link to="/signin">{t('signup.backToSignin')}</Link>
             </p>
         </div>
     );
