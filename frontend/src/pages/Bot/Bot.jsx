@@ -27,8 +27,8 @@ export default function Bot() {
 
     const [symbol, setSymbol] = useState('BTCUSDT');
     const [strategy, setStrategy] = useState(STRATEGY_RSI);
-    const [shortEmaPeriod, setShortEmaPeriod] = useState(9);
-    const [longEmaPeriod, setLongEmaPeriod] = useState(21);
+    const [shortEmaPeriod, setShortEmaPeriod] = useState(12); // #81: issue varsayılanı EMA12
+    const [longEmaPeriod, setLongEmaPeriod] = useState(26); // #81: issue varsayılanı EMA26
     const [buyRsiThreshold, setBuyRsiThreshold] = useState(30);
     const [sellRsiThreshold, setSellRsiThreshold] = useState(70);
     const [tradeQuantity, setTradeQuantity] = useState(0.01);
