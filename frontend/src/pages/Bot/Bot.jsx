@@ -208,7 +208,7 @@ export default function Bot() {
                     {strategy === STRATEGY_EMA && (
                         <>
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>Kısa EMA Periyodu (Varsayılan: 9)</label>
+                                <label style={styles.label}>Kısa EMA Periyodu (Varsayılan: 12)</label>
                                 <input
                                     type="number"
                                     value={shortEmaPeriod}
@@ -221,7 +221,7 @@ export default function Bot() {
                             </div>
 
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>Uzun EMA Periyodu (Varsayılan: 21)</label>
+                                <label style={styles.label}>Uzun EMA Periyodu (Varsayılan: 26)</label>
                                 <input
                                     type="number"
                                     value={longEmaPeriod}
