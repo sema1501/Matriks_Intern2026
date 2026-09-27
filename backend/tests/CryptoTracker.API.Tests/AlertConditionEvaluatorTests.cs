@@ -74,6 +74,85 @@ public class AlertConditionEvaluatorTests
         Assert.True(AlertConditionEvaluator.IsDue(daily, t0.AddDays(1)));
     }
 
+    // ---------------- #82: AlertType.PercentChange (Görev 46) ----------------
+    // Referans fiyat 100 → yüzde değişim = (fiyat - 100) / 100 * 100 → fiyat ile aynı sayı; hesap kolay okunur.
+
+    [Theory]
+    [InlineData(105, true)]    // tam eşik (+%5) → tetiklenir (>=)
+    [InlineData(110, true)]    // +%10 → tetiklenir
+    [InlineData(104.99, false)] // +%4.99 → eşiğe ulaşmadı
+    [InlineData(90, false)]    // düşüş, Above için anlamsız
+    public void PercentChange_Above_triggers_when_rise_reaches_threshold(double price, bool expected)
+    {
+        var alert = PercentAlert(AlertDirection.Above, reference: 100m, threshold: 5m);
+        Assert.Equal(expected, AlertConditionEvaluator.IsConditionSatisfied(alert, (decimal)price));
+    }
+
+    [Theory]
+    [InlineData(95, true)]     // tam eşik (-%5) → tetiklenir (<=)
+    [InlineData(80, true)]     // -%20 → tetiklenir
+    [InlineData(95.01, false)] // -%4.99 → eşiğe ulaşmadı
+    [InlineData(110, false)]   // yükseliş, Below için anlamsız
+    public void PercentChange_Below_triggers_when_drop_reaches_threshold(double price, bool expected)
+    {
+        var alert = PercentAlert(AlertDirection.Below, reference: 100m, threshold: 5m);
+        Assert.Equal(expected, AlertConditionEvaluator.IsConditionSatisfied(alert, (decimal)price));
+    }
+
+    [Theory]
+    [InlineData(AlertDirection.Above)]
+    [InlineData(AlertDirection.Below)]
+    public void PercentChange_missing_reference_price_returns_false(AlertDirection direction)
+    {
+        var alert = PercentAlert(direction, reference: null, threshold: 5m);
+        // Fiyat ne olursa olsun tetiklenmemeli: referans yoksa yüzde hesaplanamaz.
+        Assert.False(AlertConditionEvaluator.IsConditionSatisfied(alert, 1_000_000m));
+        Assert.False(AlertConditionEvaluator.IsConditionSatisfied(alert, 0.0001m));
+    }
+
+    [Theory]
+    [InlineData(0)]    // sıfıra bölme olurdu
+    [InlineData(-50)]  // negatif fiyat anlamsız
+    public void PercentChange_zero_or_negative_reference_price_returns_false(double reference)
+    {
+        var alert = PercentAlert(AlertDirection.Above, (decimal)reference, threshold: 5m);
+        var ex = Record.Exception(() => AlertConditionEvaluator.IsConditionSatisfied(alert, 200m));
+
+        Assert.Null(ex); // DivideByZeroException fırlatmamalı
+        Assert.False(AlertConditionEvaluator.IsConditionSatisfied(alert, 200m));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0.0)]  // %0 eşik her fiyatta tetiklenirdi → reddedilir
+    [InlineData(-5.0)]
+    public void PercentChange_missing_zero_or_negative_threshold_returns_false(double? threshold)
+    {
+        var alert = PercentAlert(AlertDirection.Above, reference: 100m, threshold: (decimal?)threshold);
+        Assert.False(AlertConditionEvaluator.IsConditionSatisfied(alert, 200m));
+    }
+
+    [Fact]
+    public void PercentChange_ignores_TargetPrice_field()
+    {
+        // TargetPrice yüzde alarmında kullanılmaz; yanlışlıkla fiyat mantığına düşmediğini doğrular.
+        var alert = PercentAlert(AlertDirection.Above, reference: 100m, threshold: 50m);
+        alert.TargetPrice = 101m;
+
+        Assert.False(AlertConditionEvaluator.IsConditionSatisfied(alert, 120m)); // +%20 < %50
+    }
+
+    private static PriceAlert PercentAlert(AlertDirection direction, decimal? reference, decimal? threshold) => new()
+    {
+        Symbol = "BTCUSDT",
+        Type = AlertType.PercentChange,
+        Direction = direction,
+        ReferencePrice = reference,
+        PercentChangeThreshold = threshold,
+        IsActive = true,
+        Interval = AlertInterval.Minute
+    };
+
     private static PriceAlert Alert(AlertDirection direction, decimal target) => new()
     {
         Symbol = "BTCUSDT",
