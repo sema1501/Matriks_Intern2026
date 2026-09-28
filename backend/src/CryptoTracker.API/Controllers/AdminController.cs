@@ -40,7 +40,8 @@ public class AdminController : ControllerBase
                 b.UserId,
                 b.User.Username,
                 b.Symbol,
-                "RSI",
+                // #81: sabit "RSI" yerine botun gerçek stratejisi.
+                b.Strategy == BotStrategy.EmaCrossover ? "EMA" : "RSI",
                 b.IsActive,
                 b.BuyRsiThreshold,
                 b.SellRsiThreshold,

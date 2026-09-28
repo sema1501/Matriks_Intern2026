@@ -90,7 +90,10 @@ public sealed class NotificationService(
                 $"Merhaba {user!.Username},\n\n" +
                 $"{bot.Symbol} için çalışan botun bir {action} sinyali üretti ve işlem gerçekleştirildi.\n" +
                 $"Sinyal anındaki fiyat: {price:0.########}\n" +
-                $"RSI: {rsi:0.##}\n" +
+                // #81: EMA botlarında sinyali RSI değil EMA kesişimi üretir.
+                (bot.Strategy == BotStrategy.EmaCrossover
+                    ? $"Strateji: EMA{bot.ShortEmaPeriod}/EMA{bot.LongEmaPeriod} kesişimi\n"
+                    : $"RSI: {rsi:0.##}\n") +
                 $"Zaman (UTC): {triggeredAt:yyyy-MM-dd HH:mm:ss}\n\n" +
                 "Bu bildirimleri profil sayfandan kapatabilirsin.\n";
 

@@ -23,8 +23,6 @@ public sealed class BacktestService(
     AppDbContext db,
     IBinanceKlineService klineService) : IBacktestService
 {
-    private const string StrategyName = "RSI";
-
     // EndDate more than this far ahead of UtcNow is rejected.
     private static readonly TimeSpan MaxFutureSkew = TimeSpan.FromHours(24);
 
@@ -52,6 +50,10 @@ public sealed class BacktestService(
 
         var startUtc = EnsureUtc(request.StartDate);
         var endUtc = EnsureUtc(request.EndDate);
+
+        // #81: strateji artık sabit "RSI" değil, botun kendisinden okunur.
+        if (bot.Strategy == BotStrategy.EmaCrossover)
+            return await RunEmaAsync(bot, startUtc, endUtc, cancellationToken);
 
         // Warm-up candles before StartDate so RSI is valid from the first in-range bar.
         var warmUpStart = startUtc.AddMinutes(-RsiSignalEvaluator.Period);
@@ -105,7 +107,7 @@ public sealed class BacktestService(
         return new BacktestResponseDto(
             bot.Id,
             bot.Symbol,
-            StrategyName,
+            StrategyLabel(bot.Strategy),
             startUtc,
             endUtc,
             RsiSignalEvaluator.Interval,
@@ -123,15 +125,7 @@ public sealed class BacktestService(
         if (bot.TradeQuantity <= 0)
             throw new ArgumentException("Bot trade quantity must be greater than zero.");
 
-        var signals = new List<BacktestSignalDto>();
-        var quantity = bot.TradeQuantity;
-
-        decimal? openEntryPrice = null;
-        decimal realizedPnL = 0m;
-        decimal totalEntryValue = 0m;
-        var completedTrades = 0;
-        var winningTrades = 0;
-        var losingTrades = 0;
+        var events = new List<(BinanceKlineCandle Candle, BotSignalType Type, decimal? Rsi)>();
 
         // Previous RSI among in-range bars only (warm-up never seeds zone-entry or positions).
         decimal? previousInRangeRsi = null;
@@ -158,6 +152,91 @@ public sealed class BacktestService(
             if (signalType is null)
                 continue;
 
+            events.Add((candle, signalType.Value, rsi.Value));
+        }
+
+        return BuildResult(bot, candles, events, startUtc, endUtc);
+    }
+
+    /// <summary>
+    /// #81: EMA kesişim backtest'i. Canlı bot (BotMonitorService) ile aynı
+    /// EmaCalculator + EmaCrossoverEvaluator ikilisini kullanır; böylece
+    /// backtest ile canlı davranış birebir aynı kurala göre sinyal üretir.
+    /// </summary>
+    internal static SimulationResult SimulateEma(
+        TradingBot bot,
+        IReadOnlyList<BinanceKlineCandle> candles,
+        DateTime startUtc,
+        DateTime endUtc)
+    {
+        if (bot.TradeQuantity <= 0)
+            throw new ArgumentException("Bot trade quantity must be greater than zero.");
+
+        if (bot.ShortEmaPeriod is null || bot.LongEmaPeriod is null)
+            throw new ArgumentException("EMA stratejisi için kısa ve uzun periyot zorunlu.");
+
+        var closes = candles.Select(c => c.ClosePrice).ToList();
+        var shortEma = EmaCalculator.CalculateSeries(closes, bot.ShortEmaPeriod.Value);
+        var longEma = EmaCalculator.CalculateSeries(closes, bot.LongEmaPeriod.Value);
+
+        var events = new List<(BinanceKlineCandle Candle, BotSignalType Type, decimal? Rsi)>();
+        var hasPreviousInRange = false;
+
+        for (var i = 0; i < candles.Count; i++)
+        {
+            var candle = candles[i];
+
+            if (candle.OpenTimeUtc < startUtc || candle.OpenTimeUtc > endUtc)
+                continue;
+
+            // İlk aralık-içi mum yalnızca "önceki" değer olur; ısınma mumları sinyal üretmez
+            // (RSI tarafındaki previousInRangeRsi mantığıyla aynı).
+            if (!hasPreviousInRange)
+            {
+                hasPreviousInRange = shortEma[i] is not null && longEma[i] is not null;
+                continue;
+            }
+
+            var signalType = EmaCrossoverEvaluator.DetermineCrossoverSignal(
+                shortEma[i - 1],
+                longEma[i - 1],
+                shortEma[i],
+                longEma[i]);
+
+            if (signalType is null)
+                continue;
+
+            // EMA sinyallerinde RSI kullanılmaz; Rsi alanı null döner.
+            events.Add((candle, signalType.Value, null));
+        }
+
+        return BuildResult(bot, candles, events, startUtc, endUtc);
+    }
+
+    /// <summary>
+    /// Sinyal listesinden özet (PnL, kazanan/kaybeden işlem) üretir.
+    /// RSI ve EMA simülasyonları aynı pozisyon mantığını paylaşır: long-only,
+    /// açık pozisyon varken tekrar BUY yok sayılır, aralık sonunda açık pozisyon gerçekleşmemiş kalır.
+    /// </summary>
+    private static SimulationResult BuildResult(
+        TradingBot bot,
+        IReadOnlyList<BinanceKlineCandle> candles,
+        IReadOnlyList<(BinanceKlineCandle Candle, BotSignalType Type, decimal? Rsi)> events,
+        DateTime startUtc,
+        DateTime endUtc)
+    {
+        var signals = new List<BacktestSignalDto>();
+        var quantity = bot.TradeQuantity;
+
+        decimal? openEntryPrice = null;
+        decimal realizedPnL = 0m;
+        decimal totalEntryValue = 0m;
+        var completedTrades = 0;
+        var winningTrades = 0;
+        var losingTrades = 0;
+
+        foreach (var (candle, signalType, rsi) in events)
+        {
             var typeLabel = signalType == BotSignalType.Buy ? "BUY" : "SELL";
 
             // Signal list = strategy events (independent of position state).
@@ -165,7 +244,7 @@ public sealed class BacktestService(
                 candle.OpenTimeUtc,
                 typeLabel,
                 candle.ClosePrice,
-                rsi.Value));
+                rsi));
 
             if (signalType == BotSignalType.Buy)
             {
@@ -226,6 +305,61 @@ public sealed class BacktestService(
 
         return new SimulationResult(summary, signals);
     }
+
+    private async Task<BacktestResponseDto> RunEmaAsync(
+        TradingBot bot,
+        DateTime startUtc,
+        DateTime endUtc,
+        CancellationToken cancellationToken)
+    {
+        if (bot.ShortEmaPeriod is null || bot.LongEmaPeriod is null)
+            throw new ArgumentException("EMA stratejisi için kısa ve uzun periyot zorunlu.");
+
+        // Uzun EMA'nın ilk değeri için LongEmaPeriod kadar ısınma mumu + canlı taraftaki ek ısınma.
+        var warmUpCandles = EmaCrossoverEvaluator.RequiredCandleCount(bot.LongEmaPeriod.Value)
+                            + EmaCrossoverEvaluator.SeedWarmupCandles;
+        var warmUpStart = startUtc.AddMinutes(-warmUpCandles);
+
+        var candles = await klineService.GetHistoricalKlinesAsync(
+            bot.Symbol,
+            EmaCrossoverEvaluator.Interval,
+            warmUpStart,
+            endUtc,
+            cancellationToken);
+
+        if (candles.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Seçilen tarih aralığı için Binance'ten tarihsel mum verisi alınamadı.");
+        }
+
+        if (!candles.Any(c => c.OpenTimeUtc >= startUtc && c.OpenTimeUtc <= endUtc))
+        {
+            throw new InvalidOperationException(
+                "Seçilen tarih aralığında hiç mum bulunamadı.");
+        }
+
+        if (candles.Count < EmaCrossoverEvaluator.RequiredCandleCount(bot.LongEmaPeriod.Value))
+        {
+            throw new InvalidOperationException(
+                $"EMA hesaplamak için yetersiz mum geçmişi. En az {EmaCrossoverEvaluator.RequiredCandleCount(bot.LongEmaPeriod.Value)} kapanış fiyatı gereklidir.");
+        }
+
+        var simulation = SimulateEma(bot, candles, startUtc, endUtc);
+
+        return new BacktestResponseDto(
+            bot.Id,
+            bot.Symbol,
+            StrategyLabel(bot.Strategy),
+            startUtc,
+            endUtc,
+            EmaCrossoverEvaluator.Interval,
+            simulation.Summary,
+            simulation.Signals);
+    }
+
+    internal static string StrategyLabel(BotStrategy strategy) =>
+        strategy == BotStrategy.EmaCrossover ? "EMA" : "RSI";
 
     internal static void ValidateDateRange(DateTime startDate, DateTime endDate)
     {
