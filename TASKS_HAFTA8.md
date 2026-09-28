@@ -1,8 +1,17 @@
-# 8. Hafta Görevleri — Taslak (Yönetici Onayı Bekleniyor)
+# 8. Hafta Görevleri — Admin Gözetimi, EMA Stratejisi, E-posta Bildirimi
 
-**Bu bir taslak.** Yönetici bu hafta için henüz bir şey söylemedi — burada duran 5 görev
-ekibin kendi önceliğine göre hazırlandı, kenarda bekliyor. Yönetici farklı bir yön
-belirtirse bu dosya güncellenecek/değişecek.
+> **Durum (27.09.2026 güncellemesi):** Bu dosya ilk yazıldığında "Taslak — Yönetici Onayı
+> Bekleniyor" olarak işaretlenmişti. Kodun bugünkü durumu:
+>
+> | Görev | Durum |
+> |---|---|
+> | 36 — Admin gözetim paneli | ✅ Tamamlandı (`AdminController`, `AdminBots.js`) |
+> | 37 — Kill switch + aşırı işlem tespiti | ✅ Tamamlandı (`POST /api/Admin/bots/{id}/kill`, `IsFlagged`) |
+> | 38 — Audit log | ✅ Tamamlandı (`AuditLogService`, `GET /api/Admin/audit-log`) |
+> | 39 — EMA kesişimi | ➡️ **HAFTA9'a taşındı** (`TASKS_HAFTA9.md`, GitHub issue #81) |
+> | 40 — E-posta bildirimi | ✅ Kodda tamamlandı (PR #72), GitHub issue #68 — ayrıntı: `TASKS_ARSIV.md` |
+>
+> Bu dosyada yer almayıp kodda bulunan görevler (41–51) için bkz. [`TASKS_ARSIV.md`](./TASKS_ARSIV.md).
 
 Kaynak: 7. haftanın ilk taslağında (yönetici sonradan farklı yön verdiği için rafa
 kalkan) "admin gözetimi" fikri vardı, o notta "ileride ayrı bir hafta olarak tekrar ele
@@ -28,9 +37,9 @@ Adminlerin tüm kullanıcıların bot ve portföy (defter) aktivitesini görebil
 - Frontend: yeni bir `/admin/bots` sayfasına bu verileri gösteren aranabilir/filtrelenebilir bir tablo
 
 **Kabul kriterleri**
-- [ ] Sadece Admin/SuperAdmin bu endpoint'lere ve sayfaya erişebiliyor
-- [ ] Tüm kullanıcıların botları ve portföy özetleri doğru listeleniyor
-- [ ] Tabloda arama/filtreleme çalışıyor
+- [x] Sadece Admin/SuperAdmin bu endpoint'lere ve sayfaya erişebiliyor
+- [x] Tüm kullanıcıların botları ve portföy özetleri doğru listeleniyor
+- [x] Tabloda arama/filtreleme çalışıyor
 
 ---
 
@@ -50,10 +59,10 @@ haftalara göre daha kritik bir güvenlik önlemi.
 - Frontend: Görev 36'daki panelde "Durdur" butonu + sebep girme alanı; şüpheli botlar görsel olarak ayırt edilsin
 
 **Kabul kriterleri**
-- [ ] Admin bir botu durdurabiliyor, kullanıcı bunu kendi bot sayfasında görebiliyor
-- [ ] Durdurulan bottan sonra gerçekten Testnet'e yeni emir gitmiyor (doğrulanmalı)
-- [ ] Aşırı emir gönderen bot otomatik olarak şüpheli işaretleniyor
-- [ ] Şüpheli botlar admin panelinde belirgin şekilde görünüyor
+- [x] Admin bir botu durdurabiliyor, kullanıcı bunu kendi bot sayfasında görebiliyor
+- [x] Durdurulan bottan sonra gerçekten Testnet'e yeni emir gitmiyor (doğrulanmalı)
+- [x] Aşırı emir gönderen bot otomatik olarak şüpheli işaretleniyor
+- [x] Şüpheli botlar admin panelinde belirgin şekilde görünüyor
 
 ---
 
@@ -70,9 +79,9 @@ Hangi adminin ne zaman hangi botu durdurduğu gibi önemli olayların izlenebild
 - Frontend: admin panelinde basit, filtrelenebilir bir denetim günlüğü listesi
 
 **Kabul kriterleri**
-- [ ] Bot durdurma/işaretleme olayları günlükte doğru görünüyor
-- [ ] Günlük sadece Admin/SuperAdmin tarafından görülebiliyor
-- [ ] Günlük tarihe göre sıralı ve filtrelenebilir
+- [x] Bot durdurma/işaretleme olayları günlükte doğru görünüyor
+- [x] Günlük sadece Admin/SuperAdmin tarafından görülebiliyor
+- [x] Günlük tarihe göre sıralı ve filtrelenebilir
 
 ---
 
@@ -92,6 +101,9 @@ Bot şu an sadece RSI eşiği ile çalışıyor. Bu görevde ikinci bir strateji
 - [ ] EMA kesişimi doğru hesaplanıyor (bilinen bir örnekle elle doğrulanmalı)
 - [ ] EMA kesişimi gerçekleştiğinde doğru yönde sinyal üretiliyor ve gerçek Testnet emri gönderiliyor
 - [ ] Var olan RSI botları bu değişiklikten etkilenmiyor
+
+> **Not:** Bu görev 8. haftada başlatıldı (`feature/gorev-39-ema-kesisimi`) ama `develop` üzerinde
+> kaldı. Kapsamı genişletilerek (backtest + admin) **9. haftada devam ediyor** — bkz. `TASKS_HAFTA9.md` / issue #81.
 
 ---
 
@@ -113,16 +125,16 @@ kapsam dışı bırakılmıştı, artık ele alıyoruz.
   alarm/bot için saatte en fazla 1 e-posta gibi bir sınır)
 
 **Kabul kriterleri**
-- [ ] Alarm/bot sinyali tetiklenince kullanıcıya e-posta gidiyor (gerçek SMTP yoksa en
+- [x] Alarm/bot sinyali tetiklenince kullanıcıya e-posta gidiyor (gerçek SMTP yoksa en
       azından e-postanın içeriği güvenilir şekilde loglanıyor/görülebiliyor)
-- [ ] Kullanıcı bildirim tercihini profilinden kapatabiliyor, kapalıysa e-posta gitmiyor
-- [ ] Aynı olay için kısa sürede tekrar tekrar e-posta gönderilmiyor
+- [x] Kullanıcı bildirim tercihini profilinden kapatabiliyor, kapalıysa e-posta gitmiyor
+- [x] Aynı olay için kısa sürede tekrar tekrar e-posta gönderilmiyor
 
 ---
 
 ## Genel Kurallar
 
-- Bu bir **taslak** — yönetici bu hafta için farklı bir yön belirtirse dosya güncellenecek.
+- ~~Bu bir taslak~~ — artık değil; güncel durum dosyanın başındaki tabloda.
 - Sıra: **36 → 37 → 38 sıralı**. **39 ve 40 bağımsız**, paralel yürütülebilir.
 - Migration çakışmasını tekrar yaşamamak için: model değişikliği yapan herkes migration
   eklemeden önce `develop`'ı güncel çeksin ve `Migrations/` klasöründe aynı tabloya dokunan

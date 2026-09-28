@@ -107,12 +107,15 @@ dotnet test
 ## Özellikler
 
 **Kimlik & Kullanıcı**
-Kayıt/giriş (JWT), şifremi unuttum/sıfırlama, profil görüntüleme/düzenleme, şifre
-değiştirme, rol yönetimi (Admin/SuperAdmin/User).
+Kayıt/giriş (JWT), **e-posta doğrulama zorunluluğu** (doğrulanmamış hesap giriş
+yapamaz), şifremi unuttum/sıfırlama (bağlantı e-postayla gönderilir), profil
+görüntüleme/düzenleme, **profil fotoğrafı** (en fazla ~3 MB), şifre değiştirme,
+e-posta bildirimi açma/kapama, rol yönetimi (Admin/SuperAdmin/User).
 
 **Kripto Takip**
 Binance WebSocket üzerinden 20 coin için canlı fiyat akışı, arama/sıralama, favori
-listesi (watchlist), coin detay sayfası, TRY/USD dönüştürücü, açık/koyu tema.
+listesi (watchlist), coin detay sayfası, **iki coini yan yana karşılaştırma (Compare)**,
+TRY/USD dönüştürücü, açık/koyu tema, **Türkçe/İngilizce dil seçimi**.
 
 **Grafik & Teknik Analiz**
 `klinecharts` ile mum/OHLC grafiği, zaman aralığı seçimi, RSI/EMA/Bollinger Bands
@@ -121,17 +124,26 @@ indikatörleri, manuel trend çizgisi çizimi (uzatma, tür değiştirme).
 **Fiyat Alarmları**
 Dakikalık/saatlik/günlük periyotlarla arka planda (`AlertMonitorService`) çalışan kalıcı
 alarm sistemi — kullanıcı uygulamada olmasa bile Binance verisine göre kontrol edilir.
+İki alarm tipi: **sabit fiyat** (hedef fiyatın üstü/altı) ve **yüzde değişim** (alarm
+kurulduğundaki fiyata göre en az %X yükseliş/düşüş).
+
+**E-posta Bildirimi**
+Alarm veya bot sinyali tetiklendiğinde kullanıcıya e-posta gider (uygulama kapalıyken de).
+Aynı alarm/bot için saatte en fazla 1 e-posta (cooldown). SMTP ayarı yoksa e-posta içeriği
+loglanır. Profil sayfasından kapatılabilir.
 
 **Sanal Portföy**
 Her kullanıcı 10.000 USD sanal bakiye ile başlar, coin detay sayfasından alım/satım
-yapabilir, işlem geçmişini ve kâr/zararını görebilir. Kullanıcılar arası liderlik tablosu.
+yapabilir, işlem geçmişini (sayfalı, sembol/tür filtreli) ve kâr/zararını görebilir,
+portföy dağılımını pasta grafikte izleyebilir. Kullanıcılar arası liderlik tablosu.
 
 **Alım-Satım Botu**
-RSI eşiğine göre çalışan, arka planda (`BotMonitorService`) periyodik kontrol yapan bir
-bot. Sinyal oluşunca **Binance Testnet**'e gerçek (sahte parayla) emir gönderir; sonuç
+İki strateji seçeneği olan, arka planda (`BotMonitorService`) periyodik kontrol yapan bir
+bot: **RSI eşiği** (RSI alım/satım bölgesine girince) veya **EMA kesişimi** (kısa EMA uzun
+EMA'yı yukarı keserse AL, aşağı keserse SAT). Sinyal oluşunca **Binance Testnet**'e gerçek (sahte parayla) emir gönderir; sonuç
 kullanıcının sanal portföy defterine işlenir. Seçilen tarih aralığında botun geçmişte nasıl
 sonuç verdiğini gösteren **backtest** raporu (grafik üzerinde alış/satış okları + RSI paneli
-+ sinyal tablosu).
++ sinyal tablosu) — her iki strateji için de çalışır.
 
 **Admin Paneli**
 Tüm kullanıcıların bot ve portföy aktivitesini görüntüleme, şüpheli/aşırı işlem yapan
@@ -149,16 +161,16 @@ Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adr
 
 | Controller | Ne işe yarar |
 |---|---|
-| `AuthController` | Kayıt, giriş, şifre sıfırlama, profil (`/me`) |
+| `AuthController` | Kayıt (`register`), e-posta doğrulama (`confirm-email`), giriş (`login`), şifre sıfırlama (`forgot-password`, `reset-password`), profil (`GET/PUT me`), şifre değiştirme (`me/password`), e-posta bildirim tercihi (`me/notifications`), profil fotoğrafı (`me/avatar`), kullanıcı listesi (`users`) |
 | `RoleController` | Rol listeleme/oluşturma/atama (Admin) |
 | `WatchlistController` | Favori coin ekleme/çıkarma |
-| `AlertController` | Fiyat alarmı oluşturma/listeleme/silme |
-| `PortfolioController` | Bakiye, holdings, işlem geçmişi, alım/satım, liderlik tablosu |
-| `BotController` | Bot oluşturma/yönetme, sinyaller, performans, backtest |
+| `AlertController` | Fiyat / yüzde-değişim alarmı oluşturma, listeleme, silme, açma-kapama (`toggle`), tetiklenme geçmişi (`signals`) |
+| `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), alım/satım, liderlik tablosu |
+| `BotController` | Bot oluşturma (RSI / EMA), aç-kapa, silme, sinyaller, performans, backtest |
 | `FeedbackController` | Geri bildirim gönderme/listeleme (Admin) |
 | `TestnetController` | Binance Testnet hesap durumu (Admin, debug amaçlı) |
-| `AdminController` | Tüm bot/portföy gözetimi, kill switch, audit log |
-| `DashboardController` | Haftalık yeni kullanıcı istatistiği (Admin) |
+| `AdminController` | Tüm bot/portföy gözetimi (`bots`, `portfolios`), kill switch (`bots/{id}/kill`), işaretleme (`Bot/{id}/flag`), aşırı işlem listesi (`overtrading`), audit log (`audit-log`) |
+| `DashboardController` | Günlük/haftalık yeni kullanıcı istatistiği (`daily-new-users`, Admin) |
 
 ---
 
@@ -181,13 +193,15 @@ CryptoTracker/
 └── frontend/
     └── src/
         ├── components/       ← Navbar, CryptoCard/Grid, ChartModule, IndicatorPanel,
-        │                        BacktestReport, TradeForm, BotSignalApproval, vb.
-        ├── pages/            ← Home, SignIn/Up, Profile, Dashboard, Watchlist,
-        │                        CoinDetail, Portfolio, Bot, AdminBots, Leaderboard,
-        │                        Converter, Feedback, ForgotPassword/ResetPassword
+        │                        BacktestReport, TradeForm, BotSignalApproval,
+        │                        LanguageToggle, vb.
+        ├── pages/            ← Home, SignIn/Up, ConfirmEmail, Profile, Dashboard,
+        │                        Watchlist, CoinDetail, Compare, Portfolio, Bot,
+        │                        AdminBots, Leaderboard, Converter, Feedback,
+        │                        ForgotPassword/ResetPassword
         ├── services/         ← API çağrıları (apiService.js), binanceService.js
         ├── hooks/            ← useBinancePrices
-        └── context/          ← Auth, Price, Theme, Currency, Watchlist
+        └── context/          ← Auth, Price, Theme, Currency, Watchlist, Language
 ```
 
 ---
@@ -203,4 +217,10 @@ Her haftanın görev tanımları ayrı dosyalarda tutuluyor:
 | [TASKS_HAFTA5.md](./TASKS_HAFTA5.md) | Sanal portföy / mock alım-satım, liderlik tablosu |
 | [TASKS_HAFTA6.md](./TASKS_HAFTA6.md) | RSI tabanlı alım-satım botu (onaylı sinyal modeli) |
 | [TASKS_HAFTA7.md](./TASKS_HAFTA7.md) | Binance Testnet entegrasyonu, onay akışının kaldırılması, backtest, trend çizgisi menüsü |
-| [TASKS_HAFTA8.md](./TASKS_HAFTA8.md) | Taslak — admin gözetim paneli, EMA stratejisi, e-posta bildirimi |
+| [TASKS_HAFTA8.md](./TASKS_HAFTA8.md) | Admin gözetim paneli, kill switch, audit log, e-posta bildirimi (EMA → 9. haftaya taşındı) |
+| [TASKS_HAFTA9.md](./TASKS_HAFTA9.md) | EMA kesişimi stratejisi (canlı + backtest), test kapsamı, dokümantasyon güncellemesi |
+| [TASKS_ARSIV.md](./TASKS_ARSIV.md) | Kodda olup hiçbir haftalık dosyaya yazılmamış görevler (40–51): e-posta, çoklu dil, Compare, profil fotoğrafı, yüzde alarmı, e-posta doğrulama vb. |
+
+> **Arşiv kararı:** Dokümante edilmemiş eski görevler `TASKS_HAFTA9.md`'nin başına değil,
+> ayrı bir `TASKS_ARSIV.md` dosyasına yazıldı. Böylece HAFTA9 sadece o haftanın işlerini
+> anlatıyor; geçmiş ise tek yerde, tablo halinde bulunuyor.

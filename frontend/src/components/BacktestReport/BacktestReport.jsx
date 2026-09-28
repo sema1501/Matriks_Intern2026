@@ -248,7 +248,9 @@ export default function BacktestReport({ bot, onClose }) {
                         <p className="backtest-eyebrow">Geçmiş strateji simülasyonu</p>
                         <h2 id="backtest-title">{bot.symbol} Backtest Raporu</h2>
                         <p>
-                            RSI ≤ {bot.buyRsiThreshold} AL · RSI ≥ {bot.sellRsiThreshold} SAT · Miktar {bot.tradeQuantity}
+                            {bot.strategy === 1
+                                ? `EMA${bot.shortEmaPeriod} ↑ EMA${bot.longEmaPeriod} AL · EMA${bot.shortEmaPeriod} ↓ EMA${bot.longEmaPeriod} SAT · Miktar ${bot.tradeQuantity}`
+                                : `RSI ≤ ${bot.buyRsiThreshold} AL · RSI ≥ ${bot.sellRsiThreshold} SAT · Miktar ${bot.tradeQuantity}`}
                         </p>
                     </div>
                     <button className="backtest-close" type="button" onClick={onClose} aria-label="Kapat">×</button>
