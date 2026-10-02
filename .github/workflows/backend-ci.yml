@@ -1,0 +1,35 @@
+# Backend CI: her push ve PR'da backend'i derler ve tüm testleri çalıştırır.
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: .NET 9 kur
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Paketleri yükle
+        run: dotnet restore CryptoTracker.sln
+
+      - name: Derle (Release)
+        run: dotnet build CryptoTracker.sln --configuration Release --no-restore
+
+      # Testler "Testing" ortamında InMemory veritabanı kullandığı için SQL Server gerekmez.
+      - name: Testleri çalıştır
+        run: dotnet test CryptoTracker.sln --configuration Release --no-build --verbosity normal
