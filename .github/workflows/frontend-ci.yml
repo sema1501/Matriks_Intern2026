@@ -1,0 +1,35 @@
+# Frontend CI: her push ve PR'da React uygulamasının derlendiğini doğrular.
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      # package-lock.json npm 11 ile oluşturulduğu için Node 24 (npm 11) kullanılır.
+      # Node 22 / npm 10 ile "npm ci" lock dosyası uyuşmazlığı hatası veriyor.
+      - name: Node.js 24 kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Paketleri yükle
+        run: npm ci
+
+      - name: Derle
+        run: npm run build
