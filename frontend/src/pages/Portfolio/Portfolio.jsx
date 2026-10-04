@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getBalance, getHoldings, getTransactions, getBotPerformance } from '../../services/apiService';
+import { getBalance, getHoldings, getTransactions, getBotPerformance, exportTransactions } from '../../services/apiService';
 import { useBinancePrices } from '../../hooks/useBinancePrices';
 import { useLanguage } from '../../context/LanguageContext';
 import './Portfolio.css';
@@ -101,6 +101,8 @@ const Portfolio = () => {
   const [txSymbol, setTxSymbol] = useState('');
   const [txType, setTxType] = useState(''); // '' = hepsi, '0' = Alış, '1' = Satış
   const [txLoading, setTxLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   useEffect(() => {
     const fetchPortfolio = async () => {
@@ -123,6 +125,36 @@ const Portfolio = () => {
 
     fetchPortfolio();
   }, []);
+
+  // Ekrandaki filtreler, tablodaki istekle aynı kurallarla CSV isteğine eklenir (Görev 89).
+  const buildTxFilterParams = () => {
+    const params = {};
+    if (txSymbol.trim()) params.symbol = txSymbol.trim();
+    if (txType !== '') params.type = Number(txType);
+    return params;
+  };
+
+  // İşlem geçmişini CSV olarak indir (Görev 89): o an seçili filtreler aynen gönderilir.
+  const handleExportCsv = async () => {
+    setExportError('');
+    setExporting(true);
+    try {
+      const res = await exportTransactions(buildTxFilterParams());
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'islemler.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('CSV indirilirken hata oluştu:', error);
+      setExportError(t('portfolio.exportError'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // İşlem geçmişini sayfa/filtre değiştikçe ayrı çek (Görev 51).
   useEffect(() => {
@@ -325,7 +357,16 @@ const Portfolio = () => {
             <option value="0">{t('portfolio.onlyBuy')}</option>
             <option value="1">{t('portfolio.onlySell')}</option>
           </select>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            style={{ padding: '0.4rem 0.8rem', cursor: exporting ? 'wait' : 'pointer' }}
+          >
+            {exporting ? t('portfolio.exporting') : t('portfolio.exportCsv')}
+          </button>
         </div>
+        {exportError && <p className="text-red" style={{ marginTop: '-0.5rem' }}>{exportError}</p>}
 
         <div className="table-responsive">
           <table className="portfolio-table">

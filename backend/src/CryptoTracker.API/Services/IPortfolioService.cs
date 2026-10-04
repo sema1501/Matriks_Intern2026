@@ -14,6 +14,16 @@ public interface IPortfolioService
         string? symbol = null,
         TransactionType? type = null,
         CancellationToken cancellationToken = default);
+    /// <summary>
+    /// CSV dışa aktarma için filtrelenmiş işlem geçmişi (Görev 89).
+    /// GetTransactionHistoryAsync ile aynı filtreler, sayfalama yok, en fazla maxRows satır.
+    /// </summary>
+    Task<List<TransactionDto>> GetTransactionsForExportAsync(
+        int userId,
+        string? symbol = null,
+        TransactionType? type = null,
+        int maxRows = 5000,
+        CancellationToken cancellationToken = default);
     Task<List<LeaderboardDto>> GetLeaderboardAsync(CancellationToken cancellationToken = default);
     Task<TransactionDto> BuyAsync(int userId, string symbol, decimal quantity, decimal pricePerUnit, CancellationToken cancellationToken = default);
     Task<TransactionDto> SellAsync(int userId, string symbol, decimal quantity, decimal pricePerUnit, CancellationToken cancellationToken = default);
