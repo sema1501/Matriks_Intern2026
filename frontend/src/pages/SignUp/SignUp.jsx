@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { register } from '../../services/apiService';
+import { getRateLimitMessage } from '../../utils/rateLimit';
 
 export default function SignUp() {
     const { t } = useLanguage();
@@ -85,7 +86,7 @@ export default function SignUp() {
         } catch (err) {
             setErrors({
                 ...errors,
-                global: err.response?.data?.message || t('signup.registerFailed')
+                global: getRateLimitMessage(err, t) || err.response?.data?.message || t('signup.registerFailed')
             });
         } finally {
             setLoading(false);
