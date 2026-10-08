@@ -235,6 +235,8 @@ Her haftanın görev tanımları ayrı dosyalarda tutuluyor:
 | [TASKS_HAFTA7.md](./TASKS_HAFTA7.md) | Binance Testnet entegrasyonu, onay akışının kaldırılması, backtest, trend çizgisi menüsü |
 | [TASKS_HAFTA8.md](./TASKS_HAFTA8.md) | Admin gözetim paneli, kill switch, audit log, e-posta bildirimi (EMA → 9. haftaya taşındı) |
 | [TASKS_HAFTA9.md](./TASKS_HAFTA9.md) | EMA kesişimi stratejisi (canlı + backtest), test kapsamı, dokümantasyon güncellemesi |
+| [TASKS_HAFTA10.md](./TASKS_HAFTA10.md) | CI/CD (GitHub Actions), kimlik doğrulama uçlarına rate limiting, işlem geçmişini CSV dışa aktarma |
+| [TASKS_HAFTA11.md](./TASKS_HAFTA11.md) | Refresh token ve oturum süresi yönetimi, bot stop-loss/take-profit, portföy değer geçmişi grafiği |
 | [TASKS_ARSIV.md](./TASKS_ARSIV.md) | Kodda olup hiçbir haftalık dosyaya yazılmamış görevler (40–51): e-posta, çoklu dil, Compare, profil fotoğrafı, yüzde alarmı, e-posta doğrulama vb. |
 
 > **Arşiv kararı:** Dokümante edilmemiş eski görevler `TASKS_HAFTA9.md`'nin başına değil,
