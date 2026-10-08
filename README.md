@@ -1,5 +1,8 @@
 # CryptoTracker — Staj Projesi
 
+[![Backend CI](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/backend-ci.yml)
+[![Frontend CI](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/frontend-ci.yml)
+
 Canlı kripto para takibi, teknik analiz ve sanal (Binance Testnet üzerinden) alım-satım
 botu içeren full-stack bir uygulama.
 
@@ -11,7 +14,7 @@ botu içeren full-stack bir uygulama.
 
 ### Gereksinimler
 - [.NET 9 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 18+](https://nodejs.org/)
+- [Node.js 24+](https://nodejs.org/) (npm 11; `package-lock.json` bu sürümle oluşturuldu)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 
 ### Önemli not
@@ -101,6 +104,19 @@ dotnet test
 > Bu bilgiler kaynak kodda (`Data/DataSeeder.cs`) açıkça yazılı — repo public olduğu için
 > bilerek burada. Eğer proje internete açık bir yere deploy edilirse bu hesabın şifresi
 > mutlaka değiştirilmeli/silinmelidir.
+
+---
+
+## Sürekli Entegrasyon (CI)
+
+Her `push` ve `pull_request` (main, develop) için GitHub Actions iki workflow çalıştırır:
+
+| Workflow | Dosya | Ne doğrular |
+|---|---|---|
+| Backend CI | `.github/workflows/backend-ci.yml` | `dotnet restore`, `dotnet build --configuration Release`, `dotnet test` (`backend/CryptoTracker.sln`) |
+| Frontend CI | `.github/workflows/frontend-ci.yml` | `npm ci`, `npm run build` (`frontend/`, Node 24) |
+
+Testler `Testing` ortamında InMemory veritabanı kullandığı için CI'da SQL Server gerekmez. Workflow kırmızıysa PR birleştirilmeden önce düzeltilmelidir.
 
 ---
 
