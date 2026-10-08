@@ -1,5 +1,6 @@
 using CryptoTracker.API.Data;
 using CryptoTracker.API.Middleware;
+using CryptoTracker.API.RateLimiting;
 using CryptoTracker.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -93,6 +94,9 @@ else
 
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
+// ── Rate limiting (Görev 88) ───────────────────────────────────
+builder.Services.AddAppRateLimiting(builder.Configuration);
+
 // ── CORS ─────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
@@ -143,6 +147,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { login } from '../../services/apiService';
+import { getRateLimitMessage } from '../../utils/rateLimit';
 
 export default function SignIn() {
     const { loginUser } = useAuth();
@@ -51,7 +52,7 @@ export default function SignIn() {
         } catch (err) {
             setErrors({
                 ...errors,
-                global: err.response?.data?.message || t('auth.loginFailed')
+                global: getRateLimitMessage(err, t) || err.response?.data?.message || t('auth.loginFailed')
             });
         } finally {
             setLoading(false);

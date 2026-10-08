@@ -1,7 +1,9 @@
 using CryptoTracker.API.DTOs;
+using CryptoTracker.API.RateLimiting;
 using CryptoTracker.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace CryptoTracker.API.Controllers;
@@ -11,10 +13,12 @@ namespace CryptoTracker.API.Controllers;
 public class AuthController(IAuthService authService, IUserService userService) : ControllerBase
 {
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         => Ok(new { message = await authService.RegisterAsync(request) });
 
     [HttpPost("confirm-email")]
+    [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
     public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request)
     {
         await authService.ConfirmEmailAsync(request.Token);
@@ -22,10 +26,12 @@ public class AuthController(IAuthService authService, IUserService userService) 
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
         => Ok(await authService.LoginAsync(request));
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     => Ok(new { message = await authService.ForgotPasswordAsync(request.Email) });
 

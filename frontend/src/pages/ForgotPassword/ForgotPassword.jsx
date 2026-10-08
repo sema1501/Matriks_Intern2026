@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { forgotPassword } from '../../services/apiService';
+import { getRateLimitMessage } from '../../utils/rateLimit';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function ForgotPassword() {
@@ -20,7 +21,7 @@ export default function ForgotPassword() {
             const res = await forgotPassword({ email });
             setMessage(res.data.message);
         } catch (err) {
-            setError(err.response?.data?.error || t('forgot.error'));
+            setError(getRateLimitMessage(err, t) || err.response?.data?.error || t('forgot.error'));
         } finally {
             setLoading(false);
         }
