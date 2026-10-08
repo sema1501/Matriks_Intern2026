@@ -77,7 +77,7 @@ zorlamak yerine kısa ömürlü access token + uzun ömürlü refresh token yap�
 (RSI eşikleri veya EMA periyotları). Fiyat ters yöne giderse botun zararı sınırlamasının
 ya da hedeflenen kâra ulaşınca pozisyonu kapatmasının hiçbir yolu yok — bot ancak
 strateji SAT sinyali üretirse satıyor. Bu, gerçek alım-satım botlarındaki en temel risk
-yönetimi özelliği.
+yönetimi özelliği. Anlık geri bildirim mekanizmamız da olsun botun hareketleri için.
 
 **Yapılacaklar**
 - `Models/TradingBot.cs`: `StopLossPercent` ve `TakeProfitPercent` alanları ekle
