@@ -48,6 +48,28 @@ public class PortfolioController(IPortfolioService portfolioService) : Controlle
         return Ok(transactions);
     }
 
+    /// <summary>
+    /// İşlem geçmişini CSV olarak indirir (Görev 89). GetTransactions ile aynı symbol/type filtreleri,
+    /// sayfalama yok, en fazla 5000 satır. Sadece giriş yapan kullanıcının kendi işlemleri döner.
+    /// </summary>
+    [HttpGet("transactions/export")]
+    public async Task<IActionResult> ExportTransactions(
+        [FromQuery] string? symbol = null,
+        [FromQuery] TransactionType? type = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var transactions = await portfolioService.GetTransactionsForExportAsync(
+            userId, symbol, type, MaxExportRows, cancellationToken);
+
+        var bytes = TransactionCsvWriter.ToCsvBytes(transactions);
+        return File(bytes, "text/csv; charset=utf-8", "islemler.csv");
+    }
+
+    private const int MaxExportRows = 5000;
+
     [HttpGet("leaderboard")]
     [AllowAnonymous]
     public async Task<IActionResult> GetLeaderboard(CancellationToken cancellationToken)

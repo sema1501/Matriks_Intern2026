@@ -36,19 +36,7 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var query = db.Transactions
-            .AsNoTracking()
-            .Where(t => t.UserId == userId);
-
-        // Opsiyonel filtreler — sembolde kısmi arama ("eth" → ETHUSDT bulunur) (Görev 51)
-        if (!string.IsNullOrWhiteSpace(symbol))
-        {
-            var normalized = symbol.Trim().ToUpperInvariant();
-            query = query.Where(t => t.Symbol.Contains(normalized));
-        }
-
-        if (type is not null)
-            query = query.Where(t => t.Type == type);
+        var query = BuildTransactionQuery(userId, symbol, type);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -66,6 +54,47 @@ public class PortfolioService(AppDbContext db) : IPortfolioService
             pageNumber,
             pageSize,
             totalPages);
+    }
+
+    public async Task<List<TransactionDto>> GetTransactionsForExportAsync(
+        int userId,
+        string? symbol = null,
+        TransactionType? type = null,
+        int maxRows = 5000,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxRows < 1) maxRows = 1;
+
+        // Ekrandaki tabloyla aynı filtre ve aynı sıralama (en yeni üstte) — Görev 89.
+        var transactions = await BuildTransactionQuery(userId, symbol, type)
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(maxRows)
+            .ToListAsync(cancellationToken);
+
+        return transactions.Select(MapToDto).ToList();
+    }
+
+    /// <summary>
+    /// İşlem geçmişi sorgusu: sadece bu kullanıcının işlemleri + opsiyonel sembol/tür filtresi.
+    /// Hem sayfalı liste hem CSV dışa aktarma bunu kullanır, böylece ikisi her zaman aynı satırları döner.
+    /// </summary>
+    private IQueryable<Transaction> BuildTransactionQuery(int userId, string? symbol, TransactionType? type)
+    {
+        var query = db.Transactions
+            .AsNoTracking()
+            .Where(t => t.UserId == userId);
+
+        // Opsiyonel filtreler — sembolde kısmi arama ("eth" → ETHUSDT bulunur) (Görev 51)
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            var normalized = symbol.Trim().ToUpperInvariant();
+            query = query.Where(t => t.Symbol.Contains(normalized));
+        }
+
+        if (type is not null)
+            query = query.Where(t => t.Type == type);
+
+        return query;
     }
 
     public async Task<List<LeaderboardDto>> GetLeaderboardAsync(CancellationToken cancellationToken = default)
