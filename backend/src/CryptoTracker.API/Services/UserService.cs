@@ -65,6 +65,14 @@ public class UserService(AppDbContext db) : IUserService
             throw new Exception("Mevcut şifre hatalı.");
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+        // Şifre değişince açık tüm oturumlar (bu cihaz dahil) kapanır.
+        var now = DateTime.UtcNow;
+        var activeTokens = await db.RefreshTokens
+            .Where(t => t.UserId == id && t.RevokedAt == null)
+            .ToListAsync();
+        foreach (var t in activeTokens) t.RevokedAt = now;
+
         await db.SaveChangesAsync();
     }
 

@@ -145,6 +145,17 @@ a {
     text-align: center;
 }
 
+.auth-info-alert {
+    background-color: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #b45309;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 1.25rem;
+    text-align: center;
+}
+
 .password-input-wrapper {
     position: relative;
     width: 100%;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { login } from '../../services/apiService';
+import { login, SESSION_MESSAGE_KEY } from '../../services/apiService';
 import { getRateLimitMessage } from '../../utils/rateLimit';
 
 export default function SignIn() {
@@ -12,6 +12,12 @@ export default function SignIn() {
 
     const [form, setForm] = useState({ usernameOrEmail: '', password: '' });
     const [errors, setErrors] = useState({ usernameOrEmail: '', password: '', global: '' });
+    // Oturum süresi dolduğu ya da şifre değiştiği için buraya yönlendirildiyse nedeni göster.
+    const [sessionMessage] = useState(() => {
+        const key = sessionStorage.getItem(SESSION_MESSAGE_KEY);
+        sessionStorage.removeItem(SESSION_MESSAGE_KEY);
+        return key;
+    });
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -47,7 +53,7 @@ export default function SignIn() {
         setLoading(true);
         try {
             const res = await login(form);
-            loginUser(res.data.token, res.data);
+            loginUser(res.data.token, res.data.refreshToken, res.data);
             navigate('/');
         } catch (err) {
             setErrors({
@@ -63,6 +69,10 @@ export default function SignIn() {
         <div className="auth-container">
             <div className="auth-card">
                 <h2 className="auth-title">{t('auth.signinTitle')}</h2>
+
+                {sessionMessage && !errors.global && (
+                    <div className="auth-info-alert">{t(sessionMessage)}</div>
+                )}
 
                 {errors.global && (
                     <div className="auth-error-alert">{errors.global}</div>

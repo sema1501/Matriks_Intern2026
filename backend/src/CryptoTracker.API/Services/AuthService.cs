@@ -13,6 +13,8 @@ public class AuthService(
     IEmailSender? emailSender = null,
     IConfiguration? configuration = null) : IAuthService
 {
+    private const int DefaultRefreshTokenDays = 7;
+
     public async Task<string> RegisterAsync(RegisterRequest request)
     {
         bool emailExists    = await db.Users.AnyAsync(u => u.Email    == request.Email);
@@ -111,8 +113,91 @@ public class AuthService(
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
 
         string token = jwtService.GenerateToken(user, roles);
+        string refreshToken = AddRefreshToken(user.Id);
+        await db.SaveChangesAsync();
 
-        return new AuthResponse(token, user.Username, roles);
+        return new AuthResponse(token, refreshToken, user.Username, roles);
+    }
+
+    public async Task<AuthResponse> RefreshAsync(string refreshToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            throw new UnauthorizedAccessException("Oturum yenilenemedi.");
+
+        string hash = JwtService.HashRefreshToken(refreshToken);
+        var stored = await db.RefreshTokens
+            .Include(t => t.User)
+                .ThenInclude(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(t => t.TokenHash == hash);
+
+        if (stored == null)
+            throw new UnauthorizedAccessException("Oturum yenilenemedi.");
+
+        var now = DateTime.UtcNow;
+
+        // Zaten kullanılmış/iptal edilmiş bir token tekrar geldiyse token çalınmış olabilir:
+        // gerçek sahibi de saldırgan da artık oturum açık tutamasın diye hepsini kapat.
+        if (stored.RevokedAt != null)
+        {
+            logger.LogWarning("İptal edilmiş refresh token tekrar kullanıldı (UserId={UserId}). Tüm oturumlar kapatılıyor.", stored.UserId);
+            await RevokeAllActiveAsync(stored.UserId, now);
+            await db.SaveChangesAsync();
+            throw new UnauthorizedAccessException("Oturum yenilenemedi.");
+        }
+
+        if (stored.ExpiresAt <= now)
+            throw new UnauthorizedAccessException("Oturumun süresi doldu.");
+
+        // Token rotation: eskisini iptal et, yerine yenisini ver.
+        string newRefreshToken = AddRefreshToken(stored.UserId);
+        stored.RevokedAt = now;
+        stored.ReplacedByTokenHash = JwtService.HashRefreshToken(newRefreshToken);
+
+        var roles = stored.User.UserRoles.Select(ur => ur.Role.Name).ToList();
+        string accessToken = jwtService.GenerateToken(stored.User, roles);
+
+        await db.SaveChangesAsync();
+
+        return new AuthResponse(accessToken, newRefreshToken, stored.User.Username, roles);
+    }
+
+    public async Task LogoutAsync(string refreshToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken)) return;
+
+        string hash = JwtService.HashRefreshToken(refreshToken);
+        var stored = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash);
+
+        // Bilinmeyen ya da zaten iptal edilmiş token için de sessizce başarılı dön (idempotent).
+        if (stored == null || stored.RevokedAt != null) return;
+
+        stored.RevokedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Yeni refresh token üretir, hash'ini kaydedilmek üzere ekler, düz halini döner.</summary>
+    private string AddRefreshToken(int userId)
+    {
+        string token = jwtService.GenerateRefreshToken();
+        var days = configuration?.GetValue("Jwt:RefreshTokenDays", DefaultRefreshTokenDays) ?? DefaultRefreshTokenDays;
+
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = userId,
+            TokenHash = JwtService.HashRefreshToken(token),
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddDays(days)
+        });
+        return token;
+    }
+
+    private async Task RevokeAllActiveAsync(int userId, DateTime now)
+    {
+        var activeTokens = await db.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ToListAsync();
+        foreach (var t in activeTokens) t.RevokedAt = now;
     }
 
     public async Task<string> ForgotPasswordAsync(string email)
@@ -167,6 +252,9 @@ public class AuthService(
 
         resetToken.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         resetToken.IsUsed = true;
+
+        // Şifre sıfırlandıysa hesabı başkası kullanıyor olabilir: açık tüm oturumları kapat.
+        await RevokeAllActiveAsync(resetToken.UserId, DateTime.UtcNow);
 
         await db.SaveChangesAsync();
     }

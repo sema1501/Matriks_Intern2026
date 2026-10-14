@@ -30,6 +30,19 @@ public class AuthController(IAuthService authService, IUserService userService) 
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
         => Ok(await authService.LoginAsync(request));
 
+    [HttpPost("refresh")]
+    [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+        => Ok(await authService.RefreshAsync(request.RefreshToken));
+
+    // Access token süresi dolmuş olabilir; kimlik, gönderilen refresh token'ın kendisidir.
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    {
+        await authService.LogoutAsync(request.RefreshToken);
+        return NoContent();
+    }
+
     [HttpPost("forgot-password")]
     [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)

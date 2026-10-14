@@ -11,6 +11,7 @@ import {
   getAlertSignals,
   setEmailNotifications,
   setAvatar,
+  endSession,
 } from '../../services/apiService';
 
 const inputStyle = { width: '100%', padding: '0.5rem', marginTop: '0.25rem' };
@@ -284,8 +285,9 @@ export default function Profile() {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setPasswordSuccess('Şifre başarıyla değiştirildi.');
+      // Backend tüm oturumları kapattı; kullanıcı yeni şifresiyle tekrar giriş yapmalı.
+      endSession('auth.passwordChangedRelogin');
+      return;
     } catch (err) {
       setPasswordError(getErrorMessage(err));
     } finally {

@@ -53,6 +53,8 @@ const translations = {
     'auth.usernameOrEmailRequired': 'Kullanıcı adı veya e-posta alanı boş bırakılamaz.',
     'auth.passwordRequired': 'Şifre alanı boş bırakılamaz.',
     'auth.passwordMinLength': 'Şifre en az 6 karakter olmalıdır.',
+    'auth.sessionExpired': 'Oturumunuzun süresi doldu, lütfen tekrar giriş yapın.',
+    'auth.passwordChangedRelogin': 'Şifreniz değiştirildi. Güvenliğiniz için tüm oturumlar kapatıldı, lütfen yeni şifrenizle giriş yapın.',
     // Kayıt
     'signup.username': 'Kullanıcı Adı',
     'signup.usernamePlaceholder': 'Kullanıcı adınızı belirleyin',
@@ -262,6 +264,8 @@ const translations = {
     'auth.usernameOrEmailRequired': 'Username or email cannot be empty.',
     'auth.passwordRequired': 'Password cannot be empty.',
     'auth.passwordMinLength': 'Password must be at least 6 characters.',
+    'auth.sessionExpired': 'Your session has expired, please sign in again.',
+    'auth.passwordChangedRelogin': 'Your password has been changed. For your security all sessions were signed out, please sign in with your new password.',
     // Sign up
     'signup.username': 'Username',
     'signup.usernamePlaceholder': 'Choose a username',
