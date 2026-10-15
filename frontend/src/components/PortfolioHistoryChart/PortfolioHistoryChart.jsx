@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { getPortfolioHistory } from '../../services/apiService';
 import { useLanguage } from '../../context/LanguageContext';
 import './PortfolioHistoryChart.css';
 
 const RANGES = ['24h', '7d', '30d', 'all'];
 
-// SVG koordinat sistemi; genişlik CSS ile kapsayıcıya uyar (viewBox ölçeklenir).
-const WIDTH = 720;
-const HEIGHT = 240;
-const PAD = { top: 16, right: 16, bottom: 28, left: 72 };
+const UP_COLOR = '#16a34a';
+const DOWN_COLOR = '#dc2626';
+const CHART_HEIGHT = 260;
 
 const formatUsd = (value, digits = 2) =>
   `$${Number(value || 0).toLocaleString(undefined, {
@@ -30,47 +30,43 @@ const formatFullDate = (value, lang) =>
     timeStyle: 'short',
   });
 
-/** Veriyi SVG noktalarına çevirir. En az 2 nokta yoksa null döner. */
-const buildChart = (points) => {
-  if (points.length < 2) return null;
-
-  const times = points.map((p) => new Date(p.takenAt).getTime());
-  const values = points.map((p) => Number(p.totalValue));
-
-  const minTime = Math.min(...times);
-  const maxTime = Math.max(...times);
-  let minValue = Math.min(...values);
-  let maxValue = Math.max(...values);
-
-  // Değer hiç değişmediyse çizgi ortada dursun.
-  if (minValue === maxValue) {
-    minValue -= 1;
-    maxValue += 1;
-  }
-  const margin = (maxValue - minValue) * 0.1;
-  minValue -= margin;
-  maxValue += margin;
-
-  const innerW = WIDTH - PAD.left - PAD.right;
-  const innerH = HEIGHT - PAD.top - PAD.bottom;
-  const x = (t) => PAD.left + ((t - minTime) / (maxTime - minTime || 1)) * innerW;
-  const y = (v) => PAD.top + (1 - (v - minValue) / (maxValue - minValue)) * innerH;
-
-  const coords = points.map((p, i) => ({ x: x(times[i]), y: y(values[i]), point: p }));
-  const line = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
-  const baseY = PAD.top + innerH;
-  const area = `${line} L${coords[coords.length - 1].x.toFixed(1)},${baseY} L${coords[0].x.toFixed(1)},${baseY} Z`;
-
-  const yTicks = [0, 0.5, 1].map((r) => {
-    const value = minValue + (maxValue - minValue) * r;
-    return { value, y: y(value) };
-  });
-  const xTicks = [0, Math.floor((points.length - 1) / 2), points.length - 1]
-    .filter((index, i, all) => all.indexOf(index) === i)
-    .map((index) => coords[index]);
-
-  return { coords, line, area, yTicks, xTicks };
+/** 1, 2, 2.5, 5 veya 10'un katı olan "yuvarlak" adım: eksende $10,250 gibi okunaklı değerler çıkar. */
+const niceStep = (rough) => {
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const fraction = rough / power;
+  const nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10;
+  return nice * power;
 };
+
+/** Y ekseni sınırları ve çizgileri: en düşük ve en yüksek değeri yuvarlak sayılarla kapsar. */
+const buildYAxis = (values) => {
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  // Değer hiç değişmediyse çizgi ortada dursun.
+  if (min === max) {
+    const pad = Math.max(1, Math.abs(min) * 0.01);
+    min -= pad;
+    max += pad;
+  }
+  const step = niceStep((max - min) / 4);
+  const low = Math.max(0, Math.floor(min / step) * step);
+  const high = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let value = low; value <= high + step / 2; value += step) ticks.push(value);
+  // Adım 1'den küçükse (çok küçük portföy) kuruşlar da gösterilir, yoksa etiketler tekrar eder.
+  return { domain: [low, high], ticks, digits: step < 1 ? 2 : 0 };
+};
+
+function ChartTooltip({ active, payload, lang }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const point = payload[0].payload;
+  return (
+    <div className="portfolio-history-tooltip">
+      <strong>{formatUsd(point.totalValue)}</strong>
+      <span>{formatFullDate(point.time, lang)}</span>
+    </div>
+  );
+}
 
 export default function PortfolioHistoryChart() {
   const { t, lang } = useLanguage();
@@ -78,7 +74,6 @@ export default function PortfolioHistoryChart() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [hoverIndex, setHoverIndex] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +82,6 @@ export default function PortfolioHistoryChart() {
       try {
         setLoading(true);
         setError(false);
-        setHoverIndex(null);
         const response = await getPortfolioHistory(range);
         if (!cancelled) setData(response.data);
       } catch (err) {
@@ -108,31 +102,28 @@ export default function PortfolioHistoryChart() {
   }, [range]);
 
   const points = useMemo(() => data?.points || [], [data]);
-  const chart = useMemo(() => buildChart(points), [points]);
+  // Recharts zaman eksenini sayı olarak ister: tarih milisaniyeye çevrilir.
+  const chartData = useMemo(
+    () => points.map((p) => ({ time: new Date(p.takenAt).getTime(), totalValue: Number(p.totalValue) })),
+    [points]
+  );
+  const yAxis = useMemo(
+    () => (chartData.length > 1 ? buildYAxis(chartData.map((p) => p.totalValue)) : null),
+    [chartData]
+  );
 
   const changeUsd = data?.changeUsd;
   const changePercent = data?.changePercent;
   const hasChange = changeUsd !== null && changeUsd !== undefined;
   const isUp = hasChange && Number(changeUsd) >= 0;
-  const hovered = chart && hoverIndex !== null ? chart.coords[hoverIndex] : null;
-
-  // Fare hangi noktaya en yakınsa onu seç (SVG ölçeklendiği için oranla hesaplanır).
-  const handleMouseMove = (event) => {
-    if (!chart) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const svgX = ((event.clientX - rect.left) / rect.width) * WIDTH;
-    let nearest = 0;
-    chart.coords.forEach((c, i) => {
-      if (Math.abs(c.x - svgX) < Math.abs(chart.coords[nearest].x - svgX)) nearest = i;
-    });
-    setHoverIndex(nearest);
-  };
+  const color = isUp ? UP_COLOR : DOWN_COLOR;
+  const gradientId = `portfolio-history-fill-${isUp ? 'up' : 'down'}`;
 
   const renderBody = () => {
     if (loading) return <div className="portfolio-history-empty">{t('portfolio.history.loading')}</div>;
     if (error) return <div className="portfolio-history-empty">{t('portfolio.history.error')}</div>;
     if (points.length === 0) return <div className="portfolio-history-empty">{t('portfolio.history.empty')}</div>;
-    if (!chart) {
+    if (points.length === 1) {
       return (
         <div className="portfolio-history-empty">
           <strong>{formatUsd(points[0].totalValue)}</strong>
@@ -143,52 +134,48 @@ export default function PortfolioHistoryChart() {
     }
 
     return (
-      <div className="portfolio-history-chart-wrap">
-        <svg
-          className={`portfolio-history-chart ${isUp ? 'up' : 'down'}`}
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          role="img"
-          aria-label={t('portfolio.history.chartLabel')}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverIndex(null)}
-        >
-          {chart.yTicks.map((tick) => (
-            <g key={tick.y}>
-              <line className="grid" x1={PAD.left} x2={WIDTH - PAD.right} y1={tick.y} y2={tick.y} />
-              <text className="axis" x={PAD.left - 8} y={tick.y + 4} textAnchor="end">
-                {formatUsd(tick.value, 0)}
-              </text>
-            </g>
-          ))}
-          {chart.xTicks.map((tick, i) => (
-            <text
-              key={tick.point.takenAt}
-              className="axis"
-              x={tick.x}
-              y={HEIGHT - 8}
-              textAnchor={i === 0 ? 'start' : i === chart.xTicks.length - 1 ? 'end' : 'middle'}
-            >
-              {formatAxisDate(tick.point.takenAt, range, lang)}
-            </text>
-          ))}
-
-          <path className="area" d={chart.area} />
-          <path className="line" d={chart.line} />
-
-          {hovered && (
-            <g>
-              <line className="hover-line" x1={hovered.x} x2={hovered.x} y1={PAD.top} y2={HEIGHT - PAD.bottom} />
-              <circle className="hover-dot" cx={hovered.x} cy={hovered.y} r="5" />
-            </g>
-          )}
-        </svg>
-
-        {hovered && (
-          <div className="portfolio-history-tooltip">
-            <strong>{formatUsd(hovered.point.totalValue)}</strong>
-            <span>{formatFullDate(hovered.point.takenAt, lang)}</span>
-          </div>
-        )}
+      <div className="portfolio-history-chart" role="img" aria-label={t('portfolio.history.chartLabel')}>
+        <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+          <AreaChart data={chartData} margin={{ top: 12, right: 12, bottom: 0, left: 8 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="4 4" vertical={false} />
+            <XAxis
+              dataKey="time"
+              type="number"
+              scale="time"
+              domain={['dataMin', 'dataMax']}
+              tickFormatter={(value) => formatAxisDate(value, range, lang)}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={32}
+            />
+            <YAxis
+              domain={yAxis.domain}
+              ticks={yAxis.ticks}
+              tickFormatter={(value) => formatUsd(value, yAxis.digits)}
+              tickLine={false}
+              axisLine={false}
+              width={80}
+            />
+            <Tooltip
+              content={<ChartTooltip lang={lang} />}
+              cursor={{ strokeDasharray: '3 3' }}
+            />
+            <Area
+              type="monotone"
+              dataKey="totalValue"
+              stroke={color}
+              strokeWidth={2.5}
+              fill={`url(#${gradientId})`}
+              activeDot={{ r: 5, strokeWidth: 2.5 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
     );
   };
