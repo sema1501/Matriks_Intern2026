@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { dispose, init, registerOverlay } from 'klinecharts';
 import { runBotBacktest } from '../../services/apiService';
 import { getKlinesRange } from '../../services/binanceService';
+import { useLanguage } from '../../context/LanguageContext';
+import { normalizeReason, reasonLabelKey } from '../../utils/botSignalReason';
 import './BacktestReport.css';
 
 let overlaysRegistered = false;
@@ -100,6 +102,7 @@ const getErrorMessage = (error) => {
 };
 
 export default function BacktestReport({ bot, onClose }) {
+    const { t } = useLanguage();
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const [startDate, setStartDate] = useState(() => {
@@ -342,11 +345,13 @@ export default function BacktestReport({ bot, onClose }) {
                                                 <th>Alış / Satış</th>
                                                 <th>Fiyat</th>
                                                 <th>RSI Değeri</th>
+                                                <th>{t('bot.reasonColumn')}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {sortedSignals.map((signal, index) => {
                                                 const isBuy = String(signal.type).toUpperCase() === 'BUY';
+                                                const reason = normalizeReason(signal.reason);
                                                 return (
                                                     <tr key={`${signal.timestamp}-${index}`}>
                                                         <td>{formatDateTime(signal.timestamp)}</td>
@@ -357,6 +362,11 @@ export default function BacktestReport({ bot, onClose }) {
                                                         </td>
                                                         <td>{formatNumber(signal.price, 8)} USDT</td>
                                                         <td>{signal.rsi == null ? '-' : formatNumber(signal.rsi, 2)}</td>
+                                                        <td>
+                                                            <span className={`backtest-reason-badge ${reason}`}>
+                                                                {t(reasonLabelKey(reason))}
+                                                            </span>
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}

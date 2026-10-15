@@ -70,7 +70,8 @@ public sealed class NotificationService(
         decimal price,
         decimal rsi,
         DateTime triggeredAt,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        BotSignalReason reason = BotSignalReason.Strategy)
     {
         try
         {
@@ -81,14 +82,31 @@ public sealed class NotificationService(
             var trackedBot = await db.TradingBots
                 .FirstOrDefaultAsync(b => b.Id == bot.Id, cancellationToken);
 
-            if (trackedBot is null || !ShouldNotify(user, trackedBot.LastEmailNotifiedAt, triggeredAt))
+            // Stop-loss / take-profit satışı kullanıcı için önemli bir olay: cooldown yüzünden
+            // (örn. az önce gelen ALIM e-postası) kaybolmasın. Kullanıcı tercihi yine geçerli.
+            var lastNotifiedAt = reason == BotSignalReason.Strategy ? trackedBot?.LastEmailNotifiedAt : null;
+            if (trackedBot is null || !ShouldNotify(user, lastNotifiedAt, triggeredAt))
                 return;
 
             var action = signalType == BotSignalType.Buy ? "ALIM" : "SATIM";
-            var subject = $"[CryptoTracker] {bot.Symbol} botu {action} sinyali üretti";
+            var subject = reason switch
+            {
+                BotSignalReason.StopLoss => $"[CryptoTracker] {bot.Symbol} botu stop-loss ile sattı",
+                BotSignalReason.TakeProfit => $"[CryptoTracker] {bot.Symbol} botu take-profit ile sattı",
+                _ => $"[CryptoTracker] {bot.Symbol} botu {action} sinyali üretti"
+            };
+            var reasonLine = reason switch
+            {
+                BotSignalReason.StopLoss =>
+                    $"Neden: Stop-loss. Fiyat giriş fiyatından %{bot.StopLossPercent:0.##} veya daha fazla düştüğü için zarar sınırlandı.\n",
+                BotSignalReason.TakeProfit =>
+                    $"Neden: Take-profit. Fiyat giriş fiyatından %{bot.TakeProfitPercent:0.##} veya daha fazla yükseldiği için kâr alındı.\n",
+                _ => "Neden: Strateji sinyali.\n"
+            };
             var body =
                 $"Merhaba {user!.Username},\n\n" +
                 $"{bot.Symbol} için çalışan botun bir {action} sinyali üretti ve işlem gerçekleştirildi.\n" +
+                reasonLine +
                 $"Sinyal anındaki fiyat: {price:0.########}\n" +
                 // #81: EMA botlarında sinyali RSI değil EMA kesişimi üretir.
                 (bot.Strategy == BotStrategy.EmaCrossover

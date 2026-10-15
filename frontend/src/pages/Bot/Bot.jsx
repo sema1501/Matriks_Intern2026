@@ -32,6 +32,9 @@ export default function Bot() {
     const [buyRsiThreshold, setBuyRsiThreshold] = useState(30);
     const [sellRsiThreshold, setSellRsiThreshold] = useState(70);
     const [tradeQuantity, setTradeQuantity] = useState(0.01);
+    // Boş bırakılırsa bot yalnızca stratejiye göre satar.
+    const [stopLossPercent, setStopLossPercent] = useState('');
+    const [takeProfitPercent, setTakeProfitPercent] = useState('');
 
     const fetchBots = async () => {
         try {
@@ -76,6 +79,16 @@ export default function Bot() {
             return;
         }
 
+        if (stopLossPercent !== '' && (Number(stopLossPercent) <= 0 || Number(stopLossPercent) >= 100)) {
+            setFormError(t('bot.stopLossInvalid'));
+            return;
+        }
+
+        if (takeProfitPercent !== '' && Number(takeProfitPercent) <= 0) {
+            setFormError(t('bot.takeProfitInvalid'));
+            return;
+        }
+
         try {
             setSubmitting(true);
 
@@ -92,6 +105,9 @@ export default function Bot() {
                 payload.shortEmaPeriod = parseInt(shortEmaPeriod, 10);
                 payload.longEmaPeriod = parseInt(longEmaPeriod, 10);
             }
+
+            if (stopLossPercent !== '') payload.stopLossPercent = parseFloat(stopLossPercent);
+            if (takeProfitPercent !== '') payload.takeProfitPercent = parseFloat(takeProfitPercent);
 
             await createBot(payload);
 
@@ -247,6 +263,35 @@ export default function Bot() {
                         />
                     </div>
 
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>{t('bot.stopLoss')}</label>
+                        <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            max="99.99"
+                            value={stopLossPercent}
+                            onChange={(e) => setStopLossPercent(e.target.value)}
+                            placeholder={t('bot.optionalPlaceholder')}
+                            style={styles.input}
+                        />
+                    </div>
+
+                    <div style={styles.formGroup}>
+                        <label style={styles.label}>{t('bot.takeProfit')}</label>
+                        <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            value={takeProfitPercent}
+                            onChange={(e) => setTakeProfitPercent(e.target.value)}
+                            placeholder={t('bot.optionalPlaceholder')}
+                            style={styles.input}
+                        />
+                    </div>
+
+                    <p style={styles.hint}>{t('bot.riskHint')}</p>
+
                     <div style={{ gridColumn: '1 / -1', marginTop: '12px' }}>
                         <button type="submit" disabled={submitting} style={styles.submitBtn}>
                             {submitting ? 'Bot Kuruluyor...' : '🤖 Botu Oluştur ve Başlat'}
@@ -275,6 +320,7 @@ export default function Bot() {
                                     <th style={styles.th}>Parametre 1</th>
                                     <th style={styles.th}>Parametre 2</th>
                                     <th style={styles.th}>{t('bot.amount')}</th>
+                                    <th style={styles.th}>{t('bot.riskLimits')}</th>
                                     <th style={styles.th}>{t('bot.status')}</th>
                                     <th style={styles.th}>{t('bot.action')}</th>
                                 </tr>
@@ -297,6 +343,20 @@ export default function Bot() {
                                                 : `SAT ≥ ${bot.sellRsiThreshold}`}
                                         </td>
                                         <td style={styles.td}>{bot.tradeQuantity}</td>
+                                        <td style={styles.td}>
+                                            {bot.stopLossPercent == null && bot.takeProfitPercent == null ? (
+                                                <span style={{ color: '#888' }}>{t('bot.noRiskLimits')}</span>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '13px' }}>
+                                                    {bot.stopLossPercent != null && (
+                                                        <span style={{ color: '#ef233c' }}>SL: %{Number(bot.stopLossPercent)}</span>
+                                                    )}
+                                                    {bot.takeProfitPercent != null && (
+                                                        <span style={{ color: '#2b9348' }}>TP: %{Number(bot.takeProfitPercent)}</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td style={styles.td}>
                                             <span style={{
                                                 padding: '4px 10px',
@@ -375,6 +435,7 @@ const styles = {
     formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' },
     formGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
     label: { fontSize: '13px', color: '#aaa', fontWeight: '500' },
+    hint: { gridColumn: '1 / -1', margin: 0, fontSize: '12px', color: '#888' },
     input: {
         padding: '10px 14px',
         borderRadius: '8px',

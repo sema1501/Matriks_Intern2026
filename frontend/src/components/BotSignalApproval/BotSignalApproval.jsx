@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBotSignals } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
+import { isRiskExit, normalizeReason, reasonLabelKey } from '../../utils/botSignalReason';
 import './BotSignalApproval.css';
 
 const POLL_INTERVAL_MS = 15000;
@@ -36,6 +38,7 @@ const formatDate = (value) => {
 };
 
 export default function BotSignalApproval({ bots = [] }) {
+  const { t } = useLanguage();
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -58,24 +61,29 @@ export default function BotSignalApproval({ bots = [] }) {
     );
 
     if (initialized.current && newSignals.length > 0) {
-      const newest = newSignals[0];
+      // Stop-loss / take-profit satışı varsa onu öne çıkar; kullanıcı neden satıldığını hemen görsün.
+      const newest = newSignals.find((signal) => isRiskExit(signal.reason)) || newSignals[0];
       const type = normalizeSignalType(newest.signalType);
       const status = normalizeStatus(newest.status);
+      const symbol = botMap.get(newest.botId)?.symbol || '';
+      const riskExit = isRiskExit(newest.reason);
+      const riskText = riskExit ? `${t(reasonLabelKey(newest.reason))} ${t('bot.riskTriggered')}: ` : '';
+
       setMessage({
-        type: status === 'failed' ? 'error' : 'info',
-        text: `Yeni otomatik bot sinyali: ${type === 'buy' ? 'AL' : 'SAT'} ${botMap.get(newest.botId)?.symbol || ''} (${STATUS_LABELS[status] || status})`,
+        type: status === 'failed' ? 'error' : riskExit ? 'warning' : 'info',
+        text: `${riskText}Yeni otomatik bot sinyali: ${type === 'buy' ? 'AL' : 'SAT'} ${symbol} (${STATUS_LABELS[status] || status})`,
       });
 
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Bot sinyali', {
-          body: `${botMap.get(newest.botId)?.symbol || 'Coin'} için ${type === 'buy' ? 'AL' : 'SAT'} otomatik işlendi.`,
+        new Notification(riskExit ? `${t(reasonLabelKey(newest.reason))} ${t('bot.riskTriggered')}` : 'Bot sinyali', {
+          body: `${symbol || 'Coin'} için ${type === 'buy' ? 'AL' : 'SAT'} otomatik işlendi.`,
         });
       }
     }
 
     knownIds.current = new Set(nextSignals.map((signal) => signal.id));
     initialized.current = true;
-  }, [botMap]);
+  }, [botMap, t]);
 
   const fetchSignals = useCallback(async ({ silent = false } = {}) => {
     if (!bots.length) {
@@ -170,6 +178,7 @@ export default function BotSignalApproval({ bots = [] }) {
             const type = normalizeSignalType(signal.signalType);
             const status = normalizeStatus(signal.status);
             const isBuy = type === 'buy';
+            const reason = normalizeReason(signal.reason);
             return (
               <article key={signal.id} className={`bot-signal-item bot-signal-item--${type}`}>
                 <div className="bot-signal-main">
@@ -186,6 +195,11 @@ export default function BotSignalApproval({ bots = [] }) {
                 </div>
 
                 <div className="bot-signal-actions">
+                  {reason !== 'strategy' && (
+                    <span className={`bot-signal-reason bot-signal-reason--${reason}`}>
+                      {t(reasonLabelKey(reason))}
+                    </span>
+                  )}
                   <span className={`bot-signal-status bot-signal-status--${status}`}>
                     {STATUS_LABELS[status] || status}
                   </span>

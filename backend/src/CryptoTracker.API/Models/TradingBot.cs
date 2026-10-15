@@ -41,6 +41,13 @@ public class TradingBot
 
     public decimal TradeQuantity { get; set; }
 
+    // ---------- Risk yönetimi: stop-loss / take-profit ----------
+    // EMA alanlarıyla aynı nedenle decimal? (nullable): null = özellik kapalı.
+    // 0 yazmak "%0 düşünce sat" gibi yanlış bir anlam taşırdı.
+    // Değerler yüzde olarak tutulur: 5 => giriş fiyatından %5.
+    public decimal? StopLossPercent { get; set; }
+    public decimal? TakeProfitPercent { get; set; }
+
     /// <summary>
     /// Bu bot için en son e-posta bildiriminin gönderildiği UTC zaman.
     /// Spam önleme (cooldown) için kullanılır; null ise henüz bildirim gönderilmemiştir.
@@ -57,6 +64,12 @@ public class TradingBot
     {
         if (TradeQuantity <= 0m)
             throw new ArgumentException("İşlem miktarı sıfırdan büyük olmalı.");
+
+        if (StopLossPercent is not null && (StopLossPercent <= 0m || StopLossPercent >= 100m))
+            throw new ArgumentException("Stop-loss yüzdesi 0'dan büyük ve 100'den küçük olmalı.");
+
+        if (TakeProfitPercent is not null && TakeProfitPercent <= 0m)
+            throw new ArgumentException("Take-profit yüzdesi 0'dan büyük olmalı.");
 
         switch (Strategy)
         {
