@@ -153,6 +153,14 @@ Her kullanıcı 10.000 USD sanal bakiye ile başlar, coin detay sayfasından al�
 yapabilir, işlem geçmişini (sayfalı, sembol/tür filtreli) ve kâr/zararını görebilir,
 portföy dağılımını pasta grafikte izleyebilir. Kullanıcılar arası liderlik tablosu.
 
+**Portföy Değer Geçmişi**
+Arka plan servisi (`PortfolioSnapshotService`) saatte bir her kullanıcının portföy değerini
+(nakit + coinlerin o anki Binance fiyatıyla değeri) kaydeder. Fiyatlar her turda tek seferde
+çekilir, aynı saat içinde ikinci kayıt atılmaz. Son 30 gün saatlik, 30 gün–1 yıl arası günlük
+(her günün son kaydı) tutulur, 1 yıldan eski kayıtlar silinir (`PortfolioSnapshot` ayarları).
+Portföy sayfasının üstünde 24s / 7g / 30g / Tümü seçilebilen çizgi grafik ve seçilen aralıktaki
+değişim (USD ve %) gösterilir.
+
 **Alım-Satım Botu**
 İki strateji seçeneği olan, arka planda (`BotMonitorService`) periyodik kontrol yapan bir
 bot: **RSI eşiği** (RSI alım/satım bölgesine girince) veya **EMA kesişimi** (kısa EMA uzun
@@ -181,7 +189,7 @@ Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adr
 | `RoleController` | Rol listeleme/oluşturma/atama (Admin) |
 | `WatchlistController` | Favori coin ekleme/çıkarma |
 | `AlertController` | Fiyat / yüzde-değişim alarmı oluşturma, listeleme, silme, açma-kapama (`toggle`), tetiklenme geçmişi (`signals`) |
-| `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), alım/satım, liderlik tablosu |
+| `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), alım/satım, liderlik tablosu, portföy değer geçmişi (`history?range=24h\|7d\|30d\|all`) |
 | `BotController` | Bot oluşturma (RSI / EMA), aç-kapa, silme, sinyaller, performans, backtest |
 | `FeedbackController` | Geri bildirim gönderme/listeleme (Admin) |
 | `TestnetController` | Binance Testnet hesap durumu (Admin, debug amaçlı) |

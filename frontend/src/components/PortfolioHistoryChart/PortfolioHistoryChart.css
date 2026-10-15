@@ -1,0 +1,129 @@
+.portfolio-history-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.portfolio-history-header h2 {
+  margin-bottom: 0.25rem;
+}
+
+.portfolio-history-change {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #475569);
+}
+
+.portfolio-history-change.positive strong { color: #16a34a; }
+.portfolio-history-change.negative strong { color: #dc2626; }
+
+.portfolio-history-ranges {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--surface-soft, #f8fafc);
+}
+
+.portfolio-history-ranges button {
+  border: 0;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  color: var(--text-secondary, #475569);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.portfolio-history-ranges button.active {
+  background: var(--accent-color, #6366f1);
+  color: #ffffff;
+}
+
+.portfolio-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 2.5rem 1rem;
+  border: 1px dashed var(--border-color, #e2e8f0);
+  border-radius: 0.5rem;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+}
+
+.portfolio-history-empty strong {
+  color: var(--text-primary, #0f172a);
+  font-size: 1.125rem;
+}
+
+.portfolio-history-chart-wrap {
+  position: relative;
+}
+
+.portfolio-history-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: crosshair;
+}
+
+.portfolio-history-chart .grid {
+  stroke: var(--border-color, #e2e8f0);
+  stroke-dasharray: 4 4;
+}
+
+.portfolio-history-chart .axis {
+  fill: var(--text-muted, #64748b);
+  font-size: 12px;
+}
+
+.portfolio-history-chart .line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.portfolio-history-chart.up .line { stroke: #16a34a; }
+.portfolio-history-chart.down .line { stroke: #dc2626; }
+.portfolio-history-chart.up .area { fill: rgba(22, 163, 74, 0.12); }
+.portfolio-history-chart.down .area { fill: rgba(220, 38, 38, 0.12); }
+
+.portfolio-history-chart .hover-line {
+  stroke: var(--text-muted, #64748b);
+  stroke-width: 1;
+}
+
+.portfolio-history-chart .hover-dot {
+  fill: var(--surface-strong, #ffffff);
+  stroke: var(--accent-color, #6366f1);
+  stroke-width: 2.5;
+}
+
+.portfolio-history-tooltip {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--surface-strong, #ffffff);
+  color: var(--text-primary, #0f172a);
+  box-shadow: var(--shadow-sm, 0 8px 24px rgba(15, 23, 42, 0.05));
+  font-size: 0.8125rem;
+  pointer-events: none;
+}
+
+.portfolio-history-tooltip span {
+  color: var(--text-muted, #64748b);
+}

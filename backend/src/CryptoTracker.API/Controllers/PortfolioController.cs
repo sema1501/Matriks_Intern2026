@@ -10,7 +10,9 @@ namespace CryptoTracker.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PortfolioController(IPortfolioService portfolioService) : ControllerBase
+public class PortfolioController(
+    IPortfolioService portfolioService,
+    IPortfolioHistoryService historyService) : ControllerBase
 {
     [HttpGet("balance")]
     public async Task<IActionResult> GetBalance(CancellationToken cancellationToken)
@@ -30,6 +32,25 @@ public class PortfolioController(IPortfolioService portfolioService) : Controlle
 
         var holdings = await portfolioService.GetHoldingsAsync(userId, cancellationToken);
         return Ok(holdings);
+    }
+
+    /// <summary>
+    /// Portföy toplam değerinin zaman içindeki kayıtları (saatlik; 30 günden eskiler günlük).
+    /// Kullanıcı kimliği yalnızca token'dan okunur; başka kullanıcının geçmişi istenemez.
+    /// </summary>
+    /// <param name="range">24h, 7d, 30d veya all. Boşsa 24h.</param>
+    [HttpGet("history")]
+    [ProducesResponseType(typeof(PortfolioHistoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetHistory(
+        [FromQuery] string? range = PortfolioHistoryService.DefaultRange,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var history = await historyService.GetHistoryAsync(userId, range, cancellationToken);
+        return Ok(history);
     }
 
     [HttpGet("transactions")]

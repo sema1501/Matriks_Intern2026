@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getBalance, getHoldings, getTransactions, getBotPerformance, exportTransactions } from '../../services/apiService';
 import { useBinancePrices } from '../../hooks/useBinancePrices';
 import { useLanguage } from '../../context/LanguageContext';
+import PortfolioHistoryChart from '../../components/PortfolioHistoryChart/PortfolioHistoryChart';
 import './Portfolio.css';
 
 const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: prices prop'u eklendi
@@ -251,6 +252,8 @@ const Portfolio = () => {
           </p>
         </div>
       </div>
+
+      <PortfolioHistoryChart />
 
       <BotPerformanceSummary 
         totalPortfolioProfit={totalPortfolioValue - initialBalance} 

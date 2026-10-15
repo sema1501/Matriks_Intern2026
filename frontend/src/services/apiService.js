@@ -57,6 +57,8 @@ export const getTransactions = (params) => api.get('/api/Portfolio/transactions'
 export const exportTransactions = (params) =>
     api.get('/api/Portfolio/transactions/export', { params, responseType: 'blob' });
 export const getLeaderboard = () => api.get('/api/Portfolio/leaderboard');
+// Portföy toplam değer geçmişi. range: '24h' | '7d' | '30d' | 'all'
+export const getPortfolioHistory = (range) => api.get('/api/Portfolio/history', { params: { range } });
 
 export const buyCoin = async (data) => {
     const response = await api.post('/api/Portfolio/buy', data);

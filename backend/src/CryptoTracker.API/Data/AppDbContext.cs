@@ -20,6 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TradingBot> TradingBots => Set<TradingBot>();
     public DbSet<BotSignal> BotSignals => Set<BotSignal>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<PortfolioSnapshot> PortfolioSnapshots => Set<PortfolioSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -157,6 +158,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<PortfolioHolding>()
             .Property(h => h.AvgBuyPrice)
+            .HasPrecision(18, 8);
+
+        // PortfolioSnapshot: grafik sorguları ve "bu saat kaydı var mı" kontrolü (UserId, TakenAt) ile yapılır.
+        modelBuilder.Entity<PortfolioSnapshot>()
+            .HasIndex(s => new { s.UserId, s.TakenAt });
+
+        modelBuilder.Entity<PortfolioSnapshot>()
+            .HasOne(s => s.User)
+            .WithMany()
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PortfolioSnapshot>()
+            .Property(s => s.CashBalance)
+            .HasPrecision(18, 8);
+
+        modelBuilder.Entity<PortfolioSnapshot>()
+            .Property(s => s.HoldingsValue)
+            .HasPrecision(18, 8);
+
+        modelBuilder.Entity<PortfolioSnapshot>()
+            .Property(s => s.TotalValue)
             .HasPrecision(18, 8);
 
         // Transaction → User
