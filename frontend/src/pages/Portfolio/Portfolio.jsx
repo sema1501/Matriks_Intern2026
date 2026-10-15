@@ -94,7 +94,7 @@ const Portfolio = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const { prices } = useBinancePrices();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   // İşlem geçmişi: sayfalama + filtreleme durumu (Görev 51)
   const [txPage, setTxPage] = useState(1);
@@ -102,7 +102,7 @@ const Portfolio = () => {
   const [txSymbol, setTxSymbol] = useState('');
   const [txType, setTxType] = useState(''); // '' = hepsi, '0' = Alış, '1' = Satış
   const [txLoading, setTxLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState(null); // null | 'csv' | 'xlsx'
   const [exportError, setExportError] = useState('');
 
   useEffect(() => {
@@ -135,25 +135,29 @@ const Portfolio = () => {
     return params;
   };
 
-  // İşlem geçmişini CSV olarak indir (Görev 89): o an seçili filtreler aynen gönderilir.
-  const handleExportCsv = async () => {
+  // İşlem geçmişini CSV ya da Excel olarak indir (Görev 89): o an seçili filtreler aynen gönderilir.
+  // Dosyadaki başlıklar ve Alış/Satış yazıları arayüzde seçili dilde gelir.
+  const handleExport = async (format) => {
     setExportError('');
-    setExporting(true);
+    setExporting(format);
     try {
-      const res = await exportTransactions(buildTxFilterParams());
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8' }));
+      const res = await exportTransactions({ ...buildTxFilterParams(), lang, format });
+      const mimeType = format === 'xlsx'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'text/csv;charset=utf-8';
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: mimeType }));
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'islemler.csv';
+      link.download = `${lang === 'en' ? 'transactions' : 'islemler'}.${format}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('CSV indirilirken hata oluştu:', error);
+      console.error('Dosya indirilirken hata oluştu:', error);
       setExportError(t('portfolio.exportError'));
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -362,11 +366,19 @@ const Portfolio = () => {
           </select>
           <button
             type="button"
-            onClick={handleExportCsv}
-            disabled={exporting}
+            onClick={() => handleExport('csv')}
+            disabled={exporting !== null}
             style={{ padding: '0.4rem 0.8rem', cursor: exporting ? 'wait' : 'pointer' }}
           >
-            {exporting ? t('portfolio.exporting') : t('portfolio.exportCsv')}
+            {exporting === 'csv' ? t('portfolio.exporting') : t('portfolio.exportCsv')}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport('xlsx')}
+            disabled={exporting !== null}
+            style={{ padding: '0.4rem 0.8rem', cursor: exporting ? 'wait' : 'pointer' }}
+          >
+            {exporting === 'xlsx' ? t('portfolio.exporting') : t('portfolio.exportExcel')}
           </button>
         </div>
         {exportError && <p className="text-red" style={{ marginTop: '-0.5rem' }}>{exportError}</p>}

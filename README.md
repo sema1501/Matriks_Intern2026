@@ -152,6 +152,8 @@ loglanır. Profil sayfasından kapatılabilir.
 Her kullanıcı 10.000 USD sanal bakiye ile başlar, coin detay sayfasından alım/satım
 yapabilir, işlem geçmişini (sayfalı, sembol/tür filtreli) ve kâr/zararını görebilir,
 portföy dağılımını pasta grafikte izleyebilir. Kullanıcılar arası liderlik tablosu.
+İşlem geçmişi o anki filtrelerle **CSV** ya da **Excel (.xlsx)** olarak indirilebilir; dosyadaki
+başlıklar ve Alış/Satış yazıları arayüzde seçili dilde (TR/EN) gelir.
 
 **Portföy Değer Geçmişi**
 Arka plan servisi (`PortfolioSnapshotService`) saatte bir her kullanıcının portföy değerini
@@ -189,7 +191,7 @@ Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adr
 | `RoleController` | Rol listeleme/oluşturma/atama (Admin) |
 | `WatchlistController` | Favori coin ekleme/çıkarma |
 | `AlertController` | Fiyat / yüzde-değişim alarmı oluşturma, listeleme, silme, açma-kapama (`toggle`), tetiklenme geçmişi (`signals`) |
-| `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), alım/satım, liderlik tablosu, portföy değer geçmişi (`history?range=24h\|7d\|30d\|all`) |
+| `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), dışa aktarma (`transactions/export?lang=tr\|en&format=csv\|xlsx`), alım/satım, liderlik tablosu, portföy değer geçmişi (`history?range=24h\|7d\|30d\|all`) |
 | `BotController` | Bot oluşturma (RSI / EMA), aç-kapa, silme, sinyaller, performans, backtest |
 | `FeedbackController` | Geri bildirim gönderme/listeleme (Admin) |
 | `TestnetController` | Binance Testnet hesap durumu (Admin, debug amaçlı) |
