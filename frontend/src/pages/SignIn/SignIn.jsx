@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -13,11 +13,12 @@ export default function SignIn() {
     const [form, setForm] = useState({ usernameOrEmail: '', password: '' });
     const [errors, setErrors] = useState({ usernameOrEmail: '', password: '', global: '' });
     // Oturum süresi dolduğu ya da şifre değiştiği için buraya yönlendirildiyse nedeni göster.
-    const [sessionMessage] = useState(() => {
-        const key = sessionStorage.getItem(SESSION_MESSAGE_KEY);
+    // Mesaj effect'te silinir: StrictMode useState başlangıç fonksiyonunu iki kez çalıştırır,
+    // burada silinseydi ikinci çalışma boş okurdu ve mesaj hiç görünmezdi.
+    const [sessionMessage] = useState(() => sessionStorage.getItem(SESSION_MESSAGE_KEY));
+    useEffect(() => {
         sessionStorage.removeItem(SESSION_MESSAGE_KEY);
-        return key;
-    });
+    }, []);
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
