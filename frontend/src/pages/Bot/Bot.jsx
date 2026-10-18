@@ -115,7 +115,7 @@ export default function Bot() {
             fetchBots();
         } catch (err) {
             console.error("Bot oluşturulamadı:", err);
-            setFormError(err.response?.data?.message || "Bot oluşturulurken bir hata oluştu.");
+            setFormError(err.response?.data?.error || err.response?.data?.message || "Bot oluşturulurken bir hata oluştu.");
         } finally {
             setSubmitting(false);
         }
