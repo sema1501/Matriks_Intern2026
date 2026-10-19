@@ -77,6 +77,13 @@
   font-size: 12px;
 }
 
+/* Recharts 3 grafiğe tıklanınca tarayıcının odak çerçevesini çiziyor; grafikte bu çerçeveye gerek yok. */
+.portfolio-history-chart .recharts-wrapper:focus,
+.portfolio-history-chart .recharts-surface:focus,
+.portfolio-history-chart .recharts-wrapper *:focus {
+  outline: none;
+}
+
 .portfolio-history-chart .recharts-tooltip-cursor {
   stroke: var(--text-muted, #64748b);
 }
