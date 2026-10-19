@@ -1,5 +1,6 @@
 using System.Reflection;
 using CryptoTracker.API.Data;
+using CryptoTracker.API.DTOs;
 using CryptoTracker.API.Models;
 using CryptoTracker.API.Services;
 using Microsoft.EntityFrameworkCore;
@@ -551,6 +552,27 @@ public class BotMonitorServiceTests
         Assert.Empty(notifier.RiskExitFailures);
     }
 
+    [Fact]
+    public async Task StopLoss_Exit_IsPushedToBotOwnerInRealtime_WithReason()
+    {
+        var realtime = new RecordingRealtimeNotifier();
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m, realtime: realtime);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: null);
+        await SeedHoldingAsync(sp, userId: 1, symbol: "BTCUSDT", qty: 5m, avg: 100m);
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(90m)).Object);
+
+        await EvaluateBotsAsync(monitor);
+
+        var sent = Assert.Single(realtime.Sent);
+        Assert.Equal(1, sent.UserId);
+        Assert.Equal(RealtimeEvents.BotSignal, sent.EventName);
+        var payload = Assert.IsType<BotSignalResponse>(sent.Payload);
+        Assert.Equal(botId, payload.BotId);
+        Assert.Equal(BotSignalReason.StopLoss, payload.Reason);
+        Assert.Equal(BotSignalStatus.Approved, payload.Status);
+        Assert.Equal((await RiskExitsAsync(sp, botId)).Single().Id, payload.Id);
+    }
+
     private static async Task MoveSignalsBackAsync(ServiceProvider sp, int botId, TimeSpan by)
     {
         await using var scope = sp.CreateAsyncScope();
@@ -745,12 +767,15 @@ public class BotMonitorServiceTests
 
     // ── Infrastructure ──────────────────────────────────────────
 
-    private static ServiceProvider CreateServiceProvider(decimal seedUserBalance, INotificationService? notifier = null)
+    private static ServiceProvider CreateServiceProvider(
+        decimal seedUserBalance, INotificationService? notifier = null, IRealtimeNotifier? realtime = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         if (notifier is not null)
             services.AddSingleton(notifier);
+        if (realtime is not null)
+            services.AddSingleton(realtime);
         var databaseName = $"BotMonitorTestDb-{Guid.NewGuid()}";
         services.AddDbContext<AppDbContext>(options =>
             options.UseInMemoryDatabase(databaseName));
