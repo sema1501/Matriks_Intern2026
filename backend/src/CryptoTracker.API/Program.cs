@@ -1,4 +1,5 @@
 using CryptoTracker.API.Data;
+using CryptoTracker.API.Hubs;
 using CryptoTracker.API.Middleware;
 using CryptoTracker.API.RateLimiting;
 using CryptoTracker.API.Services;
@@ -35,6 +36,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             // Varsayılan 5 dakikalık tolerans kısa ömürlü token'ı fiilen 20 dakikaya çıkarırdı.
             ClockSkew = TimeSpan.Zero
+        };
+
+        // Tarayıcı WebSocket bağlantısında Authorization header'ı gönderemez, SignalR token'ı
+        // access_token sorgu parametresiyle yollar. Bu yalnızca /hubs yollarında kabul edilir;
+        // normal API isteklerinde URL'deki token loglara düşebileceği için yok sayılır.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -113,13 +131,22 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddAppRateLimiting(builder.Configuration);
 
 // ── CORS ─────────────────────────────────────────────────────────
+// SignalR istemcisi kimlik bilgisiyle (withCredentials) bağlandığı için AllowCredentials gerekir;
+// bu da AllowAnyOrigin ile birlikte kullanılamaz, origin'ler açıkça listelenir.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:3000"];
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
+
+// ── Anlık bildirimler (SignalR) ───────────────────────────────────
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
 
 // ── Swagger ──────────────────────────────────────────────────────
 builder.Services.AddControllers();
@@ -166,6 +193,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>(NotificationHub.Path);
 
 // ── Seed database ─────────────────────────────────────────────────
 if (!app.Environment.IsEnvironment("Testing"))
