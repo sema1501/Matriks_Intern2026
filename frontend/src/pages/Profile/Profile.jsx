@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePollingFallback, useRealtimeEvent } from '../../context/RealtimeContext';
 import {
   getMe,
   updateProfile,
@@ -127,11 +128,9 @@ export default function Profile() {
     return () => window.removeEventListener('alerts-changed', handleAlertsChanged);
   }, [authUser]);
 
-  useEffect(() => {
-    if (authLoading || !authUser) return undefined;
-    const id = setInterval(() => loadAlerts(true), ALERT_POLL_MS);
-    return () => clearInterval(id);
-  }, [authUser, authLoading]);
+  // Alarm tetiklenince sayaç ve son tetiklenme anında güncellenir; bağlantı yokken polling devam eder (#102).
+  usePollingFallback(() => loadAlerts(true), ALERT_POLL_MS, !authLoading && Boolean(authUser));
+  useRealtimeEvent('alertTriggered', () => loadAlerts(true));
 
   const handleDeleteAlert = async (id) => {
     setDeletingId(id);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { usePollingFallback, useRealtimeEvent } from '../../context/RealtimeContext';
 import { getAlerts, getAlertSignals } from '../../services/apiService';
 import './AlertMonitor.css';
 
@@ -23,10 +24,14 @@ function formatTriggeredAt(value) {
   return new Date(value).toLocaleString('tr-TR');
 }
 
+function signalMessage(symbol, price, triggeredAt) {
+  return `${symbol} sinyal: $${Number(price).toLocaleString()} (${formatTriggeredAt(triggeredAt)})`;
+}
+
 /**
  * Backend writes AlertSignal rows while this page is closed.
- * This component only polls for new signal history while the user is logged in
- * and the app is open. Closed-browser delivery (push/email) is out of scope.
+ * Yeni sinyal SignalR ile anında gelir (#102). Bağlantı yokken eski polling yedek olarak çalışır;
+ * iki yoldan gelen aynı sinyal, sinyal kimliğine göre bir kez gösterilir.
  */
 export default function AlertMonitor() {
   const { user } = useAuth();
@@ -56,9 +61,11 @@ export default function AlertMonitor() {
     if (!baselineReadyRef.current || fresh.length === 0) return;
 
     fresh.forEach((signal) => {
-      const price = Number(signal.priceAtTrigger ?? signal.PriceAtTrigger);
-      const at = formatTriggeredAt(signal.triggeredAt ?? signal.TriggeredAt);
-      const message = `${symbol} sinyal: $${price.toLocaleString()} (${at})`;
+      const message = signalMessage(
+        symbol,
+        signal.priceAtTrigger ?? signal.PriceAtTrigger,
+        signal.triggeredAt ?? signal.TriggeredAt
+      );
       addToast(message);
       showBrowserNotification('Fiyat Alarmı Sinyali', message);
     });
@@ -133,15 +140,26 @@ export default function AlertMonitor() {
     }
 
     pollSignals();
-    const intervalId = setInterval(pollSignals, POLL_INTERVAL_MS);
     const handleAlertsChanged = () => pollSignals();
     window.addEventListener('alerts-changed', handleAlertsChanged);
 
     return () => {
-      clearInterval(intervalId);
       window.removeEventListener('alerts-changed', handleAlertsChanged);
     };
   }, [user, pollSignals]);
+
+  usePollingFallback(pollSignals, POLL_INTERVAL_MS, Boolean(user));
+
+  useRealtimeEvent('alertTriggered', (event) => {
+    if (!user || event?.id == null || knownSignalIdsRef.current.has(event.id)) return;
+    knownSignalIdsRef.current.add(event.id);
+    // Sayaç da artırılır ki sonraki polling bu sinyal için tekrar istek atmasın.
+    knownCountsRef.current.set(event.alertId, (knownCountsRef.current.get(event.alertId) ?? 0) + 1);
+
+    const message = signalMessage(event.symbol, event.priceAtTrigger, event.triggeredAt);
+    addToast(message);
+    showBrowserNotification('Fiyat Alarmı Sinyali', message);
+  });
 
   if (!toasts.length) return null;
 
