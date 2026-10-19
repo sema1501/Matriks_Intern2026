@@ -33,6 +33,22 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+// Backend bu kodu, token birkaç saniye önce başka bir sekmede yenilendiyse döner (#100).
+const TOKEN_ROTATED_CODE = 'refresh_token_rotated';
+const OTHER_TAB_WAIT_MS = 3000;
+const OTHER_TAB_POLL_MS = 100;
+
+// Diğer sekme yeni token çiftini localStorage'a yazana kadar kısa bir süre bekler.
+const waitForOtherTabToken = async (sentRefreshToken) => {
+    for (let waited = 0; waited <= OTHER_TAB_WAIT_MS; waited += OTHER_TAB_POLL_MS) {
+        const current = localStorage.getItem('refreshToken');
+        const token = localStorage.getItem('token');
+        if (current && current !== sentRefreshToken && token) return token;
+        await new Promise((resolve) => setTimeout(resolve, OTHER_TAB_POLL_MS));
+    }
+    return null;
+};
+
 // Aynı anda birden çok istek 401 alırsa hepsi bu tek refresh isteğini bekler.
 let refreshPromise = null;
 
@@ -44,6 +60,14 @@ const refreshAccessToken = () => {
             .then((res) => {
                 saveSession(res.data.token, res.data.refreshToken);
                 return res.data.token;
+            })
+            .catch(async (refreshError) => {
+                // İki sekme aynı anda yeniledi: diğer sekme kazandı, onun token'ını kullan.
+                if (refreshError.response?.data?.code === TOKEN_ROTATED_CODE) {
+                    const token = await waitForOtherTabToken(refreshToken);
+                    if (token) return token;
+                }
+                throw refreshError;
             })
             .finally(() => { refreshPromise = null; });
     }

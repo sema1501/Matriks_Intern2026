@@ -89,7 +89,8 @@ public class RefreshTokenTests
     {
         await using var db = CreateDb();
         await SeedUserAsync(db);
-        var service = CreateAuthService(db);
+        var clock = new MutableClock();
+        var service = CreateAuthService(db, clock);
 
         // İki ayrı cihaz/oturum.
         var laptop = await service.LoginAsync(new LoginRequest("sefa", Password));
@@ -97,7 +98,8 @@ public class RefreshTokenTests
 
         var rotated = await service.RefreshAsync(laptop.RefreshToken);
 
-        // Eski (zaten kullanılmış) laptop token'ı tekrar geliyor: çalınma belirtisi.
+        // Eski (zaten kullanılmış) laptop token'ı tolerans penceresi geçtikten sonra tekrar geliyor: çalınma belirtisi.
+        clock.Advance(TimeSpan.FromMinutes(1));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RefreshAsync(laptop.RefreshToken));
 
         Assert.All(await db.RefreshTokens.ToListAsync(), t => Assert.NotNull(t.RevokedAt));
@@ -111,11 +113,13 @@ public class RefreshTokenTests
         await using var db = CreateDb();
         await SeedUserAsync(db);
         await SeedUserAsync(db, "baska", "baska@test.com");
-        var service = CreateAuthService(db);
+        var clock = new MutableClock();
+        var service = CreateAuthService(db, clock);
         var sefa  = await service.LoginAsync(new LoginRequest("sefa", Password));
         var baska = await service.LoginAsync(new LoginRequest("baska", Password));
 
         await service.RefreshAsync(sefa.RefreshToken);
+        clock.Advance(TimeSpan.FromMinutes(1));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RefreshAsync(sefa.RefreshToken));
 
         var other = await service.RefreshAsync(baska.RefreshToken);
@@ -146,6 +150,66 @@ public class RefreshTokenTests
         var service = CreateAuthService(db);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RefreshAsync(token));
+    }
+
+    // ---------------- Tolerans penceresi (#100) ----------------
+
+    [Fact]
+    public async Task Refresh_ReusedInsideGraceWindow_IsRejected_ButOtherSessionsStayValid()
+    {
+        await using var db = CreateDb();
+        await SeedUserAsync(db);
+        var clock = new MutableClock();
+        var service = CreateAuthService(db, clock);
+        var laptop = await service.LoginAsync(new LoginRequest("sefa", Password));
+        var phone  = await service.LoginAsync(new LoginRequest("sefa", Password));
+
+        // Sekme A yeniledi; sekme B aynı eski token'la 5 sn sonra geliyor.
+        var rotated = await service.RefreshAsync(laptop.RefreshToken);
+        clock.Advance(TimeSpan.FromSeconds(5));
+
+        await Assert.ThrowsAsync<RefreshTokenAlreadyRotatedException>(() => service.RefreshAsync(laptop.RefreshToken));
+
+        // Kimse atılmadı: sekme A'nın yeni token'ı ve telefon hâlâ çalışıyor.
+        Assert.False(string.IsNullOrWhiteSpace((await service.RefreshAsync(rotated.RefreshToken)).Token));
+        Assert.False(string.IsNullOrWhiteSpace((await service.RefreshAsync(phone.RefreshToken)).Token));
+    }
+
+    [Fact]
+    public async Task Refresh_ReusedJustAfterGraceWindow_RevokesAllSessions()
+    {
+        await using var db = CreateDb();
+        await SeedUserAsync(db);
+        var clock = new MutableClock();
+        var service = CreateAuthService(db, clock);
+        var laptop = await service.LoginAsync(new LoginRequest("sefa", Password));
+        var rotated = await service.RefreshAsync(laptop.RefreshToken);
+
+        clock.Advance(TimeSpan.FromSeconds(11));
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RefreshAsync(laptop.RefreshToken));
+        Assert.IsNotType<RefreshTokenAlreadyRotatedException>(ex);
+        Assert.All(await db.RefreshTokens.ToListAsync(), t => Assert.NotNull(t.RevokedAt));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RefreshAsync(rotated.RefreshToken));
+    }
+
+    [Fact]
+    public async Task Refresh_LoggedOutTokenInsideGraceWindow_StillRevokesAllSessions()
+    {
+        // Pencere yalnızca rotasyon için: çıkışla iptal edilen token'ın tekrar gelmesi hep şüpheli.
+        await using var db = CreateDb();
+        await SeedUserAsync(db);
+        var clock = new MutableClock();
+        var service = CreateAuthService(db, clock);
+        var laptop = await service.LoginAsync(new LoginRequest("sefa", Password));
+        var phone  = await service.LoginAsync(new LoginRequest("sefa", Password));
+
+        await service.LogoutAsync(laptop.RefreshToken);
+        clock.Advance(TimeSpan.FromSeconds(2));
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RefreshAsync(laptop.RefreshToken));
+        Assert.IsNotType<RefreshTokenAlreadyRotatedException>(ex);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RefreshAsync(phone.RefreshToken));
     }
 
     // ---------------- Logout ----------------
@@ -231,7 +295,8 @@ public class RefreshTokenTests
     [Fact]
     public async Task RefreshEndpoint_ReturnsNewTokens_AndReuseReturns401()
     {
-        using var factory = new RefreshTokenApiFactory();
+        // Tolerans penceresi kapalı: tekrar kullanım hemen saldırı sayılır.
+        using var factory = new RefreshTokenApiFactory(reuseGraceSeconds: 0);
         await factory.SeedUserAsync();
         var client = factory.CreateClient();
 
@@ -253,6 +318,28 @@ public class RefreshTokenTests
         // Yeniden kullanım tespit edildiği için rotation'la gelen token da artık geçersiz.
         var afterReuse = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = rotated.RefreshToken });
         Assert.Equal(HttpStatusCode.Unauthorized, afterReuse.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshEndpoint_SecondTabInsideGraceWindow_Gets401WithCode_AndStaysLoggedIn()
+    {
+        using var factory = new RefreshTokenApiFactory();
+        await factory.SeedUserAsync();
+        var client = factory.CreateClient();
+        var login = await LoginAsync(client);
+
+        var first = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = login.RefreshToken });
+        var rotated = (await first.Content.ReadFromJsonAsync<AuthResponse>())!;
+
+        // İkinci sekme aynı anda eski token'la geliyor.
+        var second = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = login.RefreshToken });
+        Assert.Equal(HttpStatusCode.Unauthorized, second.StatusCode);
+        var body = await second.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        Assert.Equal(RefreshTokenAlreadyRotatedException.ErrorCode, body!["code"]);
+
+        // İlk sekmenin aldığı token hâlâ geçerli.
+        var again = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = rotated.RefreshToken });
+        Assert.Equal(HttpStatusCode.OK, again.StatusCode);
     }
 
     [Fact]
@@ -311,10 +398,17 @@ public class RefreshTokenTests
             })
             .Build();
 
-    private static AuthService CreateAuthService(AppDbContext db)
+    private static AuthService CreateAuthService(AppDbContext db, IClock? clock = null)
     {
         var config = CreateConfig();
-        return new AuthService(db, new JwtService(config), NullLogger<AuthService>.Instance, configuration: config);
+        return new AuthService(db, new JwtService(config), NullLogger<AuthService>.Instance, configuration: config, clock: clock);
+    }
+
+    /// <summary>Elle ilerletilebilen saat; tolerans penceresinin içini ve dışını denemek için.</summary>
+    internal sealed class MutableClock : IClock
+    {
+        public DateTime UtcNow { get; private set; } = DateTime.UtcNow;
+        public void Advance(TimeSpan by) => UtcNow += by;
     }
 
     internal static async Task<User> SeedUserAsync(AppDbContext db, string username = "sefa", string email = "sefa@test.com")
@@ -333,13 +427,15 @@ public class RefreshTokenTests
     }
 }
 
-public class RefreshTokenApiFactory : WebApplicationFactory<Program>
+public class RefreshTokenApiFactory(int? reuseGraceSeconds = null) : WebApplicationFactory<Program>
 {
     private readonly string _dbName = Guid.NewGuid().ToString();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        if (reuseGraceSeconds is not null)
+            builder.UseSetting("Jwt:RefreshReuseGraceSeconds", reuseGraceSeconds.Value.ToString());
         builder.ConfigureServices(services =>
         {
             services.AddDbContext<AppDbContext>(options =>
