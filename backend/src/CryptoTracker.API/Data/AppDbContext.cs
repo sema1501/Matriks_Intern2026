@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Feedback>      Feedbacks      => Set<Feedback>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<PortfolioHolding> PortfolioHoldings => Set<PortfolioHolding>();
     public DbSet<Transaction>   Transactions   => Set<Transaction>();
@@ -120,6 +121,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // EmailVerificationToken → User (Görev 48)
         modelBuilder.Entity<EmailVerificationToken>().HasOne(evt => evt.User).WithMany().HasForeignKey(evt => evt.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<EmailVerificationToken>().HasIndex(evt => evt.Token).IsUnique();
+
+        // RefreshToken → User. Arama hash üzerinden yapılır, bu yüzden hash benzersiz ve indeksli.
+        modelBuilder.Entity<RefreshToken>().HasOne(rt => rt.User).WithMany().HasForeignKey(rt => rt.UserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<RefreshToken>().Property(rt => rt.TokenHash).HasMaxLength(64).IsRequired();
+        modelBuilder.Entity<RefreshToken>().Property(rt => rt.ReplacedByTokenHash).HasMaxLength(64);
+        modelBuilder.Entity<RefreshToken>().HasIndex(rt => rt.TokenHash).IsUnique();
+        modelBuilder.Entity<RefreshToken>().HasIndex(rt => rt.UserId);
 
         // Mevcut kullanıcılar doğrulanmış sayılır; yeni kayıtlar kodda false set eder (Görev 48).
         modelBuilder.Entity<User>()
@@ -232,6 +240,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<TradingBot>()
            .Property(b => b.SellRsiThreshold)
            .HasPrecision(5, 2);
+
+           // Stop-loss / take-profit yüzdeleri
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.StopLossPercent)
+            .HasPrecision(9, 4);
+
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.TakeProfitPercent)
+            .HasPrecision(9, 4);
+
+        modelBuilder.Entity<BotSignal>()
+            .Property(s => s.Reason)
+            .HasDefaultValue(BotSignalReason.Strategy);
 
            // TradingBot işlem miktarı
         modelBuilder.Entity<TradingBot>()

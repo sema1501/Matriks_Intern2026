@@ -127,6 +127,11 @@ Kayıt/giriş (JWT), **e-posta doğrulama zorunluluğu** (doğrulanmamış hesap
 yapamaz), şifremi unuttum/sıfırlama (bağlantı e-postayla gönderilir), profil
 görüntüleme/düzenleme, **profil fotoğrafı** (en fazla ~3 MB), şifre değiştirme,
 e-posta bildirimi açma/kapama, rol yönetimi (Admin/SuperAdmin/User).
+**Oturum yenileme:** 15 dakikalık access token + 7 günlük refresh token. Access token
+dolunca frontend oturumu fark ettirmeden yeniler (her yenilemede yeni refresh token
+verilir, eskisi iptal edilir). Kullanılmış bir refresh token tekrar gelirse kullanıcının
+tüm oturumları kapatılır. Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
+iptal eder. Refresh token veritabanında yalnızca SHA-256 hash'i olarak saklanır.
 
 **Kripto Takip**
 Binance WebSocket üzerinden 20 coin için canlı fiyat akışı, arama/sıralama, favori
@@ -145,7 +150,8 @@ kurulduğundaki fiyata göre en az %X yükseliş/düşüş).
 
 **E-posta Bildirimi**
 Alarm veya bot sinyali tetiklendiğinde kullanıcıya e-posta gider (uygulama kapalıyken de).
-Aynı alarm/bot için saatte en fazla 1 e-posta (cooldown). SMTP ayarı yoksa e-posta içeriği
+Aynı alarm/bot için saatte en fazla 1 e-posta (cooldown); stop-loss / take-profit satışı
+önemli olduğu için cooldown'a takılmaz ve e-postada satış nedeni yazar. SMTP ayarı yoksa e-posta içeriği
 loglanır. Profil sayfasından kapatılabilir.
 
 **Sanal Portföy**
@@ -170,6 +176,11 @@ EMA'yı yukarı keserse AL, aşağı keserse SAT). Sinyal oluşunca **Binance Te
 kullanıcının sanal portföy defterine işlenir. Seçilen tarih aralığında botun geçmişte nasıl
 sonuç verdiğini gösteren **backtest** raporu (grafik üzerinde alış/satış okları + RSI paneli
 + sinyal tablosu) — her iki strateji için de çalışır.
+İsteğe bağlı **stop-loss / take-profit**: bot kurulurken yüzde olarak girilir (örn. %5 / %10).
+Açık pozisyonun fiyatı alış fiyatına göre bu kadar düşerse ya da yükselirse bot, strateji
+sinyalini beklemeden otomatik satar. Bu satışlar sinyal geçmişinde ve backtest tablosunda
+"Stop-loss" / "Take-profit" rozetiyle, sayfadaki bildirimde ve e-postada nedeniyle gösterilir.
+Backtest de aynı kuralı uygular.
 
 **Admin Paneli**
 Tüm kullanıcıların bot ve portföy aktivitesini görüntüleme, şüpheli/aşırı işlem yapan
@@ -187,12 +198,12 @@ Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adr
 
 | Controller | Ne işe yarar |
 |---|---|
-| `AuthController` | Kayıt (`register`), e-posta doğrulama (`confirm-email`), giriş (`login`), şifre sıfırlama (`forgot-password`, `reset-password`), profil (`GET/PUT me`), şifre değiştirme (`me/password`), e-posta bildirim tercihi (`me/notifications`), profil fotoğrafı (`me/avatar`), kullanıcı listesi (`users`) |
+| `AuthController` | Kayıt (`register`), e-posta doğrulama (`confirm-email`), giriş (`login`), oturum yenileme (`refresh`), çıkış (`logout`), şifre sıfırlama (`forgot-password`, `reset-password`), profil (`GET/PUT me`), şifre değiştirme (`me/password`), e-posta bildirim tercihi (`me/notifications`), profil fotoğrafı (`me/avatar`), kullanıcı listesi (`users`) |
 | `RoleController` | Rol listeleme/oluşturma/atama (Admin) |
 | `WatchlistController` | Favori coin ekleme/çıkarma |
 | `AlertController` | Fiyat / yüzde-değişim alarmı oluşturma, listeleme, silme, açma-kapama (`toggle`), tetiklenme geçmişi (`signals`) |
-| `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), dışa aktarma (`transactions/export?lang=tr\|en&format=csv\|xlsx`), alım/satım, liderlik tablosu, portföy değer geçmişi (`history?range=24h\|7d\|30d\|all`) |
-| `BotController` | Bot oluşturma (RSI / EMA), aç-kapa, silme, sinyaller, performans, backtest |
+| `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), alım/satım, liderlik tablosu |
+| `BotController` | Bot oluşturma (RSI / EMA, isteğe bağlı `stopLossPercent` / `takeProfitPercent`), aç-kapa, silme, sinyaller (`reason`: Strategy / StopLoss / TakeProfit), performans, backtest |
 | `FeedbackController` | Geri bildirim gönderme/listeleme (Admin) |
 | `TestnetController` | Binance Testnet hesap durumu (Admin, debug amaçlı) |
 | `AdminController` | Tüm bot/portföy gözetimi (`bots`, `portfolios`), kill switch (`bots/{id}/kill`), işaretleme (`Bot/{id}/flag`), aşırı işlem listesi (`overtrading`), audit log (`audit-log`) |

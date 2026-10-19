@@ -158,6 +158,7 @@ public class EmailVerificationTests
         var jwt = new Mock<IJwtService>();
         jwt.Setup(j => j.GenerateToken(It.IsAny<User>(), It.IsAny<IEnumerable<string>>()))
             .Returns("fake-jwt");
+        jwt.Setup(j => j.GenerateRefreshToken()).Returns(() => Guid.NewGuid().ToString());
 
         return new AuthService(db, jwt.Object, NullLogger<AuthService>.Instance);
     }

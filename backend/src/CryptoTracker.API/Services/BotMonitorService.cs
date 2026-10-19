@@ -141,6 +141,21 @@ public sealed class BotMonitorService(
 
                 foreach (var bot in symbolGroup)
                 {
+                    // Risk kontrolü stratejiden ÖNCE: açık pozisyon stop-loss/take-profit
+                    // sınırına geldiyse satılır ve bu turda strateji değerlendirilmez.
+                    if (await TryRiskExitAsync(
+                            dbContext,
+                            tradeExecutor,
+                            notifier,
+                            bot,
+                            symbol,
+                            currentRsi.Value,
+                            currentPrice,
+                            cancellationToken))
+                    {
+                        continue;
+                    }
+
                     switch (bot.Strategy)
                     {
                         case BotStrategy.RsiThreshold:
@@ -348,6 +363,126 @@ public sealed class BotMonitorService(
                 bot.Id,
                 bot.UserId,
                 symbol);
+        }
+    }
+
+    /// <summary>
+    /// Stop-loss / take-profit kontrolü. Satış emri gönderildiyse (başarılı ya da başarısız)
+    /// true döner; çağıran bu turda botun stratejisini değerlendirmez.
+    /// </summary>
+    private async Task<bool> TryRiskExitAsync(
+        AppDbContext dbContext,
+        IBotAutoTradeExecutor tradeExecutor,
+        INotificationService? notifier,
+        TradingBot bot,
+        string symbol,
+        decimal currentRsi,
+        decimal currentPrice,
+        CancellationToken cancellationToken)
+    {
+        if (bot.StopLossPercent is null && bot.TakeProfitPercent is null)
+            return false;
+
+        try
+        {
+            var lastApproved = await dbContext.BotSignals
+                .AsNoTracking()
+                .Where(s => s.BotId == bot.Id && s.Status == BotSignalStatus.Approved)
+                .OrderByDescending(s => s.CreatedAt)
+                .ThenByDescending(s => s.Id)
+                .Take(1)
+                .ToListAsync(cancellationToken);
+
+            var entryPrice = RiskExitEvaluator.FindOpenPositionEntryPrice(lastApproved);
+            if (entryPrice is null)
+                return false;
+
+            var reason = RiskExitEvaluator.Evaluate(
+                entryPrice.Value,
+                currentPrice,
+                bot.StopLossPercent,
+                bot.TakeProfitPercent);
+
+            if (reason is null)
+                return false;
+
+            // Aynı pozisyon için daha önce risk satışı denendi ve başarısız olduysa
+            // (örn. kullanıcı coini elle sattı) her dakika yeniden denenmesin.
+            var openedAt = lastApproved[0].CreatedAt;
+            var alreadyTried = await dbContext.BotSignals.AnyAsync(
+                s => s.BotId == bot.Id &&
+                     s.Reason != BotSignalReason.Strategy &&
+                     s.CreatedAt >= openedAt,
+                cancellationToken);
+
+            if (alreadyTried)
+            {
+                logger.LogDebug(
+                    "Skipping {Reason} for bot {BotId}: a risk exit was already attempted for this position.",
+                    reason.Value,
+                    bot.Id);
+                return false;
+            }
+
+            logger.LogInformation(
+                "{Reason} for bot {BotId} user {UserId} {Symbol}. Entry={Entry} Price={Price}",
+                reason.Value,
+                bot.Id,
+                bot.UserId,
+                symbol,
+                entryPrice.Value,
+                currentPrice);
+
+            var signal = await tradeExecutor.ExecuteAsync(
+                bot,
+                BotSignalType.Sell,
+                currentPrice,
+                currentRsi,
+                cancellationToken,
+                reason.Value);
+
+            if (signal.Status == BotSignalStatus.Approved)
+            {
+                if (notifier is not null)
+                {
+                    await notifier.NotifyBotSignalAsync(
+                        bot,
+                        BotSignalType.Sell,
+                        currentPrice,
+                        currentRsi,
+                        DateTime.UtcNow,
+                        cancellationToken,
+                        reason.Value);
+                }
+            }
+            else
+            {
+                logger.LogWarning(
+                    "{Reason} sell failed for bot {BotId} user {UserId} {Symbol}. Status={Status}",
+                    reason.Value,
+                    bot.Id,
+                    bot.UserId,
+                    symbol,
+                    signal.Status);
+            }
+
+            return true;
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // One bot must not stop monitoring of others.
+            logger.LogError(
+                ex,
+                "Unexpected error during risk exit check for bot {BotId} user {UserId} {Symbol}.",
+                bot.Id,
+                bot.UserId,
+                symbol);
+            return false;
         }
     }
 
