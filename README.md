@@ -109,6 +109,8 @@ test ettikleri dosyanın yanında `*.test.js` / `*.test.jsx` adıyla durur:
 - `services/apiService.test.js`: 401 gelince refresh, aynı anda gelen 401'lerde tek refresh, refresh başarısız olursa çıkış
 - `utils/botSignalReason.test.jsx`: Strateji / Stop-loss / Take-profit etiketleri (TR/EN)
 - `components/PortfolioHistoryChart/PortfolioHistoryChart.test.jsx`: yükleniyor, hata, boş, tek kayıt ve grafik durumları
+- `context/RealtimeContext.test.jsx`: bağlantı kopunca polling'e geçiş, geri gelince polling'in durması, çıkışta bağlantının kapanması
+- `components/AlertMonitor/AlertMonitor.test.jsx`: aynı sinyal SignalR ve polling'den gelince tek bildirim
 
 ### Test kullanıcısı (otomatik oluşturulur)
 | Alan | Değer |
@@ -178,6 +180,12 @@ Aynı alarm/bot için saatte en fazla 1 e-posta (cooldown); stop-loss / take-pro
 önemli olduğu için cooldown'a takılmaz ve e-postada satış nedeni yazar. SMTP ayarı yoksa e-posta içeriği
 loglanır. Profil sayfasından kapatılabilir.
 
+**Anlık Bildirimler (SignalR)**
+Uygulama açıkken alarm tetiklenmesi ve bot sinyalleri sayfa yenilemeden, polling aralığını
+beklemeden ekrana gelir. Navbar'daki gösterge bildirim bağlantısının durumunu gösterir
+(canlı / yeniden bağlanıyor / çevrimdışı). Bağlantı yoksa eski polling otomatik devreye girer.
+Ayrıntılar aşağıda "Anlık Bildirim Mimarisi" bölümünde.
+
 **Sanal Portföy**
 Her kullanıcı 10.000 USD sanal bakiye ile başlar, coin detay sayfasından alım/satım
 yapabilir, işlem geçmişini (sayfalı, sembol/tür filtreli) ve kâr/zararını görebilir,
@@ -219,6 +227,64 @@ Kullanıcı geri bildirim formu.
 
 ---
 
+## Anlık Bildirim Mimarisi
+
+```
+Alarm tetiklendi → AlertMonitoringProcessor ─┐
+Bot sinyali      → BotAutoTradeExecutor ─────┴→ IRealtimeNotifier → NotificationHub → RealtimeContext
+                                                                      (Clients.User)    (tarayıcı)
+RealtimeContext → AlertMonitor (toast), BotSignalApproval (sinyal listesi), Profile (alarm listesi)
+```
+
+- **Hub:** `NotificationHub` (`[Authorize]`), `/hubs/notifications` adresinde. Tarayıcı yalnızca dinler.
+- **Kime gider:** `Clients.User(userId)` ile yalnızca olayın sahibine. Kullanıcı kimliği token'daki
+  `NameIdentifier` claim'inden okunur; başka kullanıcının bağlantısına gitmez (testle doğrulandı).
+- **Token:** WebSocket bağlantısında header gönderilemediği için token `access_token` sorgu parametresiyle
+  gelir. Bu yalnızca `/hubs` yollarında kabul edilir, normal API'de sorgu parametresindeki token yok sayılır.
+- **CORS:** SignalR kimlik bilgisiyle bağlandığı için `AllowCredentials` açık, origin'ler
+  `Cors:AllowedOrigins` ayarından okunur (varsayılan `http://localhost:3000`).
+- **Ek kanal:** E-posta ve veritabanı kayıtları eskisi gibi devam eder. Anlık gönderim başarısız olursa
+  sadece loglanır, izleme servisleri durmaz.
+
+**Olaylar**
+
+| Olay | Ne zaman | İçerik |
+|---|---|---|
+| `alertTriggered` | Fiyat alarmı tetiklendi | `id` (AlertSignal), `alertId`, `symbol`, `priceAtTrigger`, `triggeredAt` |
+| `botSignal` | Bot işlem yaptı ya da işlem başarısız oldu (strateji, stop-loss, take-profit) | `BotSignalResponse` ile aynı: `id`, `botId`, `signalType`, `status`, `reason`, ... |
+| `botSignalPending` | Bot sinyali onay bekliyor | `botSignal` ile aynı. Botlar artık otomatik işlem yaptığı için şu an üretilmiyor, eski onay akışı için duruyor |
+
+**Frontend**
+
+- `RealtimeContext` giriş yapılınca bağlantıyı açar, çıkış yapılınca kapatır. Bileşenler
+  `useRealtimeEvent` ile olaylara abone olur.
+- `withAutomaticReconnect()` kullanılır. `accessTokenFactory` her bağlanışta ve yeniden bağlanışta
+  `getFreshAccessToken`'ı çağırır: token 30 saniye içinde dolacaksa önce refresh yapılır, süresi dolmuş
+  token ile bağlanılmaz.
+- Otomatik denemeler biterse (backend uzun süre kapalı) durum "çevrimdışı" olur ve bağlantı 15 saniyede bir
+  yeniden denenir.
+- **Yedek polling:** `usePollingFallback` bağlantı yokken eski aralıklarla (alarm 45 sn, bot 15 sn) istek atar,
+  bağlantı gelince durur ve arada kaçan olaylar için bir kez daha çeker.
+- **Tekilleştirme:** Aynı sinyal hem SignalR hem polling ile gelirse sinyal `id`'sine göre bir kez gösterilir.
+
+**Docker / proxy:** Backend doğrudan (`dotnet run` ya da `backend/Dockerfile`, port 5002) çalıştığında ek
+ayar gerekmez. Önüne nginx gibi bir ters proxy konursa WebSocket için şu başlıklar eklenmeli, yoksa
+bağlantı LongPolling'e düşer:
+
+```nginx
+location /hubs/ {
+    proxy_pass http://backend:5002;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+}
+```
+
+Frontend başka bir adresten açılıyorsa o adres `Cors:AllowedOrigins` listesine eklenmeli.
+
+---
+
 ## API Uçları (özet)
 
 Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adresine bakın. Kısa özet:
@@ -252,6 +318,7 @@ CryptoTracker/
 │   │   ├── Services/        ← İş mantığı (bot, alarm, backtest, testnet, vb.)
 │   │   ├── Data/             ← DbContext + DataSeeder
 │   │   ├── Migrations/      ← EF Core migration geçmişi
+│   │   ├── Hubs/            ← SignalR NotificationHub
 │   │   └── Middleware/      ← Hata yakalama
 │   └── tests/CryptoTracker.API.Tests/  ← Servis ve entegrasyon testleri
 └── frontend/
@@ -265,7 +332,7 @@ CryptoTracker/
         │                        ForgotPassword/ResetPassword
         ├── services/         ← API çağrıları (apiService.js), binanceService.js
         ├── hooks/            ← useBinancePrices
-        └── context/          ← Auth, Price, Theme, Currency, Watchlist, Language
+        └── context/          ← Auth, Price, Theme, Currency, Watchlist, Language, Realtime
 ```
 
 ---
