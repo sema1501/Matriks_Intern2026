@@ -70,6 +70,12 @@ builder.Services.AddScoped<IPortfolioSnapshotProcessor, PortfolioSnapshotProcess
 builder.Services.AddHostedService<PortfolioSnapshotService>();
 builder.Services.AddScoped<IPortfolioHistoryService, PortfolioHistoryService>();
 
+// ── Refresh token temizliği (#100) ─────────────────────────────────
+builder.Services.Configure<RefreshTokenCleanupOptions>(
+    builder.Configuration.GetSection(RefreshTokenCleanupOptions.SectionName));
+builder.Services.AddScoped<IRefreshTokenCleanupProcessor, RefreshTokenCleanupProcessor>();
+builder.Services.AddHostedService<RefreshTokenCleanupService>();
+
 // ── DI ───────────────────────────────────────────────────────────
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
