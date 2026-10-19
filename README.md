@@ -130,8 +130,13 @@ e-posta bildirimi açma/kapama, rol yönetimi (Admin/SuperAdmin/User).
 **Oturum yenileme:** 15 dakikalık access token + 7 günlük refresh token. Access token
 dolunca frontend oturumu fark ettirmeden yeniler (her yenilemede yeni refresh token
 verilir, eskisi iptal edilir). Kullanılmış bir refresh token tekrar gelirse kullanıcının
-tüm oturumları kapatılır. Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
+tüm oturumları kapatılır. Tek istisna: iki sekme aynı anda yenileme yaparsa, yeni
+dönüştürülmüş token ilk 10 saniye içinde tekrar geldiğinde yalnızca 401 döner, oturumlar
+kapanmaz; frontend bu durumda diğer sekmenin aldığı yeni token'ı kullanır
+(`Jwt:RefreshReuseGraceSeconds`). Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
 iptal eder. Refresh token veritabanında yalnızca SHA-256 hash'i olarak saklanır.
+`RefreshTokenCleanupService` günde bir süresi dolmuş token'ları ve 30 günden eski iptal
+edilmiş token'ları siler (`RefreshTokenCleanup` ayarları).
 
 **Kripto Takip**
 Binance WebSocket üzerinden 20 coin için canlı fiyat akışı, arama/sıralama, favori
@@ -180,7 +185,10 @@ sonuç verdiğini gösteren **backtest** raporu (grafik üzerinde alış/satış
 Açık pozisyonun fiyatı alış fiyatına göre bu kadar düşerse ya da yükselirse bot, strateji
 sinyalini beklemeden otomatik satar. Bu satışlar sinyal geçmişinde ve backtest tablosunda
 "Stop-loss" / "Take-profit" rozetiyle, sayfadaki bildirimde ve e-postada nedeniyle gösterilir.
-Backtest de aynı kuralı uygular.
+Backtest de aynı kuralı uygular. Bu satış başarısız olursa (örn. Testnet hatası) bot sonraki
+turlarda en fazla 5 kez, denemeler arasında 2 dakika bekleyerek tekrar dener; beklerken
+strateji sinyali çalışmaz. 5. deneme de başarısız olursa kullanıcıya bir kez TR/EN e-posta
+gider (`TradingBot:RiskExitMaxAttempts`, `TradingBot:RiskExitRetryDelayMinutes`).
 
 **Admin Paneli**
 Tüm kullanıcıların bot ve portföy aktivitesini görüntüleme, şüpheli/aşırı işlem yapan
