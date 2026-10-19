@@ -6,7 +6,7 @@
 Canlı kripto para takibi, teknik analiz ve sanal (Binance Testnet üzerinden) alım-satım
 botu içeren full-stack bir uygulama.
 
-**Stack:** ASP.NET Core 9 · React 18 · MSSQL · Docker · JWT · Binance API (public + Testnet) · klinecharts
+**Stack:** ASP.NET Core 9 · React 18 · MSSQL · Docker · JWT · Binance API (public + Testnet) · klinecharts · Recharts
 
 ---
 
@@ -158,6 +158,16 @@ loglanır. Profil sayfasından kapatılabilir.
 Her kullanıcı 10.000 USD sanal bakiye ile başlar, coin detay sayfasından alım/satım
 yapabilir, işlem geçmişini (sayfalı, sembol/tür filtreli) ve kâr/zararını görebilir,
 portföy dağılımını pasta grafikte izleyebilir. Kullanıcılar arası liderlik tablosu.
+İşlem geçmişi o anki filtrelerle **CSV** ya da **Excel (.xlsx)** olarak indirilebilir; dosyadaki
+başlıklar ve Alış/Satış yazıları arayüzde seçili dilde (TR/EN) gelir.
+
+**Portföy Değer Geçmişi**
+Arka plan servisi (`PortfolioSnapshotService`) saatte bir her kullanıcının portföy değerini
+(nakit + coinlerin o anki Binance fiyatıyla değeri) kaydeder. Fiyatlar her turda tek seferde
+çekilir, aynı saat içinde ikinci kayıt atılmaz. Son 30 gün saatlik, 30 gün–1 yıl arası günlük
+(her günün son kaydı) tutulur, 1 yıldan eski kayıtlar silinir (`PortfolioSnapshot` ayarları).
+Portföy sayfasının üstünde 24s / 7g / 30g / Tümü seçilebilen çizgi grafik (`recharts`) ve seçilen aralıktaki
+değişim (USD ve %) gösterilir.
 
 **Alım-Satım Botu**
 İki strateji seçeneği olan, arka planda (`BotMonitorService`) periyodik kontrol yapan bir

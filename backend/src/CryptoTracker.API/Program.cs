@@ -63,6 +63,13 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IAlertMonitoringProcessor, AlertMonitoringProcessor>();
 builder.Services.AddHostedService<AlertMonitorService>();
 
+// ── Portföy değer geçmişi ───────────────────────────────────────────
+builder.Services.Configure<PortfolioSnapshotOptions>(
+    builder.Configuration.GetSection(PortfolioSnapshotOptions.SectionName));
+builder.Services.AddScoped<IPortfolioSnapshotProcessor, PortfolioSnapshotProcessor>();
+builder.Services.AddHostedService<PortfolioSnapshotService>();
+builder.Services.AddScoped<IPortfolioHistoryService, PortfolioHistoryService>();
+
 // ── DI ───────────────────────────────────────────────────────────
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

@@ -10,7 +10,9 @@ namespace CryptoTracker.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PortfolioController(IPortfolioService portfolioService) : ControllerBase
+public class PortfolioController(
+    IPortfolioService portfolioService,
+    IPortfolioHistoryService historyService) : ControllerBase
 {
     [HttpGet("balance")]
     public async Task<IActionResult> GetBalance(CancellationToken cancellationToken)
@@ -32,6 +34,25 @@ public class PortfolioController(IPortfolioService portfolioService) : Controlle
         return Ok(holdings);
     }
 
+    /// <summary>
+    /// Portföy toplam değerinin zaman içindeki kayıtları (saatlik; 30 günden eskiler günlük).
+    /// Kullanıcı kimliği yalnızca token'dan okunur; başka kullanıcının geçmişi istenemez.
+    /// </summary>
+    /// <param name="range">24h, 7d, 30d veya all. Boşsa 24h.</param>
+    [HttpGet("history")]
+    [ProducesResponseType(typeof(PortfolioHistoryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetHistory(
+        [FromQuery] string? range = PortfolioHistoryService.DefaultRange,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
+
+        var history = await historyService.GetHistoryAsync(userId, range, cancellationToken);
+        return Ok(history);
+    }
+
     [HttpGet("transactions")]
     public async Task<IActionResult> GetTransactions(
         [FromQuery] int pageNumber = 1,
@@ -49,23 +70,36 @@ public class PortfolioController(IPortfolioService portfolioService) : Controlle
     }
 
     /// <summary>
-    /// İşlem geçmişini CSV olarak indirir (Görev 89). GetTransactions ile aynı symbol/type filtreleri,
-    /// sayfalama yok, en fazla 5000 satır. Sadece giriş yapan kullanıcının kendi işlemleri döner.
+    /// İşlem geçmişini CSV ya da Excel (.xlsx) olarak indirir (Görev 89). GetTransactions ile aynı
+    /// symbol/type filtreleri, sayfalama yok, en fazla 5000 satır. Sadece giriş yapan kullanıcının
+    /// kendi işlemleri döner. Başlıklar ve işlem türleri seçilen dilde yazılır.
     /// </summary>
+    /// <param name="lang">tr veya en. Boşsa tr.</param>
+    /// <param name="format">csv veya xlsx. Boşsa csv.</param>
     [HttpGet("transactions/export")]
     public async Task<IActionResult> ExportTransactions(
         [FromQuery] string? symbol = null,
         [FromQuery] TransactionType? type = null,
+        [FromQuery] string? lang = "tr",
+        [FromQuery] string? format = "csv",
         CancellationToken cancellationToken = default)
     {
         if (!TryGetUserId(out var userId))
             return Unauthorized(new { error = "Geçersiz kullanıcı kimliği." });
 
+        var text = TransactionExportText.For(lang);
+        var normalizedFormat = string.IsNullOrWhiteSpace(format) ? "csv" : format.Trim().ToLowerInvariant();
+        if (normalizedFormat is not ("csv" or "xlsx"))
+            throw new ArgumentException("Geçersiz dosya biçimi. Kullanılabilir değerler: csv, xlsx.");
+
         var transactions = await portfolioService.GetTransactionsForExportAsync(
             userId, symbol, type, MaxExportRows, cancellationToken);
 
-        var bytes = TransactionCsvWriter.ToCsvBytes(transactions);
-        return File(bytes, "text/csv; charset=utf-8", "islemler.csv");
+        return normalizedFormat == "xlsx"
+            ? File(TransactionXlsxWriter.ToXlsxBytes(transactions, text),
+                TransactionXlsxWriter.ContentType, $"{text.FileBaseName}.xlsx")
+            : File(TransactionCsvWriter.ToCsvBytes(transactions, text),
+                "text/csv; charset=utf-8", $"{text.FileBaseName}.csv");
     }
 
     private const int MaxExportRows = 5000;

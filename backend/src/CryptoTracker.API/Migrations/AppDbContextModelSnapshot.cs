@@ -252,6 +252,39 @@ namespace CryptoTracker.API.Migrations
                     b.ToTable("PortfolioHoldings");
                 });
 
+            modelBuilder.Entity("CryptoTracker.API.Models.PortfolioSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CashBalance")
+                        .HasPrecision(18, 8)
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<decimal>("HoldingsValue")
+                        .HasPrecision(18, 8)
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<DateTime>("TakenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("TotalValue")
+                        .HasPrecision(18, 8)
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "TakenAt");
+
+                    b.ToTable("PortfolioSnapshots");
+                });
+
             modelBuilder.Entity("CryptoTracker.API.Models.PriceAlert", b =>
                 {
                     b.Property<int>("Id")
@@ -645,6 +678,17 @@ namespace CryptoTracker.API.Migrations
                 {
                     b.HasOne("CryptoTracker.API.Models.User", "User")
                         .WithMany("Holdings")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CryptoTracker.API.Models.PortfolioSnapshot", b =>
+                {
+                    b.HasOne("CryptoTracker.API.Models.User", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
