@@ -127,6 +127,11 @@ Kayıt/giriş (JWT), **e-posta doğrulama zorunluluğu** (doğrulanmamış hesap
 yapamaz), şifremi unuttum/sıfırlama (bağlantı e-postayla gönderilir), profil
 görüntüleme/düzenleme, **profil fotoğrafı** (en fazla ~3 MB), şifre değiştirme,
 e-posta bildirimi açma/kapama, rol yönetimi (Admin/SuperAdmin/User).
+**Oturum yenileme:** 15 dakikalık access token + 7 günlük refresh token. Access token
+dolunca frontend oturumu fark ettirmeden yeniler (her yenilemede yeni refresh token
+verilir, eskisi iptal edilir). Kullanılmış bir refresh token tekrar gelirse kullanıcının
+tüm oturumları kapatılır. Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
+iptal eder. Refresh token veritabanında yalnızca SHA-256 hash'i olarak saklanır.
 
 **Kripto Takip**
 Binance WebSocket üzerinden 20 coin için canlı fiyat akışı, arama/sıralama, favori
@@ -183,7 +188,7 @@ Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adr
 
 | Controller | Ne işe yarar |
 |---|---|
-| `AuthController` | Kayıt (`register`), e-posta doğrulama (`confirm-email`), giriş (`login`), şifre sıfırlama (`forgot-password`, `reset-password`), profil (`GET/PUT me`), şifre değiştirme (`me/password`), e-posta bildirim tercihi (`me/notifications`), profil fotoğrafı (`me/avatar`), kullanıcı listesi (`users`) |
+| `AuthController` | Kayıt (`register`), e-posta doğrulama (`confirm-email`), giriş (`login`), oturum yenileme (`refresh`), çıkış (`logout`), şifre sıfırlama (`forgot-password`, `reset-password`), profil (`GET/PUT me`), şifre değiştirme (`me/password`), e-posta bildirim tercihi (`me/notifications`), profil fotoğrafı (`me/avatar`), kullanıcı listesi (`users`) |
 | `RoleController` | Rol listeleme/oluşturma/atama (Admin) |
 | `WatchlistController` | Favori coin ekleme/çıkarma |
 | `AlertController` | Fiyat / yüzde-değişim alarmı oluşturma, listeleme, silme, açma-kapama (`toggle`), tetiklenme geçmişi (`signals`) |
