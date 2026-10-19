@@ -18,6 +18,9 @@ public sealed class BotMonitorService(
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(60);
     private readonly int _expirationMinutes = botOptions.Value.SignalExpirationMinutes;
+    private readonly int _riskExitMaxAttempts = Math.Max(1, botOptions.Value.RiskExitMaxAttempts);
+    private readonly TimeSpan _riskExitRetryDelay =
+        TimeSpan.FromMinutes(Math.Max(0, botOptions.Value.RiskExitRetryDelayMinutes));
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -367,8 +370,9 @@ public sealed class BotMonitorService(
     }
 
     /// <summary>
-    /// Stop-loss / take-profit kontrolü. Satış emri gönderildiyse (başarılı ya da başarısız)
-    /// true döner; çağıran bu turda botun stratejisini değerlendirmez.
+    /// Stop-loss / take-profit kontrolü. Satış emri gönderildiyse (başarılı ya da başarısız) ya da
+    /// başarısız bir satışın yeniden denenmesi bekleniyorsa true döner; çağıran bu turda botun
+    /// stratejisini değerlendirmez.
     /// </summary>
     private async Task<bool> TryRiskExitAsync(
         AppDbContext dbContext,
@@ -406,22 +410,39 @@ public sealed class BotMonitorService(
             if (reason is null)
                 return false;
 
-            // Aynı pozisyon için daha önce risk satışı denendi ve başarısız olduysa
-            // (örn. kullanıcı coini elle sattı) her dakika yeniden denenmesin.
+            // Başarısız risk satışı (Binance geçici hata verdi, bakiye anlık yetersiz göründü...)
+            // sınırlı sayıda ve aralarında bekleyerek yeniden denenir. Sınır olmasa kullanıcı
+            // coini elle sattığında her dakika yeni bir başarısız sinyal yazılırdı.
             var openedAt = lastApproved[0].CreatedAt;
-            var alreadyTried = await dbContext.BotSignals.AnyAsync(
-                s => s.BotId == bot.Id &&
-                     s.Reason != BotSignalReason.Strategy &&
-                     s.CreatedAt >= openedAt,
-                cancellationToken);
+            var failedAttempts = await dbContext.BotSignals
+                .AsNoTracking()
+                .Where(s => s.BotId == bot.Id &&
+                            s.Reason != BotSignalReason.Strategy &&
+                            s.Status == BotSignalStatus.Failed &&
+                            s.CreatedAt >= openedAt)
+                .Select(s => s.CreatedAt)
+                .ToListAsync(cancellationToken);
 
-            if (alreadyTried)
+            if (failedAttempts.Count >= _riskExitMaxAttempts)
             {
                 logger.LogDebug(
-                    "Skipping {Reason} for bot {BotId}: a risk exit was already attempted for this position.",
+                    "Skipping {Reason} for bot {BotId}: gave up after {Attempts} failed attempts for this position.",
                     reason.Value,
-                    bot.Id);
+                    bot.Id,
+                    failedAttempts.Count);
                 return false;
+            }
+
+            if (failedAttempts.Count > 0 && DateTime.UtcNow - failedAttempts.Max() < _riskExitRetryDelay)
+            {
+                // Yeniden deneme sırası bekleniyor: bu sürede strateji de pozisyona dokunmasın.
+                logger.LogDebug(
+                    "Waiting before retrying {Reason} for bot {BotId} (attempt {Attempt}/{MaxAttempts}).",
+                    reason.Value,
+                    bot.Id,
+                    failedAttempts.Count + 1,
+                    _riskExitMaxAttempts);
+                return true;
             }
 
             logger.LogInformation(
@@ -457,13 +478,28 @@ public sealed class BotMonitorService(
             }
             else
             {
+                var attempt = failedAttempts.Count + 1;
                 logger.LogWarning(
-                    "{Reason} sell failed for bot {BotId} user {UserId} {Symbol}. Status={Status}",
+                    "{Reason} sell failed for bot {BotId} user {UserId} {Symbol}. Status={Status} Attempt={Attempt}/{MaxAttempts}",
                     reason.Value,
                     bot.Id,
                     bot.UserId,
                     symbol,
-                    signal.Status);
+                    signal.Status,
+                    attempt,
+                    _riskExitMaxAttempts);
+
+                // Son deneme de başarısız: kullanıcıya bir kez haber ver, gerisini o kontrol etsin.
+                if (attempt == _riskExitMaxAttempts && notifier is not null)
+                {
+                    await notifier.NotifyRiskExitFailedAsync(
+                        bot,
+                        reason.Value,
+                        currentPrice,
+                        attempt,
+                        DateTime.UtcNow,
+                        cancellationToken);
+                }
             }
 
             return true;

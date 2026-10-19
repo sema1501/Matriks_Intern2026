@@ -400,4 +400,10 @@ public class TradingBotOptions
 {
     public const string SectionName = "TradingBot";
     public int SignalExpirationMinutes { get; set; } = 15;
+
+    /// <summary>Başarısız bir stop-loss / take-profit satışı aynı pozisyon için en fazla kaç kez denenir.</summary>
+    public int RiskExitMaxAttempts { get; set; } = 5;
+
+    /// <summary>Başarısız risk satışından sonra yeniden denemeden önce beklenen süre.</summary>
+    public int RiskExitRetryDelayMinutes { get; set; } = 2;
 }

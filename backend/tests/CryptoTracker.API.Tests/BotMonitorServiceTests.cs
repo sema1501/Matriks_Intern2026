@@ -489,6 +489,115 @@ public class BotMonitorServiceTests
         Assert.Equal(BotSignalStatus.Failed, signals[1].Status);
     }
 
+    // ── Başarısız risk satışının yeniden denenmesi (#100) ───────
+
+    [Fact]
+    public async Task StopLoss_FailedExit_IsRetriedOnNextCycleAfterDelay()
+    {
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: null);
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(90m)).Object);
+
+        await EvaluateBotsAsync(monitor);
+        await MoveSignalsBackAsync(sp, botId, TimeSpan.FromMinutes(3));
+        await EvaluateBotsAsync(monitor);
+
+        var exits = await RiskExitsAsync(sp, botId);
+        Assert.Equal(2, exits.Count);
+        Assert.All(exits, s => Assert.Equal(BotSignalStatus.Failed, s.Status));
+    }
+
+    [Fact]
+    public async Task StopLoss_FailedExit_StopsAfterMaxAttempts_AndNotifiesOnce()
+    {
+        var notifier = new RecordingNotifier();
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m, notifier);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: null);
+        var options = new TradingBotOptions { RiskExitMaxAttempts = 3, RiskExitRetryDelayMinutes = 0 };
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(90m)).Object, options);
+
+        for (var i = 0; i < 6; i++)
+            await EvaluateBotsAsync(monitor);
+
+        Assert.Equal(3, (await RiskExitsAsync(sp, botId)).Count);
+        var notice = Assert.Single(notifier.RiskExitFailures);
+        Assert.Equal(BotSignalReason.StopLoss, notice.Reason);
+        Assert.Equal(3, notice.Attempts);
+        Assert.Empty(notifier.BotSignals);
+    }
+
+    [Fact]
+    public async Task StopLoss_RetrySucceeds_IsNotTriedAgain()
+    {
+        var notifier = new RecordingNotifier();
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m, notifier);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: null);
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(90m)).Object);
+
+        // İlk deneme: coin anlık görünmüyor, satış başarısız.
+        await EvaluateBotsAsync(monitor);
+
+        // Sorun geçti, bekleme süresi doldu: ikinci deneme başarılı.
+        await SeedHoldingAsync(sp, userId: 1, symbol: "BTCUSDT", qty: 5m, avg: 100m);
+        await MoveSignalsBackAsync(sp, botId, TimeSpan.FromMinutes(3));
+        await EvaluateBotsAsync(monitor);
+        await MoveSignalsBackAsync(sp, botId, TimeSpan.FromMinutes(3));
+        await EvaluateBotsAsync(monitor);
+
+        var exits = await RiskExitsAsync(sp, botId);
+        Assert.Equal(new[] { BotSignalStatus.Failed, BotSignalStatus.Approved }, exits.Select(s => s.Status));
+        Assert.Equal(4m, (await SingleHoldingAsync(sp)).Quantity);
+        Assert.Single(notifier.BotSignals);
+        Assert.Empty(notifier.RiskExitFailures);
+    }
+
+    private static async Task MoveSignalsBackAsync(ServiceProvider sp, int botId, TimeSpan by)
+    {
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        foreach (var signal in await db.BotSignals.Where(s => s.BotId == botId).ToListAsync())
+            signal.CreatedAt -= by;
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<List<BotSignal>> RiskExitsAsync(ServiceProvider sp, int botId)
+    {
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.BotSignals
+            .Where(s => s.BotId == botId && s.Reason != BotSignalReason.Strategy)
+            .OrderBy(s => s.Id)
+            .ToListAsync();
+    }
+
+    private static async Task<PortfolioHolding> SingleHoldingAsync(ServiceProvider sp)
+    {
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.PortfolioHoldings.SingleAsync();
+    }
+
+    private sealed class RecordingNotifier : INotificationService
+    {
+        public List<(BotSignalReason Reason, int Attempts)> RiskExitFailures { get; } = [];
+        public List<BotSignalReason> BotSignals { get; } = [];
+
+        public Task NotifyPriceAlertAsync(PriceAlert alert, decimal price, DateTime triggeredAt, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyBotSignalAsync(TradingBot bot, BotSignalType signalType, decimal price, decimal rsi, DateTime triggeredAt, CancellationToken cancellationToken = default, BotSignalReason reason = BotSignalReason.Strategy)
+        {
+            BotSignals.Add(reason);
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyRiskExitFailedAsync(TradingBot bot, BotSignalReason reason, decimal price, int attempts, DateTime failedAt, CancellationToken cancellationToken = default)
+        {
+            RiskExitFailures.Add((reason, attempts));
+            return Task.CompletedTask;
+        }
+    }
+
     [Fact]
     public async Task StopLoss_NoOpenPosition_DoesNothing()
     {
@@ -636,10 +745,12 @@ public class BotMonitorServiceTests
 
     // ── Infrastructure ──────────────────────────────────────────
 
-    private static ServiceProvider CreateServiceProvider(decimal seedUserBalance)
+    private static ServiceProvider CreateServiceProvider(decimal seedUserBalance, INotificationService? notifier = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
+        if (notifier is not null)
+            services.AddSingleton(notifier);
         var databaseName = $"BotMonitorTestDb-{Guid.NewGuid()}";
         services.AddDbContext<AppDbContext>(options =>
             options.UseInMemoryDatabase(databaseName));
@@ -708,11 +819,12 @@ public class BotMonitorServiceTests
 
     private static BotMonitorService CreateMonitorService(
         ServiceProvider serviceProvider,
-        IBinanceKlineService klineService)
+        IBinanceKlineService klineService,
+        TradingBotOptions? options = null)
     {
         var scopeFactory = serviceProvider.GetRequiredService<IServiceScopeFactory>();
         var logger = serviceProvider.GetRequiredService<ILogger<BotMonitorService>>();
-        var botOptions = Options.Create(new TradingBotOptions { SignalExpirationMinutes = 15 });
+        var botOptions = Options.Create(options ?? new TradingBotOptions { SignalExpirationMinutes = 15 });
         return new BotMonitorService(scopeFactory, klineService, botOptions, logger);
     }
 
