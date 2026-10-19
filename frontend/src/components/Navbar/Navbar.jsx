@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import ConnectionStatus from '../ConnectionStatus/ConnectionStatus';
+import RealtimeStatus from '../RealtimeStatus/RealtimeStatus';
 import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import CurrencyToggle from '../CurrencyToggle/CurrencyToggle';
 import './Navbar.css';
@@ -50,6 +51,7 @@ export default function Navbar() {
 
             <div className="navbar__actions">
                 <ConnectionStatus />
+                <RealtimeStatus />
                 <CurrencyToggle />
                 <ThemeToggle />
             </div>

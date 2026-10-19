@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { RealtimeProvider } from './context/RealtimeContext';
 import { PriceProvider } from './context/PriceContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CurrencyProvider } from './context/CurrencyContext';
@@ -56,6 +57,7 @@ function AdminRoute({ children }) {
 function App() {
     return (
         <AuthProvider>
+            <RealtimeProvider>
             <PriceProvider>
                 <CurrencyProvider>
                     <ThemeProvider>
@@ -154,6 +156,7 @@ function App() {
                     </ThemeProvider>
                 </CurrencyProvider>
             </PriceProvider>
+            </RealtimeProvider>
         </AuthProvider>
     );
 }
