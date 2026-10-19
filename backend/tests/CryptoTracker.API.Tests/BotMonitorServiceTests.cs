@@ -402,6 +402,164 @@ public class BotMonitorServiceTests
         Assert.Equal(BotSignalStatus.Approved, (await db2.BotSignals.SingleAsync()).Status);
     }
 
+    // ── Stop-loss / take-profit ─────────────────────────────────
+
+    [Fact]
+    public async Task StopLoss_PriceBelowLimit_SellsWithStopLossReason()
+    {
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m);
+        await SeedHoldingAsync(sp, userId: 1, symbol: "BTCUSDT", qty: 5m, avg: 100m);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: null);
+
+        // Son kapanış 90: girişe göre %10 düşüş, %5 stop-loss tetiklenir.
+        var closes = BuildFlatCloses(90m);
+        var monitor = CreateMonitorService(sp, CreateKlineMock(closes).Object);
+
+        await EvaluateBotsAsync(monitor);
+
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var exit = await db.BotSignals.Where(s => s.BotId == botId).OrderByDescending(s => s.Id).FirstAsync();
+        Assert.Equal(BotSignalType.Sell, exit.SignalType);
+        Assert.Equal(BotSignalReason.StopLoss, exit.Reason);
+        Assert.Equal(BotSignalStatus.Approved, exit.Status);
+        Assert.Equal(90m, exit.PriceAtSignal);
+
+        var holding = await db.PortfolioHoldings.SingleAsync();
+        Assert.Equal(4m, holding.Quantity);
+        var user = await db.Users.SingleAsync(u => u.Id == 1);
+        Assert.Equal(10_000m + 90m, user.VirtualBalance);
+    }
+
+    [Fact]
+    public async Task TakeProfit_PriceAboveLimit_SellsWithTakeProfitReason()
+    {
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m);
+        await SeedHoldingAsync(sp, userId: 1, symbol: "BTCUSDT", qty: 5m, avg: 100m);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: 10m);
+
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(115m)).Object);
+
+        await EvaluateBotsAsync(monitor);
+
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var exit = await db.BotSignals.Where(s => s.BotId == botId).OrderByDescending(s => s.Id).FirstAsync();
+        Assert.Equal(BotSignalReason.TakeProfit, exit.Reason);
+        Assert.Equal(BotSignalStatus.Approved, exit.Status);
+    }
+
+    [Fact]
+    public async Task StopLoss_PriceInsideLimits_DoesNothing()
+    {
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m);
+        await SeedHoldingAsync(sp, userId: 1, symbol: "BTCUSDT", qty: 5m, avg: 100m);
+        await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: 10m);
+
+        // %3 düşüş: iki sınırın da içinde. RSI nötr olduğu için strateji de sinyal üretmez.
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(97m)).Object);
+
+        await EvaluateBotsAsync(monitor);
+
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Single(await db.BotSignals.ToListAsync());
+        Assert.Equal(5m, (await db.PortfolioHoldings.SingleAsync()).Quantity);
+    }
+
+    [Fact]
+    public async Task StopLoss_FailedExit_IsNotRetriedEveryMinute()
+    {
+        // Kullanıcı coini elle satmış: portföyde coin yok, risk satışı başarısız olur.
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: null);
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(90m)).Object);
+
+        await EvaluateBotsAsync(monitor);
+        await EvaluateBotsAsync(monitor);
+
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var signals = await db.BotSignals.Where(s => s.BotId == botId).OrderBy(s => s.Id).ToListAsync();
+
+        Assert.Equal(2, signals.Count);
+        Assert.Equal(BotSignalReason.StopLoss, signals[1].Reason);
+        Assert.Equal(BotSignalStatus.Failed, signals[1].Status);
+    }
+
+    [Fact]
+    public async Task StopLoss_NoOpenPosition_DoesNothing()
+    {
+        await using var sp = CreateServiceProvider(seedUserBalance: 10_000m);
+        await SeedHoldingAsync(sp, userId: 1, symbol: "BTCUSDT", qty: 5m, avg: 100m);
+        var botId = await SeedBotWithOpenPositionAsync(sp, entryPrice: 100m, stopLossPercent: 5m, takeProfitPercent: null);
+
+        // Pozisyon zaten strateji SAT'ı ile kapanmış.
+        await using (var seedScope = sp.CreateAsyncScope())
+        {
+            var seedDb = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            seedDb.BotSignals.Add(new BotSignal
+            {
+                BotId = botId,
+                SignalType = BotSignalType.Sell,
+                PriceAtSignal = 105m,
+                RsiValueAtSignal = 75m,
+                Status = BotSignalStatus.Approved,
+                CreatedAt = DateTime.UtcNow.AddMinutes(-5)
+            });
+            await seedDb.SaveChangesAsync();
+        }
+
+        var monitor = CreateMonitorService(sp, CreateKlineMock(BuildFlatCloses(50m)).Object);
+        await EvaluateBotsAsync(monitor);
+
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(2, await db.BotSignals.CountAsync());
+        Assert.DoesNotContain(await db.BotSignals.ToListAsync(), s => s.Reason != BotSignalReason.Strategy);
+    }
+
+    private static async Task<int> SeedBotWithOpenPositionAsync(
+        ServiceProvider sp, decimal entryPrice, decimal? stopLossPercent, decimal? takeProfitPercent)
+    {
+        await using var scope = sp.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var bot = new TradingBot
+        {
+            UserId = 1,
+            Symbol = "BTCUSDT",
+            IsActive = true,
+            BuyRsiThreshold = 30m,
+            SellRsiThreshold = 70m,
+            TradeQuantity = 1m,
+            StopLossPercent = stopLossPercent,
+            TakeProfitPercent = takeProfitPercent
+        };
+        db.TradingBots.Add(bot);
+        await db.SaveChangesAsync();
+
+        db.BotSignals.Add(new BotSignal
+        {
+            BotId = bot.Id,
+            SignalType = BotSignalType.Buy,
+            PriceAtSignal = entryPrice,
+            RsiValueAtSignal = 25m,
+            Status = BotSignalStatus.Approved,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-10)
+        });
+        await db.SaveChangesAsync();
+        return bot.Id;
+    }
+
+    /// <summary>Son kapanışı verilen fiyat olan, RSI'ı nötr (~50) tutan dalgalı seri.</summary>
+    private static List<decimal> BuildFlatCloses(decimal lastPrice) =>
+        Enumerable.Range(0, 100)
+            .Select(i => i % 2 == 1 ? lastPrice + 0.2m : lastPrice)
+            .Reverse()
+            .ToList();
+
     // ── Price series helpers ────────────────────────────────────
 
     /// <summary>

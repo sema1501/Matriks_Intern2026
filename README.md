@@ -145,7 +145,8 @@ kurulduğundaki fiyata göre en az %X yükseliş/düşüş).
 
 **E-posta Bildirimi**
 Alarm veya bot sinyali tetiklendiğinde kullanıcıya e-posta gider (uygulama kapalıyken de).
-Aynı alarm/bot için saatte en fazla 1 e-posta (cooldown). SMTP ayarı yoksa e-posta içeriği
+Aynı alarm/bot için saatte en fazla 1 e-posta (cooldown); stop-loss / take-profit satışı
+önemli olduğu için cooldown'a takılmaz ve e-postada satış nedeni yazar. SMTP ayarı yoksa e-posta içeriği
 loglanır. Profil sayfasından kapatılabilir.
 
 **Sanal Portföy**
@@ -160,6 +161,11 @@ EMA'yı yukarı keserse AL, aşağı keserse SAT). Sinyal oluşunca **Binance Te
 kullanıcının sanal portföy defterine işlenir. Seçilen tarih aralığında botun geçmişte nasıl
 sonuç verdiğini gösteren **backtest** raporu (grafik üzerinde alış/satış okları + RSI paneli
 + sinyal tablosu) — her iki strateji için de çalışır.
+İsteğe bağlı **stop-loss / take-profit**: bot kurulurken yüzde olarak girilir (örn. %5 / %10).
+Açık pozisyonun fiyatı alış fiyatına göre bu kadar düşerse ya da yükselirse bot, strateji
+sinyalini beklemeden otomatik satar. Bu satışlar sinyal geçmişinde ve backtest tablosunda
+"Stop-loss" / "Take-profit" rozetiyle, sayfadaki bildirimde ve e-postada nedeniyle gösterilir.
+Backtest de aynı kuralı uygular.
 
 **Admin Paneli**
 Tüm kullanıcıların bot ve portföy aktivitesini görüntüleme, şüpheli/aşırı işlem yapan
@@ -182,7 +188,7 @@ Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adr
 | `WatchlistController` | Favori coin ekleme/çıkarma |
 | `AlertController` | Fiyat / yüzde-değişim alarmı oluşturma, listeleme, silme, açma-kapama (`toggle`), tetiklenme geçmişi (`signals`) |
 | `PortfolioController` | Bakiye, holdings, işlem geçmişi (sayfalı + filtreli), alım/satım, liderlik tablosu |
-| `BotController` | Bot oluşturma (RSI / EMA), aç-kapa, silme, sinyaller, performans, backtest |
+| `BotController` | Bot oluşturma (RSI / EMA, isteğe bağlı `stopLossPercent` / `takeProfitPercent`), aç-kapa, silme, sinyaller (`reason`: Strategy / StopLoss / TakeProfit), performans, backtest |
 | `FeedbackController` | Geri bildirim gönderme/listeleme (Admin) |
 | `TestnetController` | Binance Testnet hesap durumu (Admin, debug amaçlı) |
 | `AdminController` | Tüm bot/portföy gözetimi (`bots`, `portfolios`), kill switch (`bots/{id}/kill`), işaretleme (`Bot/{id}/flag`), aşırı işlem listesi (`overtrading`), audit log (`audit-log`) |

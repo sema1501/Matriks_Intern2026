@@ -11,7 +11,9 @@ public record CreateBotRequest(
     decimal TradeQuantity,
     BotStrategy Strategy = BotStrategy.RsiThreshold,
     int? ShortEmaPeriod = null,
-    int? LongEmaPeriod = null
+    int? LongEmaPeriod = null,
+    decimal? StopLossPercent = null,
+    decimal? TakeProfitPercent = null
 );
 public record BotResponse(
     int Id,
@@ -23,7 +25,9 @@ public record BotResponse(
     DateTime CreatedAt,
     BotStrategy Strategy = BotStrategy.RsiThreshold,
     int? ShortEmaPeriod = null,
-    int? LongEmaPeriod = null
+    int? LongEmaPeriod = null,
+    decimal? StopLossPercent = null,
+    decimal? TakeProfitPercent = null
 );
 public record BotSignalResponse(
     int Id,
@@ -32,7 +36,8 @@ public record BotSignalResponse(
     decimal RsiValueAtSignal,
     decimal PriceAtSignal,
     DateTime CreatedAt,
-    BotSignalStatus Status
+    BotSignalStatus Status,
+    BotSignalReason Reason = BotSignalReason.Strategy
 );
 public record SignalActionResponse(
     int SignalId,

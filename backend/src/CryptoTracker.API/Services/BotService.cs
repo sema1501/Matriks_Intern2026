@@ -62,6 +62,13 @@ public class BotService(
             throw new ArgumentException($"Desteklenmeyen strateji: {request.Strategy}");
         }
 
+        if (request.StopLossPercent is not null &&
+            (request.StopLossPercent <= 0 || request.StopLossPercent >= 100))
+            throw new ArgumentException("Stop-loss yüzdesi 0'dan büyük ve 100'den küçük olmalıdır.");
+
+        if (request.TakeProfitPercent is not null && request.TakeProfitPercent <= 0)
+            throw new ArgumentException("Take-profit yüzdesi 0'dan büyük olmalıdır.");
+
         var normalizedSymbol = request.Symbol.Trim().ToUpperInvariant();
 
         var exists = await db.TradingBots.AnyAsync(
@@ -85,6 +92,8 @@ public class BotService(
                 ? request.LongEmaPeriod
                 : null,
             TradeQuantity = request.TradeQuantity,
+            StopLossPercent = request.StopLossPercent,
+            TakeProfitPercent = request.TakeProfitPercent,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -379,11 +388,12 @@ public class BotService(
     private static BotResponse MapToResponse(TradingBot bot) =>
         new(bot.Id, bot.Symbol, bot.IsActive, bot.BuyRsiThreshold,
             bot.SellRsiThreshold, bot.TradeQuantity, bot.CreatedAt,
-            bot.Strategy, bot.ShortEmaPeriod, bot.LongEmaPeriod);
+            bot.Strategy, bot.ShortEmaPeriod, bot.LongEmaPeriod,
+            bot.StopLossPercent, bot.TakeProfitPercent);
 
     private static BotSignalResponse MapToSignalResponse(BotSignal signal) =>
         new(signal.Id, signal.BotId, signal.SignalType, signal.RsiValueAtSignal,
-            signal.PriceAtSignal, signal.CreatedAt, signal.Status);
+            signal.PriceAtSignal, signal.CreatedAt, signal.Status, signal.Reason);
 }
 
 public class TradingBotOptions

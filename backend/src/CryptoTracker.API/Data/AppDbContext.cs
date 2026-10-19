@@ -210,6 +210,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
            .Property(b => b.SellRsiThreshold)
            .HasPrecision(5, 2);
 
+           // Stop-loss / take-profit yüzdeleri
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.StopLossPercent)
+            .HasPrecision(9, 4);
+
+        modelBuilder.Entity<TradingBot>()
+            .Property(b => b.TakeProfitPercent)
+            .HasPrecision(9, 4);
+
+        modelBuilder.Entity<BotSignal>()
+            .Property(s => s.Reason)
+            .HasDefaultValue(BotSignalReason.Strategy);
+
            // TradingBot işlem miktarı
         modelBuilder.Entity<TradingBot>()
             .Property(b => b.TradeQuantity)

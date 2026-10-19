@@ -15,7 +15,8 @@ public interface IBotAutoTradeExecutor
         BotSignalType signalType,
         decimal price,
         decimal rsiValueAtSignal,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        BotSignalReason reason = BotSignalReason.Strategy);
 }
 
 public sealed class BotAutoTradeExecutor(
@@ -27,7 +28,8 @@ public sealed class BotAutoTradeExecutor(
         BotSignalType signalType,
         decimal price,
         decimal rsiValueAtSignal,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        BotSignalReason reason = BotSignalReason.Strategy)
     {
         ArgumentNullException.ThrowIfNull(bot);
 
@@ -59,7 +61,8 @@ public sealed class BotAutoTradeExecutor(
                 RsiValueAtSignal = rsiValueAtSignal,
                 PriceAtSignal = price,
                 CreatedAt = DateTime.UtcNow,
-                Status = BotSignalStatus.Approved
+                Status = BotSignalStatus.Approved,
+                Reason = reason
             };
 
             db.BotSignals.Add(approved);
@@ -75,7 +78,8 @@ public sealed class BotAutoTradeExecutor(
                 RsiValueAtSignal = rsiValueAtSignal,
                 PriceAtSignal = price,
                 CreatedAt = DateTime.UtcNow,
-                Status = BotSignalStatus.Failed
+                Status = BotSignalStatus.Failed,
+                Reason = reason
             };
 
             db.BotSignals.Add(failed);

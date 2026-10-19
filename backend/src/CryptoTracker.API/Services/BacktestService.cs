@@ -125,7 +125,7 @@ public sealed class BacktestService(
         if (bot.TradeQuantity <= 0)
             throw new ArgumentException("Bot trade quantity must be greater than zero.");
 
-        var events = new List<(BinanceKlineCandle Candle, BotSignalType Type, decimal? Rsi)>();
+        var events = new List<(int Index, BotSignalType Type, decimal? Rsi)>();
 
         // Previous RSI among in-range bars only (warm-up never seeds zone-entry or positions).
         decimal? previousInRangeRsi = null;
@@ -152,10 +152,10 @@ public sealed class BacktestService(
             if (signalType is null)
                 continue;
 
-            events.Add((candle, signalType.Value, rsi.Value));
+            events.Add((i, signalType.Value, rsi.Value));
         }
 
-        return BuildResult(bot, candles, events, startUtc, endUtc);
+        return BuildResult(bot, candles, events, startUtc, endUtc, rsiSeries);
     }
 
     /// <summary>
@@ -179,7 +179,7 @@ public sealed class BacktestService(
         var shortEma = EmaCalculator.CalculateSeries(closes, bot.ShortEmaPeriod.Value);
         var longEma = EmaCalculator.CalculateSeries(closes, bot.LongEmaPeriod.Value);
 
-        var events = new List<(BinanceKlineCandle Candle, BotSignalType Type, decimal? Rsi)>();
+        var events = new List<(int Index, BotSignalType Type, decimal? Rsi)>();
         var hasPreviousInRange = false;
 
         for (var i = 0; i < candles.Count; i++)
@@ -207,26 +207,31 @@ public sealed class BacktestService(
                 continue;
 
             // EMA sinyallerinde RSI kullanılmaz; Rsi alanı null döner.
-            events.Add((candle, signalType.Value, null));
+            events.Add((i, signalType.Value, null));
         }
 
-        return BuildResult(bot, candles, events, startUtc, endUtc);
+        return BuildResult(bot, candles, events, startUtc, endUtc, rsiSeries: null);
     }
 
     /// <summary>
     /// Sinyal listesinden özet (PnL, kazanan/kaybeden işlem) üretir.
     /// RSI ve EMA simülasyonları aynı pozisyon mantığını paylaşır: long-only,
     /// açık pozisyon varken tekrar BUY yok sayılır, aralık sonunda açık pozisyon gerçekleşmemiş kalır.
+    /// Stop-loss / take-profit canlı botla aynı sırada uygulanır: her mumda, strateji
+    /// sinyalinden ÖNCE açık pozisyon kapanış fiyatıyla kontrol edilir; risk satışı olan
+    /// mumda strateji sinyali değerlendirilmez.
     /// </summary>
     private static SimulationResult BuildResult(
         TradingBot bot,
         IReadOnlyList<BinanceKlineCandle> candles,
-        IReadOnlyList<(BinanceKlineCandle Candle, BotSignalType Type, decimal? Rsi)> events,
+        IReadOnlyList<(int Index, BotSignalType Type, decimal? Rsi)> events,
         DateTime startUtc,
-        DateTime endUtc)
+        DateTime endUtc,
+        IReadOnlyList<decimal?>? rsiSeries)
     {
         var signals = new List<BacktestSignalDto>();
         var quantity = bot.TradeQuantity;
+        var eventsByIndex = events.ToDictionary(e => e.Index);
 
         decimal? openEntryPrice = null;
         decimal realizedPnL = 0m;
@@ -235,8 +240,53 @@ public sealed class BacktestService(
         var winningTrades = 0;
         var losingTrades = 0;
 
-        foreach (var (candle, signalType, rsi) in events)
+        void ClosePosition(decimal exitPrice)
         {
+            var tradePnL = (exitPrice - openEntryPrice!.Value) * quantity;
+            realizedPnL += tradePnL;
+            completedTrades++;
+
+            if (tradePnL > 0)
+                winningTrades++;
+            else if (tradePnL < 0)
+                losingTrades++;
+
+            openEntryPrice = null;
+        }
+
+        for (var i = 0; i < candles.Count; i++)
+        {
+            var candle = candles[i];
+
+            if (candle.OpenTimeUtc < startUtc || candle.OpenTimeUtc > endUtc)
+                continue;
+
+            if (openEntryPrice is not null)
+            {
+                var riskReason = RiskExitEvaluator.Evaluate(
+                    openEntryPrice.Value,
+                    candle.ClosePrice,
+                    bot.StopLossPercent,
+                    bot.TakeProfitPercent);
+
+                if (riskReason is not null)
+                {
+                    signals.Add(new BacktestSignalDto(
+                        candle.OpenTimeUtc,
+                        "SELL",
+                        candle.ClosePrice,
+                        rsiSeries?[i],
+                        riskReason.Value.ToString()));
+
+                    ClosePosition(candle.ClosePrice);
+                    continue;
+                }
+            }
+
+            if (!eventsByIndex.TryGetValue(i, out var evt))
+                continue;
+
+            var signalType = evt.Type;
             var typeLabel = signalType == BotSignalType.Buy ? "BUY" : "SELL";
 
             // Signal list = strategy events (independent of position state).
@@ -244,7 +294,8 @@ public sealed class BacktestService(
                 candle.OpenTimeUtc,
                 typeLabel,
                 candle.ClosePrice,
-                rsi));
+                evt.Rsi,
+                nameof(BotSignalReason.Strategy)));
 
             if (signalType == BotSignalType.Buy)
             {
@@ -259,18 +310,7 @@ public sealed class BacktestService(
             {
                 // SELL with no open position: keep signal, no PnL impact.
                 if (openEntryPrice is not null)
-                {
-                    var tradePnL = (candle.ClosePrice - openEntryPrice.Value) * quantity;
-                    realizedPnL += tradePnL;
-                    completedTrades++;
-
-                    if (tradePnL > 0)
-                        winningTrades++;
-                    else if (tradePnL < 0)
-                        losingTrades++;
-
-                    openEntryPrice = null;
-                }
+                    ClosePosition(candle.ClosePrice);
             }
         }
 

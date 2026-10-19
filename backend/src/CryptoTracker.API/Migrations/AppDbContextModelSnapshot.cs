@@ -104,6 +104,11 @@ namespace CryptoTracker.API.Migrations
                         .HasPrecision(18, 8)
                         .HasColumnType("decimal(18,8)");
 
+                    b.Property<int>("Reason")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<decimal>("RsiValueAtSignal")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
@@ -368,6 +373,10 @@ namespace CryptoTracker.API.Migrations
                     b.Property<int?>("ShortEmaPeriod")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("StopLossPercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("decimal(9,4)");
+
                     b.Property<int>("Strategy")
                         .HasColumnType("int");
 
@@ -375,6 +384,10 @@ namespace CryptoTracker.API.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal?>("TakeProfitPercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("decimal(9,4)");
 
                     b.Property<decimal>("TradeQuantity")
                         .HasPrecision(18, 8)

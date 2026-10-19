@@ -100,6 +100,9 @@
 .backtest-signal-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; }
 .backtest-signal-badge.buy { background: rgba(22, 163, 74, .14); color: #22c55e; }
 .backtest-signal-badge.sell { background: rgba(220, 38, 38, .14); color: #ef4444; }
+.backtest-reason-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(148, 163, 184, .14); color: #94a3b8; }
+.backtest-reason-badge.stopLoss { background: rgba(220, 38, 38, .14); color: #ef4444; }
+.backtest-reason-badge.takeProfit { background: rgba(22, 163, 74, .14); color: #22c55e; }
 
 @media (max-width: 760px) {
     .backtest-modal-backdrop { padding: 10px; }

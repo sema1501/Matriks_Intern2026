@@ -10,5 +10,5 @@ public interface INotificationService
 {
     Task NotifyPriceAlertAsync(PriceAlert alert, decimal price, DateTime triggeredAt, CancellationToken cancellationToken = default);
 
-    Task NotifyBotSignalAsync(TradingBot bot, BotSignalType signalType, decimal price, decimal rsi, DateTime triggeredAt, CancellationToken cancellationToken = default);
+    Task NotifyBotSignalAsync(TradingBot bot, BotSignalType signalType, decimal price, decimal rsi, DateTime triggeredAt, CancellationToken cancellationToken = default, BotSignalReason reason = BotSignalReason.Strategy);
 }

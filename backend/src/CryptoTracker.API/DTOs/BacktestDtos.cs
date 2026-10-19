@@ -33,5 +33,6 @@ public record BacktestSignalDto(
     DateTime Timestamp,
     string Type,
     decimal Price,
-    decimal? Rsi
+    decimal? Rsi,
+    string Reason = "Strategy"
 );

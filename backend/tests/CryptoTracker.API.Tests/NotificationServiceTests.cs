@@ -160,6 +160,34 @@ public class NotificationServiceTests
         Assert.Null(stored.LastEmailNotifiedAt);
     }
 
+    [Fact]
+    public async Task BotSignal_StopLoss_BypassesCooldown_AndExplainsReason()
+    {
+        var (db, sender, service) = Create(cooldownMinutes: 60);
+        var bot = await SeedBotAsync(db, await SeedUserAsync(db));
+        bot.StopLossPercent = 5m;
+
+        await service.NotifyBotSignalAsync(bot, BotSignalType.Buy, 100m, 25m, T0);
+        await service.NotifyBotSignalAsync(
+            bot, BotSignalType.Sell, 94m, 40m, T0.AddMinutes(10), reason: BotSignalReason.StopLoss);
+
+        Assert.Equal(2, sender.Sent.Count);
+        Assert.Contains("stop-loss", sender.Sent[1].Subject);
+        Assert.Contains("Neden: Stop-loss", sender.Sent[1].Body);
+    }
+
+    [Fact]
+    public async Task BotSignal_TakeProfit_NotificationsDisabled_StillNeverSends()
+    {
+        var (db, sender, service) = Create();
+        var bot = await SeedBotAsync(db, await SeedUserAsync(db, notificationsEnabled: false));
+
+        await service.NotifyBotSignalAsync(
+            bot, BotSignalType.Sell, 120m, 60m, T0, reason: BotSignalReason.TakeProfit);
+
+        Assert.Empty(sender.Sent);
+    }
+
     // ---------------- Yardımcılar ----------------
 
     private static (AppDbContext Db, FakeEmailSender Sender, NotificationService Service) Create(
