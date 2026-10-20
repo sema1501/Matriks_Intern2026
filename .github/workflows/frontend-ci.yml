@@ -31,5 +31,8 @@ jobs:
       - name: Paketleri yükle
         run: npm ci
 
+      - name: Testleri çalıştır
+        run: CI=true npm test -- --watchAll=false
+
       - name: Derle
         run: npm run build
