@@ -23,6 +23,13 @@ jest.mock('recharts', () => ({
 
 const point = (takenAt, totalValue) => ({ takenAt, totalValue });
 
+// Bileşen doları bilgisayarın sayı biçimiyle yazıyor: Türkçe Windows'ta $10.250,00, CI'da $10,250.00.
+// Beklenen metin de aynı biçimle üretilir, böylece test her makinede aynı sonucu verir.
+const usd = (value) =>
+  `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const history = (points, changeUsd = null, changePercent = null) => ({
   data: { points, changeUsd, changePercent },
 });
@@ -77,7 +84,7 @@ test('tek kayıt varsa değer ve en az iki kayıt gerektiği yazılır, grafik �
   renderChart();
 
   expect(await screen.findByText(/en az iki kayıt gerekiyor/)).toBeInTheDocument();
-  expect(screen.getByText('$10,250.00')).toBeInTheDocument();
+  expect(screen.getByText(usd(10250))).toBeInTheDocument();
   expect(screen.queryByTestId('area-chart')).not.toBeInTheDocument();
 });
 
@@ -96,7 +103,7 @@ test('birden çok kayıt varsa grafik ve aralıktaki değişim görünür', asyn
   expect(chart).toHaveAttribute('data-points', '3');
   expect(screen.getByRole('img', { name: 'Portföy toplam değerinin zaman içindeki değişimi' })).toBeInTheDocument();
   expect(screen.getByText(/Seçilen aralıktaki değişim/)).toBeInTheDocument();
-  expect(screen.getByText(/\+\$250\.00/)).toBeInTheDocument();
+  expect(screen.getByText(new RegExp(escapeRegExp(`+${usd(250)}`)))).toBeInTheDocument();
   expect(screen.getByText(/\+2\.50%/)).toBeInTheDocument();
 });
 
