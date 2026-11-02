@@ -188,6 +188,35 @@ public class NotificationServiceTests
         Assert.Empty(sender.Sent);
     }
 
+    // ---------------- Risk satışı başarısız (#100) ----------------
+
+    [Fact]
+    public async Task RiskExitFailed_SendsBilingualEmail_EvenWithinCooldown()
+    {
+        var (db, sender, service) = Create(cooldownMinutes: 60);
+        var bot = await SeedBotAsync(db, await SeedUserAsync(db));
+
+        await service.NotifyBotSignalAsync(bot, BotSignalType.Buy, 100m, 25m, T0);
+        await service.NotifyRiskExitFailedAsync(bot, BotSignalReason.StopLoss, 90m, 5, T0.AddMinutes(10));
+
+        Assert.Equal(2, sender.Sent.Count);
+        var (_, subject, body) = sender.Sent[1];
+        Assert.Contains("Stop-loss satışı gerçekleştirilemedi", subject);
+        Assert.Contains("manuel kontrol", body);
+        Assert.Contains("failed after 5 attempts", body);
+    }
+
+    [Fact]
+    public async Task RiskExitFailed_NotificationsDisabled_NeverSends()
+    {
+        var (db, sender, service) = Create();
+        var bot = await SeedBotAsync(db, await SeedUserAsync(db, notificationsEnabled: false));
+
+        await service.NotifyRiskExitFailedAsync(bot, BotSignalReason.TakeProfit, 120m, 5, T0);
+
+        Assert.Empty(sender.Sent);
+    }
+
     // ---------------- Yardımcılar ----------------
 
     private static (AppDbContext Db, FakeEmailSender Sender, NotificationService Service) Create(

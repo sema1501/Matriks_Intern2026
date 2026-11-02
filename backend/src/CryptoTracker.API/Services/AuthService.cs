@@ -11,9 +11,13 @@ public class AuthService(
     IJwtService jwtService,
     ILogger<AuthService> logger,
     IEmailSender? emailSender = null,
-    IConfiguration? configuration = null) : IAuthService
+    IConfiguration? configuration = null,
+    IClock? clock = null) : IAuthService
 {
     private const int DefaultRefreshTokenDays = 7;
+    private const int DefaultRefreshReuseGraceSeconds = 10;
+
+    private DateTime Now => clock?.UtcNow ?? DateTime.UtcNow;
 
     public async Task<string> RegisterAsync(RegisterRequest request)
     {
@@ -134,12 +138,25 @@ public class AuthService(
         if (stored == null)
             throw new UnauthorizedAccessException("Oturum yenilenemedi.");
 
-        var now = DateTime.UtcNow;
+        var now = Now;
 
         // Zaten kullanılmış/iptal edilmiş bir token tekrar geldiyse token çalınmış olabilir:
         // gerçek sahibi de saldırgan da artık oturum açık tutamasın diye hepsini kapat.
         if (stored.RevokedAt != null)
         {
+            // İki sekme aynı anda yenileme yaptıysa ikincisi az önce rotasyonla iptal edilen
+            // token'ı gönderir. Bu birkaç saniyelik pencerede saldırı sayılmaz: istek reddedilir
+            // ama diğer oturumlar kapatılmaz. Çıkış ya da şifre değişikliğiyle iptal edilen
+            // token'larda (ReplacedByTokenHash boş) pencere yoktur.
+            if (stored.ReplacedByTokenHash != null && now - stored.RevokedAt.Value <= ReuseGraceWindow)
+            {
+                logger.LogInformation(
+                    "Refresh token {Seconds:0.#} sn önce yenilenmişti, tolerans penceresinde tekrar geldi (UserId={UserId}). Oturumlar açık kalıyor.",
+                    (now - stored.RevokedAt.Value).TotalSeconds,
+                    stored.UserId);
+                throw new RefreshTokenAlreadyRotatedException();
+            }
+
             logger.LogWarning("İptal edilmiş refresh token tekrar kullanıldı (UserId={UserId}). Tüm oturumlar kapatılıyor.", stored.UserId);
             await RevokeAllActiveAsync(stored.UserId, now);
             await db.SaveChangesAsync();
@@ -172,7 +189,7 @@ public class AuthService(
         // Bilinmeyen ya da zaten iptal edilmiş token için de sessizce başarılı dön (idempotent).
         if (stored == null || stored.RevokedAt != null) return;
 
-        stored.RevokedAt = DateTime.UtcNow;
+        stored.RevokedAt = Now;
         await db.SaveChangesAsync();
     }
 
@@ -182,15 +199,21 @@ public class AuthService(
         string token = jwtService.GenerateRefreshToken();
         var days = configuration?.GetValue("Jwt:RefreshTokenDays", DefaultRefreshTokenDays) ?? DefaultRefreshTokenDays;
 
+        var now = Now;
+
         db.RefreshTokens.Add(new RefreshToken
         {
             UserId = userId,
             TokenHash = JwtService.HashRefreshToken(token),
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddDays(days)
+            CreatedAt = now,
+            ExpiresAt = now.AddDays(days)
         });
         return token;
     }
+
+    private TimeSpan ReuseGraceWindow => TimeSpan.FromSeconds(Math.Max(0,
+        configuration?.GetValue("Jwt:RefreshReuseGraceSeconds", DefaultRefreshReuseGraceSeconds)
+            ?? DefaultRefreshReuseGraceSeconds));
 
     private async Task RevokeAllActiveAsync(int userId, DateTime now)
     {
@@ -254,7 +277,7 @@ public class AuthService(
         resetToken.IsUsed = true;
 
         // Şifre sıfırlandıysa hesabı başkası kullanıyor olabilir: açık tüm oturumları kapat.
-        await RevokeAllActiveAsync(resetToken.UserId, DateTime.UtcNow);
+        await RevokeAllActiveAsync(resetToken.UserId, Now);
 
         await db.SaveChangesAsync();
     }

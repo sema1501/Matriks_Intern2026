@@ -88,11 +88,29 @@ npm start
 # → http://localhost:3000
 ```
 
-### 6. Testleri çalıştır (opsiyonel)
+### 6. Testleri çalıştır
+
+**Backend** (xUnit, InMemory veritabanı kullanır, SQL Server gerekmez):
 ```bash
 cd backend
 dotnet test
 ```
+
+**Frontend** (Jest + React Testing Library, `react-scripts` ile gelir):
+```bash
+cd frontend
+npm test                                # izleme modunda, dosya değiştikçe tekrar çalışır
+CI=true npm test -- --watchAll=false    # tek sefer çalışır, CI'daki komut bu
+```
+Windows PowerShell'de tek sefer çalıştırmak için: `$env:CI="true"; npm test -- --watchAll=false`
+
+Frontend testleri ağ çağrılarını mock'lar, backend'in açık olması gerekmez. Test dosyaları
+test ettikleri dosyanın yanında `*.test.js` / `*.test.jsx` adıyla durur:
+- `services/apiService.test.js`: 401 gelince refresh, aynı anda gelen 401'lerde tek refresh, refresh başarısız olursa çıkış
+- `utils/botSignalReason.test.jsx`: Strateji / Stop-loss / Take-profit etiketleri (TR/EN)
+- `components/PortfolioHistoryChart/PortfolioHistoryChart.test.jsx`: yükleniyor, hata, boş, tek kayıt ve grafik durumları
+- `context/RealtimeContext.test.jsx`: bağlantı kopunca polling'e geçiş, geri gelince polling'in durması, çıkışta bağlantının kapanması
+- `components/AlertMonitor/AlertMonitor.test.jsx`: aynı sinyal SignalR ve polling'den gelince tek bildirim
 
 ### Test kullanıcısı (otomatik oluşturulur)
 | Alan | Değer |
@@ -114,9 +132,12 @@ Her `push` ve `pull_request` (main, develop) için GitHub Actions iki workflow �
 | Workflow | Dosya | Ne doğrular |
 |---|---|---|
 | Backend CI | `.github/workflows/backend-ci.yml` | `dotnet restore`, `dotnet build --configuration Release`, `dotnet test` (`backend/CryptoTracker.sln`) |
-| Frontend CI | `.github/workflows/frontend-ci.yml` | `npm ci`, `npm run build` (`frontend/`, Node 24) |
+| Frontend CI | `.github/workflows/frontend-ci.yml` | `npm ci`, `npm test` (Jest), `npm run build` (`frontend/`, Node 24) |
 
-Testler `Testing` ortamında InMemory veritabanı kullandığı için CI'da SQL Server gerekmez. Workflow kırmızıysa PR birleştirilmeden önce düzeltilmelidir.
+Testler `Testing` ortamında InMemory veritabanı kullandığı için CI'da SQL Server gerekmez. Frontend testlerinden biri kırmızıysa build adımına geçilmez. Workflow kırmızıysa PR birleştirilmeden önce düzeltilmelidir.
+
+Depo kökündeki `.gitattributes` metin dosyalarını depoda LF satır sonuyla tutar; Windows'ta da
+satır sonu farkı yüzünden dosyalar "değişmiş" görünmez.
 
 ---
 
@@ -130,8 +151,13 @@ e-posta bildirimi açma/kapama, rol yönetimi (Admin/SuperAdmin/User).
 **Oturum yenileme:** 15 dakikalık access token + 7 günlük refresh token. Access token
 dolunca frontend oturumu fark ettirmeden yeniler (her yenilemede yeni refresh token
 verilir, eskisi iptal edilir). Kullanılmış bir refresh token tekrar gelirse kullanıcının
-tüm oturumları kapatılır. Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
+tüm oturumları kapatılır. Tek istisna: iki sekme aynı anda yenileme yaparsa, yeni
+dönüştürülmüş token ilk 10 saniye içinde tekrar geldiğinde yalnızca 401 döner, oturumlar
+kapanmaz; frontend bu durumda diğer sekmenin aldığı yeni token'ı kullanır
+(`Jwt:RefreshReuseGraceSeconds`). Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
 iptal eder. Refresh token veritabanında yalnızca SHA-256 hash'i olarak saklanır.
+`RefreshTokenCleanupService` günde bir süresi dolmuş token'ları ve 30 günden eski iptal
+edilmiş token'ları siler (`RefreshTokenCleanup` ayarları).
 
 **Kripto Takip**
 Binance WebSocket üzerinden 20 coin için canlı fiyat akışı, arama/sıralama, favori
@@ -153,6 +179,12 @@ Alarm veya bot sinyali tetiklendiğinde kullanıcıya e-posta gider (uygulama ka
 Aynı alarm/bot için saatte en fazla 1 e-posta (cooldown); stop-loss / take-profit satışı
 önemli olduğu için cooldown'a takılmaz ve e-postada satış nedeni yazar. SMTP ayarı yoksa e-posta içeriği
 loglanır. Profil sayfasından kapatılabilir.
+
+**Anlık Bildirimler (SignalR)**
+Uygulama açıkken alarm tetiklenmesi ve bot sinyalleri sayfa yenilemeden, polling aralığını
+beklemeden ekrana gelir. Navbar'daki gösterge bildirim bağlantısının durumunu gösterir
+(canlı / yeniden bağlanıyor / çevrimdışı). Bağlantı yoksa eski polling otomatik devreye girer.
+Ayrıntılar aşağıda "Anlık Bildirim Mimarisi" bölümünde.
 
 **Sanal Portföy**
 Her kullanıcı 10.000 USD sanal bakiye ile başlar, coin detay sayfasından alım/satım
@@ -180,7 +212,10 @@ sonuç verdiğini gösteren **backtest** raporu (grafik üzerinde alış/satış
 Açık pozisyonun fiyatı alış fiyatına göre bu kadar düşerse ya da yükselirse bot, strateji
 sinyalini beklemeden otomatik satar. Bu satışlar sinyal geçmişinde ve backtest tablosunda
 "Stop-loss" / "Take-profit" rozetiyle, sayfadaki bildirimde ve e-postada nedeniyle gösterilir.
-Backtest de aynı kuralı uygular.
+Backtest de aynı kuralı uygular. Bu satış başarısız olursa (örn. Testnet hatası) bot sonraki
+turlarda en fazla 5 kez, denemeler arasında 2 dakika bekleyerek tekrar dener; beklerken
+strateji sinyali çalışmaz. 5. deneme de başarısız olursa kullanıcıya bir kez TR/EN e-posta
+gider (`TradingBot:RiskExitMaxAttempts`, `TradingBot:RiskExitRetryDelayMinutes`).
 
 **Admin Paneli**
 Tüm kullanıcıların bot ve portföy aktivitesini görüntüleme, şüpheli/aşırı işlem yapan
@@ -189,6 +224,64 @@ listesi, haftalık yeni kullanıcı istatistiği.
 
 **Diğer**
 Kullanıcı geri bildirim formu.
+
+---
+
+## Anlık Bildirim Mimarisi
+
+```
+Alarm tetiklendi → AlertMonitoringProcessor ─┐
+Bot sinyali      → BotAutoTradeExecutor ─────┴→ IRealtimeNotifier → NotificationHub → RealtimeContext
+                                                                      (Clients.User)    (tarayıcı)
+RealtimeContext → AlertMonitor (toast), BotSignalApproval (sinyal listesi), Profile (alarm listesi)
+```
+
+- **Hub:** `NotificationHub` (`[Authorize]`), `/hubs/notifications` adresinde. Tarayıcı yalnızca dinler.
+- **Kime gider:** `Clients.User(userId)` ile yalnızca olayın sahibine. Kullanıcı kimliği token'daki
+  `NameIdentifier` claim'inden okunur; başka kullanıcının bağlantısına gitmez (testle doğrulandı).
+- **Token:** WebSocket bağlantısında header gönderilemediği için token `access_token` sorgu parametresiyle
+  gelir. Bu yalnızca `/hubs` yollarında kabul edilir, normal API'de sorgu parametresindeki token yok sayılır.
+- **CORS:** SignalR kimlik bilgisiyle bağlandığı için `AllowCredentials` açık, origin'ler
+  `Cors:AllowedOrigins` ayarından okunur (varsayılan `http://localhost:3000`).
+- **Ek kanal:** E-posta ve veritabanı kayıtları eskisi gibi devam eder. Anlık gönderim başarısız olursa
+  sadece loglanır, izleme servisleri durmaz.
+
+**Olaylar**
+
+| Olay | Ne zaman | İçerik |
+|---|---|---|
+| `alertTriggered` | Fiyat alarmı tetiklendi | `id` (AlertSignal), `alertId`, `symbol`, `priceAtTrigger`, `triggeredAt` |
+| `botSignal` | Bot işlem yaptı ya da işlem başarısız oldu (strateji, stop-loss, take-profit) | `BotSignalResponse` ile aynı: `id`, `botId`, `signalType`, `status`, `reason`, ... |
+| `botSignalPending` | Bot sinyali onay bekliyor | `botSignal` ile aynı. Botlar artık otomatik işlem yaptığı için şu an üretilmiyor, eski onay akışı için duruyor |
+
+**Frontend**
+
+- `RealtimeContext` giriş yapılınca bağlantıyı açar, çıkış yapılınca kapatır. Bileşenler
+  `useRealtimeEvent` ile olaylara abone olur.
+- `withAutomaticReconnect()` kullanılır. `accessTokenFactory` her bağlanışta ve yeniden bağlanışta
+  `getFreshAccessToken`'ı çağırır: token 30 saniye içinde dolacaksa önce refresh yapılır, süresi dolmuş
+  token ile bağlanılmaz.
+- Otomatik denemeler biterse (backend uzun süre kapalı) durum "çevrimdışı" olur ve bağlantı 15 saniyede bir
+  yeniden denenir.
+- **Yedek polling:** `usePollingFallback` bağlantı yokken eski aralıklarla (alarm 45 sn, bot 15 sn) istek atar,
+  bağlantı gelince durur ve arada kaçan olaylar için bir kez daha çeker.
+- **Tekilleştirme:** Aynı sinyal hem SignalR hem polling ile gelirse sinyal `id`'sine göre bir kez gösterilir.
+
+**Docker / proxy:** Backend doğrudan (`dotnet run` ya da `backend/Dockerfile`, port 5002) çalıştığında ek
+ayar gerekmez. Önüne nginx gibi bir ters proxy konursa WebSocket için şu başlıklar eklenmeli, yoksa
+bağlantı LongPolling'e düşer:
+
+```nginx
+location /hubs/ {
+    proxy_pass http://backend:5002;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+}
+```
+
+Frontend başka bir adresten açılıyorsa o adres `Cors:AllowedOrigins` listesine eklenmeli.
 
 ---
 
@@ -225,6 +318,7 @@ CryptoTracker/
 │   │   ├── Services/        ← İş mantığı (bot, alarm, backtest, testnet, vb.)
 │   │   ├── Data/             ← DbContext + DataSeeder
 │   │   ├── Migrations/      ← EF Core migration geçmişi
+│   │   ├── Hubs/            ← SignalR NotificationHub
 │   │   └── Middleware/      ← Hata yakalama
 │   └── tests/CryptoTracker.API.Tests/  ← Servis ve entegrasyon testleri
 └── frontend/
@@ -238,7 +332,7 @@ CryptoTracker/
         │                        ForgotPassword/ResetPassword
         ├── services/         ← API çağrıları (apiService.js), binanceService.js
         ├── hooks/            ← useBinancePrices
-        └── context/          ← Auth, Price, Theme, Currency, Watchlist, Language
+        └── context/          ← Auth, Price, Theme, Currency, Watchlist, Language, Realtime
 ```
 
 ---

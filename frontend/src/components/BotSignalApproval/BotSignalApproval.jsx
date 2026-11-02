@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBotSignals } from '../../services/apiService';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePollingFallback, useRealtimeEvent } from '../../context/RealtimeContext';
 import { isRiskExit, normalizeReason, reasonLabelKey } from '../../utils/botSignalReason';
 import './BotSignalApproval.css';
 
@@ -44,6 +45,7 @@ export default function BotSignalApproval({ bots = [] }) {
   const [message, setMessage] = useState(null);
   const knownIds = useRef(new Set());
   const initialized = useRef(false);
+  const signalsRef = useRef([]);
 
   const botMap = useMemo(
     () => new Map(bots.map((bot) => [bot.id, bot])),
@@ -101,6 +103,7 @@ export default function BotSignalApproval({ bots = [] }) {
         .flatMap((response) => response?.data || [])
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+      signalsRef.current = merged;
       setSignals(merged);
       notifyNewSignals(merged);
     } catch (error) {
@@ -115,12 +118,22 @@ export default function BotSignalApproval({ bots = [] }) {
 
   useEffect(() => {
     fetchSignals();
-    const interval = window.setInterval(
-      () => fetchSignals({ silent: true }),
-      POLL_INTERVAL_MS
-    );
-    return () => window.clearInterval(interval);
   }, [fetchSignals]);
+
+  // SignalR bağlantısı yokken eski polling devam eder, bağlantı gelince durur (#102).
+  usePollingFallback(() => fetchSignals({ silent: true }), POLL_INTERVAL_MS, bots.length > 0);
+
+  // Anlık gelen sinyal listeye eklenir. Polling ile aynı kimlik kümesinden geçtiği için iki kez bildirilmez.
+  const handleRealtimeSignal = (signal) => {
+    if (!signal || !initialized.current || !botMap.has(signal.botId) || knownIds.current.has(signal.id)) return;
+    const merged = [signal, ...signalsRef.current]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    signalsRef.current = merged;
+    setSignals(merged);
+    notifyNewSignals(merged);
+  };
+  useRealtimeEvent('botSignal', handleRealtimeSignal);
+  useRealtimeEvent('botSignalPending', handleRealtimeSignal);
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {

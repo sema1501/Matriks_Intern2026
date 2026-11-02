@@ -82,7 +82,8 @@ public record AlertMonitoringCycleResult(
 public class AlertMonitoringProcessor(
     ILogger<AlertMonitoringProcessor> logger,
     IClock clock,
-    INotificationService? notifier = null) : IAlertMonitoringProcessor
+    INotificationService? notifier = null,
+    IRealtimeNotifier? realtime = null) : IAlertMonitoringProcessor
 {
     public async Task<AlertMonitoringCycleResult> ProcessAsync(
         AppDbContext db,
@@ -199,6 +200,14 @@ public class AlertMonitoringProcessor(
         {
             foreach (var (alert, price) in triggered)
                 await notifier.NotifyPriceAlertAsync(alert, price, now, cancellationToken);
+        }
+
+        // Sayfası açık olan kullanıcı polling'i beklemeden görsün diye anlık olarak da gönderilir.
+        // signals ve triggered aynı sırayla doldu; kayıt edildiği için signal.Id artık dolu.
+        if (realtime is not null)
+        {
+            for (var i = 0; i < signals.Count; i++)
+                await realtime.SendAlertTriggeredAsync(triggered[i].Alert, signals[i], cancellationToken);
         }
 
         logger.LogInformation(

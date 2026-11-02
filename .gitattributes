@@ -1,0 +1,19 @@
+# Metin dosyaları depoda her zaman LF satır sonuyla tutulur. Windows'ta autocrlf ayarı ne olursa
+# olsun dosyalar satır sonu yüzünden "değişmiş" görünmez.
+* text=auto eol=lf
+
+# İkili dosyalara dokunulmaz
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.pdf   binary
+*.zip   binary
+*.xlsx  binary
+*.docx  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary

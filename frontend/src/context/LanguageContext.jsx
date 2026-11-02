@@ -189,6 +189,11 @@ const translations = {
     'bot.reason.strategy': 'Strateji',
     'bot.reason.stopLoss': 'Stop-loss',
     'bot.reason.takeProfit': 'Take-profit',
+    'realtime.connecting': 'Bildirimler: Bağlanıyor',
+    'realtime.connected': 'Bildirimler: Canlı',
+    'realtime.reconnecting': 'Bildirimler: Yeniden Bağlanıyor',
+    'realtime.offline': 'Bildirimler: Çevrimdışı',
+    'realtime.fallbackHint': 'Anlık bağlantı yok, bildirimler belirli aralıklarla kontrol ediliyor.',
     'bot.reasonColumn': 'Neden',
     'bot.riskTriggered': 'tetiklendi',
     // Dashboard
@@ -425,6 +430,11 @@ const translations = {
     'bot.reason.strategy': 'Strategy',
     'bot.reason.stopLoss': 'Stop-loss',
     'bot.reason.takeProfit': 'Take-profit',
+    'realtime.connecting': 'Notifications: Connecting',
+    'realtime.connected': 'Notifications: Live',
+    'realtime.reconnecting': 'Notifications: Reconnecting',
+    'realtime.offline': 'Notifications: Offline',
+    'realtime.fallbackHint': 'No live connection, notifications are checked periodically.',
     'bot.reasonColumn': 'Reason',
     'bot.riskTriggered': 'triggered',
     // Dashboard

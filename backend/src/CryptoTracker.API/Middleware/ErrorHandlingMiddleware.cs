@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using CryptoTracker.API.Services;
 
 namespace CryptoTracker.API.Middleware;
 
@@ -21,6 +22,14 @@ public class ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandling
             context.Response.StatusCode  = (int)HttpStatusCode.BadRequest;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
+        }
+        catch (RefreshTokenAlreadyRotatedException ex)
+        {
+            // Normal 401 ile aynı, ama frontend'in diğer sekmenin yeni token'ını beklemesi için kodu var.
+            logger.LogInformation("Unauthorized: {Message}", ex.Message);
+            context.Response.StatusCode  = (int)HttpStatusCode.Unauthorized;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message, code = RefreshTokenAlreadyRotatedException.ErrorCode }));
         }
         catch (UnauthorizedAccessException ex)
         {

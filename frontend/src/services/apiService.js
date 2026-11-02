@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+const baseURL = API_BASE_URL;
 
 const api = axios.create({ baseURL });
 
@@ -33,6 +34,22 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+// Backend bu kodu, token birkaç saniye önce başka bir sekmede yenilendiyse döner (#100).
+const TOKEN_ROTATED_CODE = 'refresh_token_rotated';
+const OTHER_TAB_WAIT_MS = 3000;
+const OTHER_TAB_POLL_MS = 100;
+
+// Diğer sekme yeni token çiftini localStorage'a yazana kadar kısa bir süre bekler.
+const waitForOtherTabToken = async (sentRefreshToken) => {
+    for (let waited = 0; waited <= OTHER_TAB_WAIT_MS; waited += OTHER_TAB_POLL_MS) {
+        const current = localStorage.getItem('refreshToken');
+        const token = localStorage.getItem('token');
+        if (current && current !== sentRefreshToken && token) return token;
+        await new Promise((resolve) => setTimeout(resolve, OTHER_TAB_POLL_MS));
+    }
+    return null;
+};
+
 // Aynı anda birden çok istek 401 alırsa hepsi bu tek refresh isteğini bekler.
 let refreshPromise = null;
 
@@ -45,9 +62,43 @@ const refreshAccessToken = () => {
                 saveSession(res.data.token, res.data.refreshToken);
                 return res.data.token;
             })
+            .catch(async (refreshError) => {
+                // İki sekme aynı anda yeniledi: diğer sekme kazandı, onun token'ını kullan.
+                if (refreshError.response?.data?.code === TOKEN_ROTATED_CODE) {
+                    const token = await waitForOtherTabToken(refreshToken);
+                    if (token) return token;
+                }
+                throw refreshError;
+            })
             .finally(() => { refreshPromise = null; });
     }
     return refreshPromise;
+};
+
+// Token'ın exp alanını okur (imza doğrulaması backend'in işi). Okunamazsa süresi dolmuş sayılır.
+const expiresSoon = (token, marginMs) => {
+    try {
+        const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const { exp } = JSON.parse(atob(part.padEnd(Math.ceil(part.length / 4) * 4, '=')));
+        return !exp || exp * 1000 - marginMs <= Date.now();
+    } catch {
+        return true;
+    }
+};
+
+// SignalR her bağlanışta ve yeniden bağlanışta bunu çağırır (#102). Token dolmak üzereyse
+// önce yenilenir, böylece süresi dolmuş token ile bağlanılmaz.
+export const getFreshAccessToken = async () => {
+    const token = localStorage.getItem('token');
+    if (token && !expiresSoon(token, 30_000)) return token;
+    if (!localStorage.getItem('refreshToken')) return token;
+    try {
+        return await refreshAccessToken();
+    } catch (refreshError) {
+        // Backend kapalıyken oturumu kapatma; yalnızca refresh token gerçekten reddedildiyse çık.
+        if (refreshError.response?.status === 401) endSession('auth.sessionExpired');
+        throw refreshError;
+    }
 };
 
 api.interceptors.response.use(

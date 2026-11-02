@@ -130,6 +130,58 @@ public sealed class NotificationService(
         }
     }
 
+    public async Task NotifyRiskExitFailedAsync(
+        TradingBot bot,
+        BotSignalReason reason,
+        decimal price,
+        int attempts,
+        DateTime failedAt,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var user = await db.Users
+                .FirstOrDefaultAsync(u => u.Id == bot.UserId, cancellationToken);
+            var trackedBot = await db.TradingBots
+                .FirstOrDefaultAsync(b => b.Id == bot.Id, cancellationToken);
+
+            // Pozisyon başına tek e-posta olduğu için cooldown'a takılmaz; tercih yine geçerli.
+            if (trackedBot is null || !ShouldNotify(user, null, failedAt))
+                return;
+
+            var (trName, enName) = reason == BotSignalReason.TakeProfit
+                ? ("Take-profit", "Take-profit")
+                : ("Stop-loss", "Stop-loss");
+            var subject = $"[CryptoTracker] {bot.Symbol}: {trName} satışı gerçekleştirilemedi / {enName} sell failed";
+            var body =
+                $"Merhaba {user!.Username},\n\n" +
+                $"{bot.Symbol} botunun {trName} satışı {attempts} denemeye rağmen gerçekleştirilemedi.\n" +
+                "Bot bu pozisyon için satışı tekrar denemeyecek. Lütfen portföyünü manuel kontrol et.\n" +
+                $"Son denemedeki fiyat: {price:0.########}\n" +
+                $"Zaman (UTC): {failedAt:yyyy-MM-dd HH:mm:ss}\n\n" +
+                "----\n\n" +
+                $"Hi {user.Username},\n\n" +
+                $"The {enName} sell of your {bot.Symbol} bot failed after {attempts} attempts.\n" +
+                "The bot will not retry this position. Please check your portfolio manually.\n" +
+                $"Price at last attempt: {price:0.########}\n" +
+                $"Time (UTC): {failedAt:yyyy-MM-dd HH:mm:ss}\n\n" +
+                "Bu bildirimleri profil sayfandan kapatabilirsin. / You can turn these e-mails off on your profile page.\n";
+
+            await emailSender.SendAsync(user.Email, subject, body, cancellationToken);
+
+            trackedBot.LastEmailNotifiedAt = failedAt;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Bot {BotId} için risk satışı hata bildirimi gönderilemedi", bot.Id);
+        }
+    }
+
     /// <summary>
     /// Kullanıcı var, e-posta tercihi açık ve son bildirimden bu yana cooldown geçmişse true.
     /// </summary>

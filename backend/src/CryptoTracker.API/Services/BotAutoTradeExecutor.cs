@@ -21,7 +21,8 @@ public interface IBotAutoTradeExecutor
 
 public sealed class BotAutoTradeExecutor(
     AppDbContext db,
-    IPortfolioService portfolioService) : IBotAutoTradeExecutor
+    IPortfolioService portfolioService,
+    IRealtimeNotifier? realtime = null) : IBotAutoTradeExecutor
 {
     public async Task<BotSignal> ExecuteAsync(
         TradingBot bot,
@@ -67,6 +68,7 @@ public sealed class BotAutoTradeExecutor(
 
             db.BotSignals.Add(approved);
             await db.SaveChangesAsync(cancellationToken);
+            await PublishAsync(bot, approved, cancellationToken);
             return approved;
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
@@ -84,7 +86,12 @@ public sealed class BotAutoTradeExecutor(
 
             db.BotSignals.Add(failed);
             await db.SaveChangesAsync(cancellationToken);
+            await PublishAsync(bot, failed, cancellationToken);
             return failed;
         }
     }
+
+    // Her bot sinyali (strateji, stop-loss, take-profit, başarısız) buradan geçtiği için anlık bildirim tek yerden gider.
+    private Task PublishAsync(TradingBot bot, BotSignal signal, CancellationToken cancellationToken) =>
+        realtime?.SendBotSignalAsync(bot, signal, cancellationToken) ?? Task.CompletedTask;
 }
