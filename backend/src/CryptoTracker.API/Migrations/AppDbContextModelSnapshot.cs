@@ -310,9 +310,18 @@ namespace CryptoTracker.API.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<int?>("LongEmaPeriod")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("SellRsiThreshold")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<int?>("ShortEmaPeriod")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Strategy")
+                        .HasColumnType("int");
 
                     b.Property<string>("Symbol")
                         .IsRequired()
