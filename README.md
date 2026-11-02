@@ -88,11 +88,27 @@ npm start
 # → http://localhost:3000
 ```
 
-### 6. Testleri çalıştır (opsiyonel)
+### 6. Testleri çalıştır
+
+**Backend** (xUnit, InMemory veritabanı kullanır, SQL Server gerekmez):
 ```bash
 cd backend
 dotnet test
 ```
+
+**Frontend** (Jest + React Testing Library, `react-scripts` ile gelir):
+```bash
+cd frontend
+npm test                                # izleme modunda, dosya değiştikçe tekrar çalışır
+CI=true npm test -- --watchAll=false    # tek sefer çalışır, CI'daki komut bu
+```
+Windows PowerShell'de tek sefer çalıştırmak için: `$env:CI="true"; npm test -- --watchAll=false`
+
+Frontend testleri ağ çağrılarını mock'lar, backend'in açık olması gerekmez. Test dosyaları
+test ettikleri dosyanın yanında `*.test.js` / `*.test.jsx` adıyla durur:
+- `services/apiService.test.js`: 401 gelince refresh, aynı anda gelen 401'lerde tek refresh, refresh başarısız olursa çıkış
+- `utils/botSignalReason.test.jsx`: Strateji / Stop-loss / Take-profit etiketleri (TR/EN)
+- `components/PortfolioHistoryChart/PortfolioHistoryChart.test.jsx`: yükleniyor, hata, boş, tek kayıt ve grafik durumları
 
 ### Test kullanıcısı (otomatik oluşturulur)
 | Alan | Değer |
@@ -114,9 +130,12 @@ Her `push` ve `pull_request` (main, develop) için GitHub Actions iki workflow �
 | Workflow | Dosya | Ne doğrular |
 |---|---|---|
 | Backend CI | `.github/workflows/backend-ci.yml` | `dotnet restore`, `dotnet build --configuration Release`, `dotnet test` (`backend/CryptoTracker.sln`) |
-| Frontend CI | `.github/workflows/frontend-ci.yml` | `npm ci`, `npm run build` (`frontend/`, Node 24) |
+| Frontend CI | `.github/workflows/frontend-ci.yml` | `npm ci`, `npm test` (Jest), `npm run build` (`frontend/`, Node 24) |
 
-Testler `Testing` ortamında InMemory veritabanı kullandığı için CI'da SQL Server gerekmez. Workflow kırmızıysa PR birleştirilmeden önce düzeltilmelidir.
+Testler `Testing` ortamında InMemory veritabanı kullandığı için CI'da SQL Server gerekmez. Frontend testlerinden biri kırmızıysa build adımına geçilmez. Workflow kırmızıysa PR birleştirilmeden önce düzeltilmelidir.
+
+Depo kökündeki `.gitattributes` metin dosyalarını depoda LF satır sonuyla tutar; Windows'ta da
+satır sonu farkı yüzünden dosyalar "değişmiş" görünmez.
 
 ---
 
