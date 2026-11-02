@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002';
+const baseURL = API_BASE_URL;
 
 const api = axios.create({ baseURL });
 
@@ -72,6 +73,32 @@ const refreshAccessToken = () => {
             .finally(() => { refreshPromise = null; });
     }
     return refreshPromise;
+};
+
+// Token'ın exp alanını okur (imza doğrulaması backend'in işi). Okunamazsa süresi dolmuş sayılır.
+const expiresSoon = (token, marginMs) => {
+    try {
+        const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const { exp } = JSON.parse(atob(part.padEnd(Math.ceil(part.length / 4) * 4, '=')));
+        return !exp || exp * 1000 - marginMs <= Date.now();
+    } catch {
+        return true;
+    }
+};
+
+// SignalR her bağlanışta ve yeniden bağlanışta bunu çağırır (#102). Token dolmak üzereyse
+// önce yenilenir, böylece süresi dolmuş token ile bağlanılmaz.
+export const getFreshAccessToken = async () => {
+    const token = localStorage.getItem('token');
+    if (token && !expiresSoon(token, 30_000)) return token;
+    if (!localStorage.getItem('refreshToken')) return token;
+    try {
+        return await refreshAccessToken();
+    } catch (refreshError) {
+        // Backend kapalıyken oturumu kapatma; yalnızca refresh token gerçekten reddedildiyse çık.
+        if (refreshError.response?.status === 401) endSession('auth.sessionExpired');
+        throw refreshError;
+    }
 };
 
 api.interceptors.response.use(

@@ -129,3 +129,43 @@ test('giriş yapılmamış isteğin 401\'i olduğu gibi döner', async () => {
   expect(window.location.assign).not.toHaveBeenCalled();
 });
 
+
+// ---------------- SignalR için güncel token (#102) ----------------
+
+const jwtExpiringIn = (seconds) => {
+  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + seconds })).replace(/=+$/, '');
+  return `header.${payload}.signature`;
+};
+
+test('getFreshAccessToken süresi dolmamış token\'ı refresh atmadan döner', async () => {
+  const token = jwtExpiringIn(10 * 60);
+  localStorage.setItem('token', token);
+
+  await expect(apiService.getFreshAccessToken()).resolves.toBe(token);
+  expect(refreshCalls).toHaveLength(0);
+});
+
+test('getFreshAccessToken süresi dolmuş ya da dolmak üzere olan token için önce refresh yapar', async () => {
+  localStorage.setItem('token', jwtExpiringIn(10));
+
+  await expect(apiService.getFreshAccessToken()).resolves.toBe('new-token');
+  expect(refreshCalls).toEqual([{ refreshToken: 'old-refresh' }]);
+});
+
+test('getFreshAccessToken backend kapalıyken oturumu kapatmaz', async () => {
+  localStorage.setItem('token', jwtExpiringIn(-60));
+  handleRefresh = (config) => Promise.reject(new axios.AxiosError('Network Error', 'ERR_NETWORK', config, {}));
+
+  await expect(apiService.getFreshAccessToken()).rejects.toBeTruthy();
+  expect(localStorage.getItem('refreshToken')).toBe('old-refresh');
+  expect(window.location.assign).not.toHaveBeenCalled();
+});
+
+test('getFreshAccessToken refresh token reddedilirse oturumu kapatır', async () => {
+  localStorage.setItem('token', jwtExpiringIn(-60));
+  handleRefresh = unauthorized;
+
+  await expect(apiService.getFreshAccessToken()).rejects.toBeTruthy();
+  expect(localStorage.getItem('token')).toBeNull();
+  expect(window.location.assign).toHaveBeenCalledWith('/signin');
+});
