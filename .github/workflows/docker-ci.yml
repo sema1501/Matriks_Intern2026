@@ -1,0 +1,25 @@
+# Docker CI: iki Dockerfile'ın da derlendiğini doğrular, konteyner çalıştırmaz.
+name: Docker CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: Compose dosyasını doğrula
+        run: cp .env.example .env && docker compose config --quiet
+
+      - name: API imajını derle
+        run: docker build -t cryptotracker-api ./backend
+
+      - name: Web imajını derle
+        run: docker build --build-arg REACT_APP_API_URL=http://localhost:3000 -t cryptotracker-web ./frontend
