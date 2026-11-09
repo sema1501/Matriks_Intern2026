@@ -54,7 +54,7 @@ export default function SignIn() {
         setLoading(true);
         try {
             const res = await login(form);
-            loginUser(res.data.token, res.data.refreshToken, res.data);
+            loginUser(res.data.token, res.data);
             navigate('/');
         } catch (err) {
             setErrors({

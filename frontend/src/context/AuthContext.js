@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getMe, logout, saveSession, clearSession } from '../services/apiService';
+import { getFreshAccessToken, getMe, hasSession, logout, saveSession, clearSession } from '../services/apiService';
 
 const AuthContext = createContext(null);
 
@@ -8,11 +8,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      getMe()
+    if (hasSession()) {
+      // Access token kaybolmuş ya da dolmuş olabilir: önce cookie ile sessizce yenilenir.
+      // Refresh reddedilirse apiService oturumu kendisi kapatır.
+      getFreshAccessToken()
+        .then(() => getMe())
         .then(res => setUser(res.data))
-        // Süresi dolmuş token'ı apiService yenilemeyi dener; o da olmazsa oturumu kendisi kapatır.
         .catch(() => setUser(null))
         .finally(() => setLoading(false));
     } else {
@@ -20,15 +21,14 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const loginUser = (token, refreshToken, userData) => {
-    saveSession(token, refreshToken);
+  const loginUser = (token, userData) => {
+    saveSession(token);
     setUser(userData);
   };
 
   const logoutUser = () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    // Backend'deki refresh token'ı iptal et; istek başarısız olsa da yerelde çıkış yapılır.
-    if (refreshToken) logout(refreshToken).catch(() => {});
+    // Backend token'ı iptal edip cookie'yi siler; istek başarısız olsa da yerelde çıkış yapılır.
+    logout().catch(() => {});
     clearSession();
     setUser(null);
   };

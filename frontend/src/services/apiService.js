@@ -3,23 +3,41 @@ import axios from 'axios';
 export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002';
 const baseURL = API_BASE_URL;
 
-const api = axios.create({ baseURL });
+// Refresh token HttpOnly cookie'de durur, kod onu göremez. withCredentials olmadan API başka porttayken
+// tarayıcı cookie'yi ne kaydeder ne de gönderir.
+const api = axios.create({ baseURL, withCredentials: true });
 
 // refresh/logout çağrıları için ayrı istemci: bunlar aşağıdaki 401 yakalayıcısına
 // girmemeli, yoksa refresh'in kendisi 401 alınca sonsuz döngü olur.
-const authApi = axios.create({ baseURL });
+// Özel başlığı backend CSRF koruması için ister, başka bir site CORS izni olmadan gönderemez.
+const authApi = axios.create({
+    baseURL,
+    withCredentials: true,
+    timeout: 15_000,
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+});
 
 export const SESSION_MESSAGE_KEY = 'authMessage';
 
-export const saveSession = (token, refreshToken) => {
+// Cookie'nin varlığı koddan görülemez. Bu işaret "bu tarayıcıda oturum açılmıştı" der; böylece access token
+// kaybolunca refresh denenir ama hiç giriş yapmamış ziyaretçi her sayfa açılışında boşuna istek atmaz.
+const SESSION_MARKER_KEY = 'hasSession';
+
+// Eski sürümden localStorage'da kalan refresh token artık işe yaramıyor, orada durmasın.
+localStorage.removeItem('refreshToken');
+
+export const saveSession = (token) => {
     localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem(SESSION_MARKER_KEY, '1');
 };
 
 export const clearSession = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem(SESSION_MARKER_KEY);
 };
+
+export const hasSession = () =>
+    Boolean(localStorage.getItem('token') || localStorage.getItem(SESSION_MARKER_KEY));
 
 // Oturumu kapatıp giriş sayfasına gönderir. Mesaj anahtarı giriş sayfasında çevrilip gösterilir.
 export const endSession = (messageKey) => {
@@ -34,47 +52,6 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Backend bu kodu, token birkaç saniye önce başka bir sekmede yenilendiyse döner (#100).
-const TOKEN_ROTATED_CODE = 'refresh_token_rotated';
-const OTHER_TAB_WAIT_MS = 3000;
-const OTHER_TAB_POLL_MS = 100;
-
-// Diğer sekme yeni token çiftini localStorage'a yazana kadar kısa bir süre bekler.
-const waitForOtherTabToken = async (sentRefreshToken) => {
-    for (let waited = 0; waited <= OTHER_TAB_WAIT_MS; waited += OTHER_TAB_POLL_MS) {
-        const current = localStorage.getItem('refreshToken');
-        const token = localStorage.getItem('token');
-        if (current && current !== sentRefreshToken && token) return token;
-        await new Promise((resolve) => setTimeout(resolve, OTHER_TAB_POLL_MS));
-    }
-    return null;
-};
-
-// Aynı anda birden çok istek 401 alırsa hepsi bu tek refresh isteğini bekler.
-let refreshPromise = null;
-
-const refreshAccessToken = () => {
-    if (!refreshPromise) {
-        const refreshToken = localStorage.getItem('refreshToken');
-        refreshPromise = authApi
-            .post('/api/Auth/refresh', { refreshToken })
-            .then((res) => {
-                saveSession(res.data.token, res.data.refreshToken);
-                return res.data.token;
-            })
-            .catch(async (refreshError) => {
-                // İki sekme aynı anda yeniledi: diğer sekme kazandı, onun token'ını kullan.
-                if (refreshError.response?.data?.code === TOKEN_ROTATED_CODE) {
-                    const token = await waitForOtherTabToken(refreshToken);
-                    if (token) return token;
-                }
-                throw refreshError;
-            })
-            .finally(() => { refreshPromise = null; });
-    }
-    return refreshPromise;
-};
-
 // Token'ın exp alanını okur (imza doğrulaması backend'in işi). Okunamazsa süresi dolmuş sayılır.
 const expiresSoon = (token, marginMs) => {
     try {
@@ -86,17 +63,77 @@ const expiresSoon = (token, marginMs) => {
     }
 };
 
+const FRESH_TOKEN_MARGIN_MS = 30_000;
+
+// Cookie tüm sekmelerde ortak olduğu için iki sekme aynı anda yenilerse ikincisi az önce iptal edilen
+// token'ı gönderir. Web Locks ile tek seferde tek sekme yeniler, diğeri kilit açılınca yeni token'ı okur.
+// Tarayıcı Web Locks desteklemiyorsa (ya da sayfa HTTPS değilse) kilit yoktur, aşağıdaki yedek devreye girer.
+const REFRESH_LOCK_NAME = 'crypto-tracker-token-refresh';
+
+const withRefreshLock = (task) =>
+    navigator.locks ? navigator.locks.request(REFRESH_LOCK_NAME, task) : task();
+
+// Backend bu kodu, token birkaç saniye önce başka bir sekmede yenilendiyse döner (#100).
+const TOKEN_ROTATED_CODE = 'refresh_token_rotated';
+const OTHER_TAB_WAIT_MS = 3000;
+const OTHER_TAB_POLL_MS = 100;
+
+// Diğer sekme yeni access token'ı localStorage'a yazana kadar kısa bir süre bekler.
+const waitForOtherTabToken = async (previousToken) => {
+    for (let waited = 0; waited <= OTHER_TAB_WAIT_MS; waited += OTHER_TAB_POLL_MS) {
+        const token = localStorage.getItem('token');
+        if (token && token !== previousToken) return token;
+        await new Promise((resolve) => setTimeout(resolve, OTHER_TAB_POLL_MS));
+    }
+    return null;
+};
+
+// Aynı sekmede aynı anda birden çok istek 401 alırsa hepsi bu tek refresh isteğini bekler.
+let refreshPromise = null;
+
+const refreshAccessToken = () => {
+    if (!refreshPromise) {
+        const previousToken = localStorage.getItem('token');
+        refreshPromise = withRefreshLock(async () => {
+            // Kilidi beklerken başka bir sekme yenilediyse ikinci kez yenilemeye gerek yok.
+            const current = localStorage.getItem('token');
+            if (current && current !== previousToken && !expiresSoon(current, FRESH_TOKEN_MARGIN_MS)) {
+                return current;
+            }
+
+            try {
+                const res = await authApi.post('/api/Auth/refresh');
+                saveSession(res.data.token);
+                return res.data.token;
+            } catch (refreshError) {
+                // Kilit yoksa iki sekme yine aynı anda yenileyebilir: diğeri kazandı, onun token'ını kullan.
+                if (refreshError.response?.data?.code === TOKEN_ROTATED_CODE) {
+                    const token = await waitForOtherTabToken(previousToken);
+                    if (token) return token;
+                }
+                throw refreshError;
+            }
+        }).finally(() => { refreshPromise = null; });
+    }
+    return refreshPromise;
+};
+
+// Oturumu yalnızca refresh token gerçekten reddedildiyse kapat. Backend kapalıyken ya da rate limit'e
+// takılınca kullanıcı atılmaz, istek hata döner.
+const endSessionIfRejected = (refreshError) => {
+    if (refreshError.response?.status === 401) endSession('auth.sessionExpired');
+};
+
 // SignalR her bağlanışta ve yeniden bağlanışta bunu çağırır (#102). Token dolmak üzereyse
-// önce yenilenir, böylece süresi dolmuş token ile bağlanılmaz.
+// önce yenilenir, böylece süresi dolmuş token ile bağlanılmaz. Yenileme aynı kilitten geçer.
 export const getFreshAccessToken = async () => {
     const token = localStorage.getItem('token');
-    if (token && !expiresSoon(token, 30_000)) return token;
-    if (!localStorage.getItem('refreshToken')) return token;
+    if (token && !expiresSoon(token, FRESH_TOKEN_MARGIN_MS)) return token;
+    if (!hasSession()) return token;
     try {
         return await refreshAccessToken();
     } catch (refreshError) {
-        // Backend kapalıyken oturumu kapatma; yalnızca refresh token gerçekten reddedildiyse çık.
-        if (refreshError.response?.status === 401) endSession('auth.sessionExpired');
+        endSessionIfRejected(refreshError);
         throw refreshError;
     }
 };
@@ -121,17 +158,12 @@ api.interceptors.response.use(
             return api(original);
         }
 
-        if (!localStorage.getItem('refreshToken')) {
-            endSession('auth.sessionExpired');
-            return Promise.reject(error);
-        }
-
         try {
             const newToken = await refreshAccessToken();
             original.headers.Authorization = `Bearer ${newToken}`;
             return api(original);
         } catch (refreshError) {
-            endSession('auth.sessionExpired');
+            endSessionIfRejected(refreshError);
             return Promise.reject(refreshError);
         }
     }
@@ -140,7 +172,7 @@ api.interceptors.response.use(
 // Auth
 export const register = (data) => api.post('/api/Auth/register', data);
 export const login = (data) => api.post('/api/Auth/login', data);
-export const logout = (refreshToken) => authApi.post('/api/Auth/logout', { refreshToken });
+export const logout = () => authApi.post('/api/Auth/logout');
 export const getMe = () => api.get('/api/Auth/me');
 export const updateProfile = (data) => api.put('/api/Auth/me', data);
 export const changePassword = (data) => api.put('/api/Auth/me/password', data);
