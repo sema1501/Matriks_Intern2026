@@ -131,10 +131,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddAppRateLimiting(builder.Configuration);
 
 // ── CORS ─────────────────────────────────────────────────────────
-// SignalR istemcisi kimlik bilgisiyle (withCredentials) bağlandığı için AllowCredentials gerekir;
+// SignalR ve refresh token cookie'si kimlik bilgisiyle (withCredentials) çalıştığı için AllowCredentials gerekir;
 // bu da AllowAnyOrigin ile birlikte kullanılamaz, origin'ler açıkça listelenir.
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? ["http://localhost:3000"];
+var allowedOrigins = CorsOrigins.GetAllowed(builder.Configuration);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>

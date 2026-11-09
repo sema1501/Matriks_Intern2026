@@ -1,4 +1,5 @@
 using CryptoTracker.API.DTOs;
+using CryptoTracker.API.Middleware;
 using CryptoTracker.API.RateLimiting;
 using CryptoTracker.API.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +11,7 @@ namespace CryptoTracker.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(IAuthService authService, IUserService userService) : ControllerBase
+public class AuthController(IAuthService authService, IUserService userService, IConfiguration configuration) : ControllerBase
 {
     [HttpPost("register")]
     [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
@@ -28,19 +29,28 @@ public class AuthController(IAuthService authService, IUserService userService) 
     [HttpPost("login")]
     [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
-        => Ok(await authService.LoginAsync(request));
+        => Ok(StartSession(await authService.LoginAsync(request)));
 
     [HttpPost("refresh")]
     [EnableRateLimiting(RateLimitingSetup.AuthPolicy)]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
-        => Ok(await authService.RefreshAsync(request.RefreshToken));
+    [RefreshCookieCsrfProtection]
+    public async Task<IActionResult> Refresh()
+        => Ok(StartSession(await authService.RefreshAsync(RefreshTokenCookie.Read(Request))));
 
-    // Access token süresi dolmuş olabilir; kimlik, gönderilen refresh token'ın kendisidir.
+    // Access token süresi dolmuş olabilir; kimlik, cookie'deki refresh token'ın kendisidir.
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    [RefreshCookieCsrfProtection]
+    public async Task<IActionResult> Logout()
     {
-        await authService.LogoutAsync(request.RefreshToken);
+        await authService.LogoutAsync(RefreshTokenCookie.Read(Request));
+        RefreshTokenCookie.Delete(Response, configuration);
         return NoContent();
+    }
+
+    private AuthResponse StartSession(AuthSession session)
+    {
+        RefreshTokenCookie.Write(Response, session.RefreshToken, configuration);
+        return session.ToResponse();
     }
 
     [HttpPost("forgot-password")]

@@ -96,7 +96,7 @@ public class AuthService(
         await db.SaveChangesAsync();
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request)
+    public async Task<AuthSession> LoginAsync(LoginRequest request)
     {
         var user = await db.Users
             .Include(u => u.UserRoles)
@@ -120,10 +120,10 @@ public class AuthService(
         string refreshToken = AddRefreshToken(user.Id);
         await db.SaveChangesAsync();
 
-        return new AuthResponse(token, refreshToken, user.Username, roles);
+        return new AuthSession(token, refreshToken, user.Username, roles);
     }
 
-    public async Task<AuthResponse> RefreshAsync(string refreshToken)
+    public async Task<AuthSession> RefreshAsync(string refreshToken)
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
             throw new UnauthorizedAccessException("Oturum yenilenemedi.");
@@ -176,7 +176,7 @@ public class AuthService(
 
         await db.SaveChangesAsync();
 
-        return new AuthResponse(accessToken, newRefreshToken, stored.User.Username, roles);
+        return new AuthSession(accessToken, newRefreshToken, stored.User.Username, roles);
     }
 
     public async Task LogoutAsync(string refreshToken)
