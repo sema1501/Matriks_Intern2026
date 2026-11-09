@@ -1,0 +1,63 @@
+# Tüm projeyi tek komutla çalıştırır: docker compose up --build
+# Şifre ve anahtarlar .env dosyasından okunur (.env.example dosyasını .env olarak kopyalayın).
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?.env dosyasinda MSSQL_SA_PASSWORD yok, .env.example dosyasini .env olarak kopyalayin}
+      ACCEPT_EULA: "Y"
+    ports:
+      # dotnet run ile çalışırken de bu veritabanı kullanılır (appsettings.json bu portu bekler).
+      - "14330:1433"
+    volumes:
+      - db_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api:
+    build: ./backend
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Server=db,1433;Database=CryptoTrackerDb;User Id=SA;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      Jwt__Key: ${JWT_KEY:?.env dosyasinda JWT_KEY yok, .env.example dosyasini .env olarak kopyalayin}
+      Cors__AllowedOrigins__0: http://localhost:3000
+      App__FrontendBaseUrl: http://localhost:3000
+      # İstekler nginx üzerinden geldiği için gerçek istemci IP'si X-Forwarded-For başlığından okunur.
+      ForwardedHeaders__Enabled: "true"
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      BinanceTestnet__ApiKey: ${BINANCE_TESTNET_API_KEY:-}
+      BinanceTestnet__ApiSecret: ${BINANCE_TESTNET_API_SECRET:-}
+    ports:
+      # Yalnızca bu bilgisayardan erişilir; dışarıdan gelen istekler nginx'ten geçmek zorunda.
+      - "127.0.0.1:5002:5002"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Tarayıcı API'ye de nginx üzerinden gider, bu yüzden adres web sunucusunun kendi adresi.
+        REACT_APP_API_URL: http://localhost:3000
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  db_data:
