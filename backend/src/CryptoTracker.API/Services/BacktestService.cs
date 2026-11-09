@@ -103,6 +103,9 @@ public sealed class BacktestService(
         }
 
         var simulation = Simulate(bot, candles, rsiSeries, startUtc, endUtc);
+        var withoutLimits = HasRiskLimits(bot)
+            ? WithoutCurve(Simulate(bot, candles, rsiSeries, startUtc, endUtc, applyRiskLimits: false))
+            : null;
 
         return new BacktestResponseDto(
             bot.Id,
@@ -112,7 +115,9 @@ public sealed class BacktestService(
             endUtc,
             RsiSignalEvaluator.Interval,
             simulation.Summary,
-            simulation.Signals);
+            simulation.Signals,
+            simulation.Metrics,
+            withoutLimits);
     }
 
     internal static SimulationResult Simulate(
@@ -120,7 +125,8 @@ public sealed class BacktestService(
         IReadOnlyList<BinanceKlineCandle> candles,
         IReadOnlyList<decimal?> rsiSeries,
         DateTime startUtc,
-        DateTime endUtc)
+        DateTime endUtc,
+        bool applyRiskLimits = true)
     {
         if (bot.TradeQuantity <= 0)
             throw new ArgumentException("Bot trade quantity must be greater than zero.");
@@ -155,7 +161,7 @@ public sealed class BacktestService(
             events.Add((i, signalType.Value, rsi.Value));
         }
 
-        return BuildResult(bot, candles, events, startUtc, endUtc, rsiSeries);
+        return BuildResult(bot, candles, events, startUtc, endUtc, rsiSeries, applyRiskLimits);
     }
 
     /// <summary>
@@ -167,7 +173,8 @@ public sealed class BacktestService(
         TradingBot bot,
         IReadOnlyList<BinanceKlineCandle> candles,
         DateTime startUtc,
-        DateTime endUtc)
+        DateTime endUtc,
+        bool applyRiskLimits = true)
     {
         if (bot.TradeQuantity <= 0)
             throw new ArgumentException("Bot trade quantity must be greater than zero.");
@@ -210,7 +217,7 @@ public sealed class BacktestService(
             events.Add((i, signalType.Value, null));
         }
 
-        return BuildResult(bot, candles, events, startUtc, endUtc, rsiSeries: null);
+        return BuildResult(bot, candles, events, startUtc, endUtc, rsiSeries: null, applyRiskLimits);
     }
 
     /// <summary>
@@ -220,6 +227,8 @@ public sealed class BacktestService(
     /// Stop-loss / take-profit canlı botla aynı sırada uygulanır: her mumda, strateji
     /// sinyalinden ÖNCE açık pozisyon kapanış fiyatıyla kontrol edilir; risk satışı olan
     /// mumda strateji sinyali değerlendirilmez.
+    /// Değer eğrisi için sermaye, botun işlem miktarının ilk mumdaki değeridir; al ve tut da aynı
+    /// parayla başladığı için iki getiri doğrudan karşılaştırılabilir.
     /// </summary>
     private static SimulationResult BuildResult(
         TradingBot bot,
@@ -227,7 +236,8 @@ public sealed class BacktestService(
         IReadOnlyList<(int Index, BotSignalType Type, decimal? Rsi)> events,
         DateTime startUtc,
         DateTime endUtc,
-        IReadOnlyList<decimal?>? rsiSeries)
+        IReadOnlyList<decimal?>? rsiSeries,
+        bool applyRiskLimits)
     {
         var signals = new List<BacktestSignalDto>();
         var quantity = bot.TradeQuantity;
@@ -239,9 +249,16 @@ public sealed class BacktestService(
         var completedTrades = 0;
         var winningTrades = 0;
         var losingTrades = 0;
+        var trades = new List<BacktestTrade>();
+        var equityCurve = new List<BacktestEquityPointDto>();
+        var firstClose = FindFirstInRangeClose(candles, startUtc, endUtc);
+        var lastClose = FindLastInRangeClose(candles, startUtc, endUtc);
+        var startingCapital = (firstClose ?? 0m) * quantity;
 
-        void ClosePosition(decimal exitPrice)
+        void ClosePosition(decimal exitPrice, BotSignalReason reason)
         {
+            trades.Add(new BacktestTrade(openEntryPrice!.Value, exitPrice, quantity, reason));
+
             var tradePnL = (exitPrice - openEntryPrice!.Value) * quantity;
             realizedPnL += tradePnL;
             completedTrades++;
@@ -254,14 +271,9 @@ public sealed class BacktestService(
             openEntryPrice = null;
         }
 
-        for (var i = 0; i < candles.Count; i++)
+        void ProcessCandle(int i, BinanceKlineCandle candle)
         {
-            var candle = candles[i];
-
-            if (candle.OpenTimeUtc < startUtc || candle.OpenTimeUtc > endUtc)
-                continue;
-
-            if (openEntryPrice is not null)
+            if (openEntryPrice is not null && applyRiskLimits)
             {
                 var riskReason = RiskExitEvaluator.Evaluate(
                     openEntryPrice.Value,
@@ -278,13 +290,13 @@ public sealed class BacktestService(
                         rsiSeries?[i],
                         riskReason.Value.ToString()));
 
-                    ClosePosition(candle.ClosePrice);
-                    continue;
+                    ClosePosition(candle.ClosePrice, riskReason.Value);
+                    return;
                 }
             }
 
             if (!eventsByIndex.TryGetValue(i, out var evt))
-                continue;
+                return;
 
             var signalType = evt.Type;
             var typeLabel = signalType == BotSignalType.Buy ? "BUY" : "SELL";
@@ -310,18 +322,30 @@ public sealed class BacktestService(
             {
                 // SELL with no open position: keep signal, no PnL impact.
                 if (openEntryPrice is not null)
-                    ClosePosition(candle.ClosePrice);
+                    ClosePosition(candle.ClosePrice, BotSignalReason.Strategy);
             }
+        }
+
+        for (var i = 0; i < candles.Count; i++)
+        {
+            var candle = candles[i];
+
+            if (candle.OpenTimeUtc < startUtc || candle.OpenTimeUtc > endUtc)
+                continue;
+
+            ProcessCandle(i, candle);
+
+            // Nakit + eldeki coin: işlem fiyatı kapanış olduğu için alım satım anında değer değişmez.
+            var openPnL = openEntryPrice is null ? 0m : (candle.ClosePrice - openEntryPrice.Value) * quantity;
+            equityCurve.Add(new BacktestEquityPointDto(
+                candle.OpenTimeUtc,
+                Math.Round(startingCapital + realizedPnL + openPnL, 8)));
         }
 
         // End-of-range: leave open position unrealized; mark-to-market at final in-range close.
         decimal unrealizedPnL = 0m;
-        if (openEntryPrice is not null)
-        {
-            var finalClose = FindLastInRangeClose(candles, startUtc, endUtc);
-            if (finalClose is not null)
-                unrealizedPnL = (finalClose.Value - openEntryPrice.Value) * quantity;
-        }
+        if (openEntryPrice is not null && lastClose is not null)
+            unrealizedPnL = (lastClose.Value - openEntryPrice.Value) * quantity;
 
         var netPnL = realizedPnL + unrealizedPnL;
         var realizedReturnPercentage = totalEntryValue == 0
@@ -343,7 +367,9 @@ public sealed class BacktestService(
             Math.Round(netPnL, 8),
             realizedReturnPercentage);
 
-        return new SimulationResult(summary, signals);
+        var metrics = BacktestMetrics.Calculate(trades, equityCurve, firstClose, lastClose);
+
+        return new SimulationResult(summary, signals, metrics);
     }
 
     private async Task<BacktestResponseDto> RunEmaAsync(
@@ -386,6 +412,9 @@ public sealed class BacktestService(
         }
 
         var simulation = SimulateEma(bot, candles, startUtc, endUtc);
+        var withoutLimits = HasRiskLimits(bot)
+            ? WithoutCurve(SimulateEma(bot, candles, startUtc, endUtc, applyRiskLimits: false))
+            : null;
 
         return new BacktestResponseDto(
             bot.Id,
@@ -395,8 +424,17 @@ public sealed class BacktestService(
             endUtc,
             EmaCrossoverEvaluator.Interval,
             simulation.Summary,
-            simulation.Signals);
+            simulation.Signals,
+            simulation.Metrics,
+            withoutLimits);
     }
+
+    private static bool HasRiskLimits(TradingBot bot) =>
+        bot.StopLossPercent is not null || bot.TakeProfitPercent is not null;
+
+    // Karşılaştırma tablosunda eğri gösterilmiyor, yanıt boşuna büyümesin.
+    private static BacktestMetricsDto WithoutCurve(SimulationResult simulation) =>
+        simulation.Metrics with { EquityCurve = [] };
 
     internal static string StrategyLabel(BotStrategy strategy) =>
         strategy == BotStrategy.EmaCrossover ? "EMA" : "RSI";
@@ -415,6 +453,20 @@ public sealed class BacktestService(
         var maxEnd = DateTime.UtcNow.Add(MaxFutureSkew);
         if (endUtc > maxEnd)
             throw new ArgumentException("Bitiş tarihi gelecekte çok ileride olamaz.");
+    }
+
+    private static decimal? FindFirstInRangeClose(
+        IReadOnlyList<BinanceKlineCandle> candles,
+        DateTime startUtc,
+        DateTime endUtc)
+    {
+        foreach (var candle in candles)
+        {
+            if (candle.OpenTimeUtc >= startUtc && candle.OpenTimeUtc <= endUtc)
+                return candle.ClosePrice;
+        }
+
+        return null;
     }
 
     private static decimal? FindLastInRangeClose(
@@ -445,5 +497,6 @@ public sealed class BacktestService(
 
     internal sealed record SimulationResult(
         BacktestSummaryDto Summary,
-        IReadOnlyList<BacktestSignalDto> Signals);
+        IReadOnlyList<BacktestSignalDto> Signals,
+        BacktestMetricsDto Metrics);
 }

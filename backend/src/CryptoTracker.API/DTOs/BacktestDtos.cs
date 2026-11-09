@@ -13,7 +13,10 @@ public record BacktestResponseDto(
     DateTime EndDate,
     string Interval,
     BacktestSummaryDto Summary,
-    IReadOnlyList<BacktestSignalDto> Signals
+    IReadOnlyList<BacktestSignalDto> Signals,
+    BacktestMetricsDto Metrics,
+    // Yalnızca botta stop-loss / take-profit varsa dolu: aynı mumlarda limitsiz koşunun metrikleri.
+    BacktestMetricsDto? MetricsWithoutRiskLimits = null
 );
 
 public record BacktestSummaryDto(
@@ -27,6 +30,24 @@ public record BacktestSummaryDto(
     decimal UnrealizedProfitLoss,
     decimal NetProfitLoss,
     decimal RealizedReturnPercentage
+);
+
+public record BacktestMetricsDto(
+    decimal? MaxDrawdownPercent,
+    decimal? WinRatePercent,
+    decimal? ProfitFactor,
+    decimal? AverageTradeReturnPercent,
+    int StopLossTrades,
+    int TakeProfitTrades,
+    decimal? StrategyReturnPercent,
+    decimal? BuyAndHoldReturnPercent,
+    decimal? BuyAndHoldDifferencePercent,
+    IReadOnlyList<BacktestEquityPointDto> EquityCurve
+);
+
+public record BacktestEquityPointDto(
+    DateTime Timestamp,
+    decimal Value
 );
 
 public record BacktestSignalDto(

@@ -47,6 +47,12 @@ public class BotBacktestIntegrationTests : IClassFixture<BotBacktestApiFactory>
         Assert.Equal("1m", body.Interval);
         Assert.NotNull(body.Summary);
         Assert.NotNull(body.Signals);
+        Assert.NotNull(body.Metrics);
+        Assert.NotEmpty(body.Metrics.EquityCurve);
+        Assert.NotNull(body.Metrics.MaxDrawdownPercent);
+        Assert.NotNull(body.Metrics.BuyAndHoldReturnPercent);
+        // Botta stop-loss / take-profit yok, karşılaştırılacak ikinci koşu da yok.
+        Assert.Null(body.MetricsWithoutRiskLimits);
     }
 
     [Fact]
