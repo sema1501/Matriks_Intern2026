@@ -39,7 +39,7 @@ const niceStep = (rough) => {
 };
 
 /** Y ekseni sınırları ve çizgileri: en düşük ve en yüksek değeri yuvarlak sayılarla kapsar. */
-const buildYAxis = (values) => {
+export const buildYAxis = (values) => {
   let min = Math.min(...values);
   let max = Math.max(...values);
   // Değer hiç değişmediyse çizgi ortada dursun.

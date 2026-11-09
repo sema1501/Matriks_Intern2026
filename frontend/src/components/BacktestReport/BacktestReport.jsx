@@ -4,6 +4,7 @@ import { runBotBacktest } from '../../services/apiService';
 import { getKlinesRange } from '../../services/binanceService';
 import { useLanguage } from '../../context/LanguageContext';
 import { normalizeReason, reasonLabelKey } from '../../utils/botSignalReason';
+import BacktestEquityChart from './BacktestEquityChart';
 import './BacktestReport.css';
 
 let overlaysRegistered = false;
@@ -94,6 +95,131 @@ const formatNumber = (value, digits = 2) => {
         maximumFractionDigits: digits
     });
 };
+
+const EMPTY_METRIC = '—';
+
+// null, NaN ve Infinity ekrana hiçbir zaman çıkmaz. Number(null) 0 olduğu için null önce kontrol edilir.
+const isMetricNumber = (value) => value !== null && value !== undefined && Number.isFinite(Number(value));
+
+const metricNumber = (value, lang) =>
+    isMetricNumber(value)
+        ? Number(value).toLocaleString(lang === 'en' ? 'en-US' : 'tr-TR', { maximumFractionDigits: 2 })
+        : EMPTY_METRIC;
+
+const metricPercent = (value, lang) => {
+    if (!isMetricNumber(value)) return EMPTY_METRIC;
+    const text = metricNumber(Math.abs(Number(value)), lang);
+    const sign = Number(value) < 0 ? '-' : '';
+    return lang === 'en' ? `${sign}${text}%` : `${sign}%${text}`;
+};
+
+function MetricCard({ label, info, valueClassName, value, children }) {
+    return (
+        <div>
+            <span className="backtest-metric-label">
+                {label}
+                <span className="backtest-metric-info" role="img" tabIndex={0} title={info} aria-label={info}>ⓘ</span>
+            </span>
+            <strong className={valueClassName}>{value}</strong>
+            {children}
+        </div>
+    );
+}
+
+function BacktestMetricCards({ metrics }) {
+    const { t, lang } = useLanguage();
+    const difference = metrics.buyAndHoldDifferencePercent;
+    const hasDifference = isMetricNumber(difference);
+    const beatsBuyHold = hasDifference && Number(difference) > 0;
+
+    return (
+        <div className="backtest-summary-grid backtest-metric-grid">
+            <MetricCard
+                label={t('backtest.metric.winRate')}
+                info={t('backtest.metric.winRate.info')}
+                value={metricPercent(metrics.winRatePercent, lang)}
+            />
+            <MetricCard
+                label={t('backtest.metric.maxDrawdown')}
+                info={t('backtest.metric.maxDrawdown.info')}
+                valueClassName={isMetricNumber(metrics.maxDrawdownPercent) ? 'negative' : undefined}
+                value={metricPercent(metrics.maxDrawdownPercent, lang)}
+            />
+            <MetricCard
+                label={t('backtest.metric.profitFactor')}
+                info={t('backtest.metric.profitFactor.info')}
+                value={metricNumber(metrics.profitFactor, lang)}
+            />
+            <MetricCard
+                label={t('backtest.metric.buyHold')}
+                info={t('backtest.metric.buyHold.info')}
+                valueClassName={hasDifference ? (beatsBuyHold ? 'positive' : 'negative') : undefined}
+                value={metricPercent(difference, lang)}
+            >
+                {hasDifference && (
+                    <small className={`backtest-buyhold-badge ${beatsBuyHold ? 'positive' : 'negative'}`}>
+                        {t(beatsBuyHold ? 'backtest.metric.buyHold.beat' : 'backtest.metric.buyHold.behind')}
+                    </small>
+                )}
+                <small className="backtest-metric-note">
+                    {t('backtest.metric.buyHold.return')}: {metricPercent(metrics.buyAndHoldReturnPercent, lang)}
+                </small>
+            </MetricCard>
+            <MetricCard
+                label={t('backtest.metric.avgTrade')}
+                info={t('backtest.metric.avgTrade.info')}
+                value={metricPercent(metrics.averageTradeReturnPercent, lang)}
+            />
+            <MetricCard
+                label={t('backtest.metric.riskExits')}
+                info={t('backtest.metric.riskExits.info')}
+                value={`${metrics.stopLossTrades ?? 0} / ${metrics.takeProfitTrades ?? 0}`}
+            />
+        </div>
+    );
+}
+
+function RiskLimitComparison({ withLimits, withoutLimits }) {
+    const { t, lang } = useLanguage();
+    const rows = [
+        ['backtest.metric.strategyReturn', (m) => metricPercent(m.strategyReturnPercent, lang)],
+        ['backtest.metric.maxDrawdown', (m) => metricPercent(m.maxDrawdownPercent, lang)],
+        ['backtest.metric.winRate', (m) => metricPercent(m.winRatePercent, lang)],
+        ['backtest.metric.profitFactor', (m) => metricNumber(m.profitFactor, lang)],
+        ['backtest.metric.avgTrade', (m) => metricPercent(m.averageTradeReturnPercent, lang)],
+    ];
+
+    return (
+        <div className="backtest-table-card">
+            <div className="backtest-table-heading">
+                <div>
+                    <h3>{t('backtest.compare.title')}</h3>
+                    <p>{t('backtest.compare.subtitle')}</p>
+                </div>
+            </div>
+            <div className="backtest-table-scroll">
+                <table className="backtest-table">
+                    <thead>
+                        <tr>
+                            <th>{t('backtest.compare.metric')}</th>
+                            <th>{t('backtest.compare.withLimits')}</th>
+                            <th>{t('backtest.compare.withoutLimits')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map(([labelKey, read]) => (
+                            <tr key={labelKey}>
+                                <td>{t(labelKey)}</td>
+                                <td>{read(withLimits)}</td>
+                                <td>{read(withoutLimits)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
 
 const getErrorMessage = (error) => {
     const data = error?.response?.data;
@@ -309,6 +435,29 @@ export default function BacktestReport({ bot, onClose }) {
                                 </strong>
                             </div>
                         </div>
+
+                        {result.metrics && (
+                            <>
+                                <BacktestMetricCards metrics={result.metrics} />
+
+                                <div className="backtest-table-card">
+                                    <div className="backtest-table-heading">
+                                        <div>
+                                            <h3>{t('backtest.equity.title')}</h3>
+                                            <p>{t('backtest.equity.subtitle')}</p>
+                                        </div>
+                                    </div>
+                                    <BacktestEquityChart points={result.metrics.equityCurve ?? []} />
+                                </div>
+
+                                {result.metricsWithoutRiskLimits && (
+                                    <RiskLimitComparison
+                                        withLimits={result.metrics}
+                                        withoutLimits={result.metricsWithoutRiskLimits}
+                                    />
+                                )}
+                            </>
+                        )}
 
                         {candles.length > 0 ? (
                             <div className="backtest-chart-card">

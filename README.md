@@ -109,6 +109,7 @@ test ettikleri dosyanın yanında `*.test.js` / `*.test.jsx` adıyla durur:
 - `services/apiService.test.js`: 401 gelince refresh, aynı anda gelen 401'lerde tek refresh, refresh başarısız olursa çıkış
 - `utils/botSignalReason.test.jsx`: Strateji / Stop-loss / Take-profit etiketleri (TR/EN)
 - `components/PortfolioHistoryChart/PortfolioHistoryChart.test.jsx`: yükleniyor, hata, boş, tek kayıt ve grafik durumları
+- `components/BacktestReport/BacktestReport.test.jsx`: boş metriklerde "—", al ve tut rozeti, limitli ve limitsiz karşılaştırma
 - `context/RealtimeContext.test.jsx`: bağlantı kopunca polling'e geçiş, geri gelince polling'in durması, çıkışta bağlantının kapanması
 - `components/AlertMonitor/AlertMonitor.test.jsx`: aynı sinyal SignalR ve polling'den gelince tek bildirim
 
@@ -216,6 +217,20 @@ Backtest de aynı kuralı uygular. Bu satış başarısız olursa (örn. Testnet
 turlarda en fazla 5 kez, denemeler arasında 2 dakika bekleyerek tekrar dener; beklerken
 strateji sinyali çalışmaz. 5. deneme de başarısız olursa kullanıcıya bir kez TR/EN e-posta
 gider (`TradingBot:RiskExitMaxAttempts`, `TradingBot:RiskExitRetryDelayMinutes`).
+
+Backtest raporundaki risk metrikleri, toplam kârın tek başına söylemediğini gösterir:
+
+| Metrik | Ne demek |
+|---|---|
+| Değer eğrisi | Her mumun sonundaki toplam değer (nakit + eldeki coin). Sermaye, işlem miktarının ilk mumdaki değeridir. API en fazla 300 nokta döner; ilk, son ve en düşük nokta her zaman kalır |
+| Maks. düşüş | Eğrinin en yüksek noktasından sonraki en düşük noktaya en büyük yüzde kayıp |
+| Kazanma oranı | Kârla kapanan işlemlerin kapanan tüm işlemlere oranı. Hiç kapanan işlem yoksa boş (—) |
+| Kâr faktörü | Toplam kâr ÷ toplam zarar. 1'in üstü kârlıdır, hiç zarar yoksa boş (—) |
+| Ortalama işlem getirisi | Kapanan işlemlerin yüzde getirilerinin ortalaması |
+| Al ve tut farkı | Stratejinin getirisi eksi ilk mumda alıp son mumda satmanın getirisi. Eksiyse strateji hiçbir şey yapmamaktan kötüdür |
+
+Botta stop-loss ya da take-profit varsa rapor aynı mumları limitsiz de çalıştırır ve iki sonucu yan yana
+gösterir, böylece limitlerin işe yarayıp yaramadığı görülür.
 
 **Admin Paneli**
 Tüm kullanıcıların bot ve portföy aktivitesini görüntüleme, şüpheli/aşırı işlem yapan
