@@ -28,6 +28,8 @@ services:
       App__FrontendBaseUrl: http://localhost:3000
       # İstekler nginx üzerinden geldiği için gerçek istemci IP'si X-Forwarded-For başlığından okunur.
       ForwardedHeaders__Enabled: "true"
+      # Bu kurulum yerelde http üzerinden çalışır. HTTPS arkasına alınırsa true yapılmalı.
+      Auth__RefreshCookieSecure: "false"
       Smtp__Host: ${SMTP_HOST:-}
       Smtp__Port: ${SMTP_PORT:-587}
       Smtp__User: ${SMTP_USER:-}
