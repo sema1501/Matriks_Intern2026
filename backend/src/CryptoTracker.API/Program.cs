@@ -4,6 +4,7 @@ using CryptoTracker.API.Middleware;
 using CryptoTracker.API.RateLimiting;
 using CryptoTracker.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -148,6 +149,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
 
+// ── Sağlık ucu (Docker healthcheck) ───────────────────────────────
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
+
 // ── Swagger ──────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -187,11 +191,23 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Ters proxy (nginx) arkasında bağlantının IP'si hep proxy'nin IP'si olur; rate limiting bütün
+// kullanıcıları tek kişi sayardı. Başlık yalnızca bu ayar açıksa okunur, çünkü API doğrudan
+// erişilebilir durumdaysa istemci sahte bir X-Forwarded-For ile limiti aşabilir.
+if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
+{
+    var forwardedOptions = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor };
+    forwardedOptions.KnownNetworks.Clear();
+    forwardedOptions.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwardedOptions);
+}
+
 app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health").DisableRateLimiting();
 app.MapControllers();
 app.MapHub<NotificationHub>(NotificationHub.Path);
 

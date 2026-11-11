@@ -26,6 +26,8 @@ public static class DataSeeder
             {
                 Username       = "admin",
                 Email          = "admin@cryptotracker.dev",
+                // Bu adrese e-posta gidemez; doğrulama beklenirse temiz kurulumda hiç giriş yapılamaz.
+                EmailConfirmed = true,
                 PasswordHash   = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
                 VirtualBalance = 10_000m
             };

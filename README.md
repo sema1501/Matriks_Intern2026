@@ -2,6 +2,7 @@
 
 [![Backend CI](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/backend-ci.yml)
 [![Frontend CI](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/frontend-ci.yml)
+[![Docker CI](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/docker-ci.yml/badge.svg)](https://github.com/sema1501/Matriks_Intern2026/actions/workflows/docker-ci.yml)
 
 Canlı kripto para takibi, teknik analiz ve sanal (Binance Testnet üzerinden) alım-satım
 botu içeren full-stack bir uygulama.
@@ -10,7 +11,49 @@ botu içeren full-stack bir uygulama.
 
 ---
 
-## Kurulum
+## Docker ile çalıştır
+
+Tek gereken [Docker Desktop](https://www.docker.com/products/docker-desktop). Depo kökünde:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+İlk derleme birkaç dakika sürer. Hazır olunca:
+
+| Adres | Ne var |
+|---|---|
+| http://localhost:3000 | Web arayüzü. `/api` ve `/hubs` istekleri nginx üzerinden API'ye gider |
+| http://localhost:5002/health | API sağlık ucu, yalnızca bu bilgisayardan erişilir |
+| `localhost,14330` | SQL Server, yalnızca veritabanına bakmak isterseniz |
+
+İlk giriş için aşağıdaki [test kullanıcısı](#test-kullanıcısı-otomatik-oluşturulur) otomatik oluşur (`admin` / `Admin123!`).
+Yeni kayıt açarsanız ve `.env`'de `SMTP_HOST` boşsa e-posta doğrulama bağlantısı gönderilmez, API loguna yazılır:
+`docker compose logs api | grep confirm-email`.
+
+```bash
+docker compose logs -f api    # bir servisin logları (db, api, web)
+docker compose down           # durdurur, veriler kalır
+docker compose down -v        # durdurur ve veritabanını siler, her şey sıfırlanır
+```
+
+Daha önce eski `backend/docker-compose.yml` ile kurduysanız 14330 portu dolu olur, önce eski konteyneri durdurun
+(`docker stop cryptotracker-db`). Yeni kurulum kendi boş veritabanıyla başlar, eski veriler eski volume'da kalır.
+
+Şifre ve anahtarlar `.env` dosyasından okunur, bu dosya git'e girmez. `.env.example`'daki, `appsettings.json`'daki
+ve seed kullanıcısındaki değerler yalnızca yerel geliştirme içindir, **üretimde mutlaka değiştirin**.
+
+`REACT_APP_API_URL` çalışma anında değil `npm run build` sırasında koda gömülür, tarayıcıda çalışan
+koda ortam değişkeni ulaşamaz; bu yüzden Dockerfile'da `ARG` ile alınır, değiştirince imaj yeniden derlenmelidir.
+
+Swagger bu kurulumda kapalıdır çünkü API `Production` ortamında çalışır; Swagger için aşağıdaki `dotnet run` kurulumunu kullanın.
+Rate limiting nginx arkasında da IP başına çalışsın diye compose `ForwardedHeaders__Enabled=true` verir. API'yi
+doğrudan internete açarsanız bu ayarı kapatın, yoksa sahte `X-Forwarded-For` başlığıyla limit aşılabilir.
+
+---
+
+## Kurulum (Docker olmadan geliştirme)
 
 ### Gereksinimler
 - [.NET 9 SDK](https://dotnet.microsoft.com/download)
@@ -29,9 +72,9 @@ cd CryptoTracker
 ```
 
 ### 2. Veritabanını başlat
+Depo kökünde (`.env` yoksa önce `cp .env.example .env`):
 ```bash
-cd backend
-docker-compose up -d db
+docker compose up -d db
 # ~15 saniye bekle
 ```
 
@@ -73,7 +116,7 @@ dotnet run
 Eğer `dotnet run` farklı bir port açarsa, [backend/src/CryptoTracker.API/Properties/launchSettings.json](./backend/src/CryptoTracker.API/Properties/launchSettings.json) dosyasının uygulandığını kontrol edin.
 
 ### Yaygın hata nedenleri
-- Docker Desktop kapalıysa `docker-compose up -d db` çalışmaz.
+- Docker Desktop kapalıysa `docker compose up -d db` çalışmaz.
 - Komutlar yanlış klasörde çalıştırılırsa `No project was found` hatası gelir.
 - `dotnet ef database update` için ilk migration'ın repoda bulunması gerekir.
 - `JWT Key is not configured` hatası, `appsettings.Development.json` eksikse oluşur.
@@ -127,12 +170,13 @@ test ettikleri dosyanın yanında `*.test.js` / `*.test.jsx` adıyla durur:
 
 ## Sürekli Entegrasyon (CI)
 
-Her `push` ve `pull_request` (main, develop) için GitHub Actions iki workflow çalıştırır:
+Her `push` ve `pull_request` (main, develop) için GitHub Actions üç workflow çalıştırır:
 
 | Workflow | Dosya | Ne doğrular |
 |---|---|---|
 | Backend CI | `.github/workflows/backend-ci.yml` | `dotnet restore`, `dotnet build --configuration Release`, `dotnet test` (`backend/CryptoTracker.sln`) |
 | Frontend CI | `.github/workflows/frontend-ci.yml` | `npm ci`, `npm test` (Jest), `npm run build` (`frontend/`, Node 24) |
+| Docker CI | `.github/workflows/docker-ci.yml` | `docker compose config`, iki Dockerfile için `docker build` (konteyner çalıştırmaz) |
 
 Testler `Testing` ortamında InMemory veritabanı kullandığı için CI'da SQL Server gerekmez. Frontend testlerinden biri kırmızıysa build adımına geçilmez. Workflow kırmızıysa PR birleştirilmeden önce düzeltilmelidir.
 
@@ -267,19 +311,9 @@ RealtimeContext → AlertMonitor (toast), BotSignalApproval (sinyal listesi), Pr
   bağlantı gelince durur ve arada kaçan olaylar için bir kez daha çeker.
 - **Tekilleştirme:** Aynı sinyal hem SignalR hem polling ile gelirse sinyal `id`'sine göre bir kez gösterilir.
 
-**Docker / proxy:** Backend doğrudan (`dotnet run` ya da `backend/Dockerfile`, port 5002) çalıştığında ek
-ayar gerekmez. Önüne nginx gibi bir ters proxy konursa WebSocket için şu başlıklar eklenmeli, yoksa
-bağlantı LongPolling'e düşer:
-
-```nginx
-location /hubs/ {
-    proxy_pass http://backend:5002;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-}
-```
+**Docker / proxy:** `dotnet run` ile backend doğrudan çalıştığında ek ayar gerekmez. `docker compose` ile
+istekler nginx'ten geçer; `frontend/nginx.conf` `/hubs/` yolunu `Upgrade` ve `Connection` başlıklarıyla
+vekil eder, bunlar olmazsa bağlantı LongPolling'e düşer. Tarayıcıda Network → WS sekmesinden görülebilir.
 
 Frontend başka bir adresten açılıyorsa o adres `Cors:AllowedOrigins` listesine eklenmeli.
 
@@ -308,8 +342,9 @@ Tüm uçların ayrıntılı şeması için backend çalışırken `/swagger` adr
 
 ```
 CryptoTracker/
+├── docker-compose.yml        ← db + api + web, tek komutla çalıştırır
+├── .env.example              ← .env olarak kopyalanır (şifreler ve anahtarlar)
 ├── backend/
-│   ├── docker-compose.yml
 │   ├── Dockerfile
 │   ├── src/CryptoTracker.API/
 │   │   ├── Controllers/     ← API endpoint'leri (yukarıdaki tablo)
@@ -322,6 +357,8 @@ CryptoTracker/
 │   │   └── Middleware/      ← Hata yakalama
 │   └── tests/CryptoTracker.API.Tests/  ← Servis ve entegrasyon testleri
 └── frontend/
+    ├── Dockerfile            ← derleme + nginx
+    ├── nginx.conf            ← React Router, /api ve /hubs vekili
     └── src/
         ├── components/       ← Navbar, CryptoCard/Grid, ChartModule, IndicatorPanel,
         │                        BacktestReport, TradeForm, BotSignalApproval,
