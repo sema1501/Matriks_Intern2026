@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { buyCoin, sellCoin } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 import './TradeForm.css';
 
-function getTradeError(error) {
+function getTradeError(error, t) {
   if (error.response?.status === 401 || error.response?.status === 403) {
-    return 'İşlem yapmak için giriş yapmanız gerekiyor.';
+    return t('trade.loginRequired');
   }
 
   return (
     error.response?.data?.error ||
     error.response?.data?.message ||
     (typeof error.response?.data === 'string' ? error.response.data : null) ||
-    'İşlem gerçekleştirilemedi. Lütfen tekrar deneyin.'
+    t('trade.failed')
   );
 }
 
 export default function TradeForm({ symbol, currentPrice, user }) {
+  const { t, locale } = useLanguage();
   const [tradeType, setTradeType] = useState('buy');
   const [quantity, setQuantity] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,17 +37,17 @@ export default function TradeForm({ symbol, currentPrice, user }) {
     setMessage({ type: '', text: '' });
 
     if (!user) {
-      setMessage({ type: 'error', text: 'İşlem yapmak için giriş yapmanız gerekiyor.' });
+      setMessage({ type: 'error', text: t('trade.loginRequired') });
       return;
     }
 
     if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
-      setMessage({ type: 'error', text: 'Canlı fiyat bilgisi henüz hazır değil.' });
+      setMessage({ type: 'error', text: t('trade.priceNotReady') });
       return;
     }
 
     if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
-      setMessage({ type: 'error', text: 'Lütfen sıfırdan büyük bir miktar girin.' });
+      setMessage({ type: 'error', text: t('trade.quantityInvalid') });
       return;
     }
 
@@ -65,12 +67,12 @@ export default function TradeForm({ symbol, currentPrice, user }) {
 
       setMessage({
         type: 'success',
-        text: `${tradeType === 'buy' ? 'Alım' : 'Satım'} işlemi başarıyla tamamlandı.`,
+        text: tradeType === 'buy' ? t('trade.buySuccess') : t('trade.sellSuccess'),
       });
       setQuantity('');
       window.dispatchEvent(new Event('portfolio-changed'));
     } catch (error) {
-      setMessage({ type: 'error', text: getTradeError(error) });
+      setMessage({ type: 'error', text: getTradeError(error, t) });
     } finally {
       setLoading(false);
     }
@@ -80,17 +82,17 @@ export default function TradeForm({ symbol, currentPrice, user }) {
     <section className="trade-card">
       <div className="trade-card__header">
         <div>
-          <h2>Al / Sat</h2>
-          <p>{symbol} için sanal işlem yapın.</p>
+          <h2>{t('trade.title')}</h2>
+          <p>{t('trade.subtitle', { symbol })}</p>
         </div>
         <span className="trade-card__price">
           {Number.isFinite(numericPrice)
-            ? `$${numericPrice.toLocaleString(undefined, { maximumFractionDigits: 8 })}`
-            : 'Fiyat bekleniyor'}
+            ? `$${numericPrice.toLocaleString(locale, { maximumFractionDigits: 8 })}`
+            : t('trade.waitingPrice')}
         </span>
       </div>
 
-      <div className="trade-tabs" role="tablist" aria-label="İşlem türü">
+      <div className="trade-tabs" role="tablist" aria-label={t('trade.typeLabel')}>
         <button
           type="button"
           className={`trade-tab trade-tab--buy ${tradeType === 'buy' ? 'active' : ''}`}
@@ -100,7 +102,7 @@ export default function TradeForm({ symbol, currentPrice, user }) {
           }}
           disabled={loading}
         >
-          Al
+          {t('trade.buy')}
         </button>
         <button
           type="button"
@@ -111,13 +113,13 @@ export default function TradeForm({ symbol, currentPrice, user }) {
           }}
           disabled={loading}
         >
-          Sat
+          {t('trade.sell')}
         </button>
       </div>
 
       {!user && (
         <p className="trade-login-hint">
-          İşlem yapmak için <Link to="/signin">giriş yapın</Link>.
+          {t('trade.signinPrefix')} <Link to="/signin">{t('trade.signinLink')}</Link>{t('trade.signinSuffix')}
         </p>
       )}
 
@@ -126,7 +128,7 @@ export default function TradeForm({ symbol, currentPrice, user }) {
       )}
 
       <form onSubmit={handleSubmit} className="trade-form">
-        <label htmlFor="tradeQuantity">Miktar</label>
+        <label htmlFor="tradeQuantity">{t('converter.amount')}</label>
         <input
           id="tradeQuantity"
           type="number"
@@ -135,14 +137,14 @@ export default function TradeForm({ symbol, currentPrice, user }) {
           inputMode="decimal"
           value={quantity}
           onChange={(event) => setQuantity(event.target.value)}
-          placeholder="Örn. 0.01"
+          placeholder={t('trade.quantityPlaceholder')}
           disabled={!user || loading}
         />
 
         <div className="trade-total">
-          <span>Tahmini toplam</span>
+          <span>{t('trade.estimatedTotal')}</span>
           <strong>
-            ${total.toLocaleString(undefined, {
+            ${total.toLocaleString(locale, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -155,10 +157,10 @@ export default function TradeForm({ symbol, currentPrice, user }) {
           disabled={!user || loading || !Number.isFinite(numericPrice)}
         >
           {loading
-            ? 'İşleniyor...'
+            ? t('trade.processing')
             : tradeType === 'buy'
-              ? `${symbol} Al`
-              : `${symbol} Sat`}
+              ? t('trade.buySymbol', { symbol })
+              : t('trade.sellSymbol', { symbol })}
         </button>
       </form>
     </section>

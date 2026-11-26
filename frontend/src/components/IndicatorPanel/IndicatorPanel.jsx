@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 import './IndicatorPanel.css';
 
 const clampNumber = (value, min, max, fallback) => {
@@ -21,6 +22,7 @@ export default function IndicatorPanel({
     bollStdDev,
     onBollStdDevChange,
 }) {
+    const { t } = useLanguage();
     const [isExpanded, setIsExpanded] = useState(true);
     const activeCount = [isEmaActive, isRsiActive, isBollActive].filter(Boolean).length;
 
@@ -34,8 +36,8 @@ export default function IndicatorPanel({
                 aria-controls="indicator-panel-content"
             >
                 <span>
-                    <strong>İndikatör Paneli</strong>
-                    <small>{activeCount} aktif</small>
+                    <strong>{t('indicator.title')}</strong>
+                    <small>{t('indicator.activeCount', { count: activeCount })}</small>
                 </span>
                 <span className="indicator-panel__chevron" aria-hidden="true">⌄</span>
             </button>
@@ -50,12 +52,12 @@ export default function IndicatorPanel({
                         />
                         <span>
                             <strong>EMA</strong>
-                            <small>Üstel hareketli ortalama</small>
+                            <small>{t('indicator.ema')}</small>
                         </span>
                     </label>
                     {isEmaActive && (
                         <label className="indicator-field">
-                            <span>Periyot</span>
+                            <span>{t('indicator.period')}</span>
                             <input
                                 type="number"
                                 min="1"
@@ -77,7 +79,7 @@ export default function IndicatorPanel({
                         />
                         <span>
                             <strong>RSI</strong>
-                            <small>Göreceli güç endeksi (14)</small>
+                            <small>{t('indicator.rsi')}</small>
                         </span>
                     </label>
                 </article>
@@ -91,13 +93,13 @@ export default function IndicatorPanel({
                         />
                         <span>
                             <strong>BOLL</strong>
-                            <small>Bollinger üst, orta ve alt bantları</small>
+                            <small>{t('indicator.boll')}</small>
                         </span>
                     </label>
                     {isBollActive && (
                         <div className="indicator-card__fields">
                             <label className="indicator-field">
-                                <span>Periyot</span>
+                                <span>{t('indicator.period')}</span>
                                 <input
                                     type="number"
                                     min="2"

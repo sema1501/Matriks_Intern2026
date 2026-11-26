@@ -118,15 +118,12 @@ export default function Converter() {
         <div className="converter-header">
           <span className="converter-eyebrow">{t('converter.eyebrow')}</span>
           <h1>{t('converter.title')}</h1>
-          <p>
-            Canlı fiyat verisi üzerinden seçtiğin coin miktarının yaklaşık
-            karşılığını hesapla.
-          </p>
+          <p>{t('converter.subtitle')}</p>
         </div>
 
         <div className="converter-form">
           <label className="converter-field">
-            <span>Coin Ara ve Seç</span>
+            <span>{t('converter.searchAndSelect')}</span>
 
             <input
               type="text"
@@ -150,7 +147,7 @@ export default function Converter() {
                 filteredCoinOptions.map((coin, index) => (
                   <option key={coin.fullSymbol} value={coin.fullSymbol}>
                     {coin.name} ({coin.symbol})
-                    {index === 0 && coinSearch.trim() ? ' - İlk sonuç' : ''}
+                    {index === 0 && coinSearch.trim() ? ` - ${t('converter.firstResult')}` : ''}
                   </option>
                 ))
               ) : (
@@ -160,7 +157,7 @@ export default function Converter() {
           </label>
 
           <label className="converter-field">
-            <span>Miktar</span>
+            <span>{t('converter.amount')}</span>
             <input
               type="number"
               min="0"
@@ -174,7 +171,7 @@ export default function Converter() {
 
         {coinSearch.trim() && filteredCoinOptions.length > 0 && (
           <p className="converter-message">
-            Enter’a basarak ilk sonucu seçebilirsin:{' '}
+            {t('converter.enterHint')}{' '}
             <strong>
               {filteredCoinOptions[0].name} ({filteredCoinOptions[0].symbol})
             </strong>
@@ -183,22 +180,22 @@ export default function Converter() {
 
         {!isAmountValid && (
           <p className="converter-message error">
-            Lütfen sıfırdan büyük geçerli bir miktar gir.
+            {t('converter.amountInvalid')}
           </p>
         )}
 
         {currentPrice === null && (
           <p className="converter-message error">
-            Seçilen coin için fiyat verisi henüz gelmedi.
+            {t('converter.noPrice')}
           </p>
         )}
 
         {rateLoading && (
-          <p className="converter-message">Kur bilgisi yükleniyor...</p>
+          <p className="converter-message">{t('converter.rateLoading')}</p>
         )}
 
         {rateError && (
-          <p className="converter-message warning">{rateError}</p>
+          <p className="converter-message warning">{t('currency.rateError')}</p>
         )}
 
         <div className="converter-selected">
@@ -218,24 +215,24 @@ export default function Converter() {
 
         <div className="converter-results">
           <div className="converter-result-box">
-            <span>Birim Fiyat</span>
+            <span>{t('converter.unitPrice')}</span>
             <strong>
               {currentPrice !== null ? formatUsd(currentPrice) : '-'}
             </strong>
           </div>
 
           <div className="converter-result-box">
-            <span>Toplam USD</span>
+            <span>{t('converter.totalUsd')}</span>
             <strong>{totalUsd !== null ? formatUsd(totalUsd) : '-'}</strong>
           </div>
 
           <div className="converter-result-box">
-            <span>Toplam TRY</span>
+            <span>{t('converter.totalTry')}</span>
             <strong>{totalTry !== null ? formatTry(totalTry) : '-'}</strong>
           </div>
 
           <div className="converter-result-box">
-            <span>USD/TRY Kuru</span>
+            <span>{t('converter.rate')}</span>
             <strong>{usdTryRate.toFixed(4)}</strong>
           </div>
         </div>

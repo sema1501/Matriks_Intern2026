@@ -3,14 +3,10 @@ import { useGlobalPrices } from '../../context/PriceContext';
 import { COIN_META } from '../../data/coinMeta';
 import { TRACKED_SYMBOLS } from '../../data/trackedSymbols';
 import CryptoCard from '../CryptoCard/CryptoCard';
+import { useLanguage } from '../../context/LanguageContext';
 import './CryptoGrid.css';
 
-const SORT_OPTIONS = [
-  { value: 'price-asc', label: 'Fiyat (Düşük → Yüksek)' },
-  { value: 'price-desc', label: 'Fiyat (Yüksek → Düşük)' },
-  { value: 'change-asc', label: '24s Değişim (Düşük → Yüksek)' },
-  { value: 'change-desc', label: '24s Değişim (Yüksek → Düşük)' },
-];
+const SORT_OPTIONS = ['price-asc', 'price-desc', 'change-asc', 'change-desc'];
 
 function getPriceValue(priceData) {
   if (!priceData) return null;
@@ -37,6 +33,7 @@ function compareNumeric(a, b, ascending) {
 
 export default function CryptoGrid() {
   const { prices } = useGlobalPrices();
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('price-desc');
 
@@ -80,7 +77,7 @@ export default function CryptoGrid() {
   return (
     <div className="crypto-grid-container">
       <div className="grid-header">
-        <h2>Canlı Kripto Para Fiyatları</h2>
+        <h2>{t('grid.title')}</h2>
       </div>
 
       <div className="grid-toolbar">
@@ -89,16 +86,16 @@ export default function CryptoGrid() {
           <input
             type="search"
             className="grid-search__input"
-            placeholder="Coin ara (isim veya sembol)..."
+            placeholder={t('grid.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            aria-label="Coin ara"
+            aria-label={t('grid.searchLabel')}
           />
         </div>
 
         <div className="grid-sort">
           <label className="grid-sort__label" htmlFor="crypto-sort">
-            Sırala
+            {t('grid.sort')}
           </label>
           <select
             id="crypto-sort"
@@ -107,8 +104,8 @@ export default function CryptoGrid() {
             onChange={(e) => setSortOption(e.target.value)}
           >
             {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+              <option key={option} value={option}>
+                {t(`grid.sort.${option}`)}
               </option>
             ))}
           </select>
@@ -118,10 +115,9 @@ export default function CryptoGrid() {
       {filteredAndSortedSymbols.length === 0 ? (
         <div className="grid-empty" role="status">
           <div className="grid-empty__icon" aria-hidden="true">∅</div>
-          <h3 className="grid-empty__title">Sonuç bulunamadı</h3>
+          <h3 className="grid-empty__title">{t('grid.emptyTitle')}</h3>
           <p className="grid-empty__text">
-            &ldquo;{searchTerm.trim()}&rdquo; için eşleşen coin yok.
-            Farklı bir isim veya sembol deneyin.
+            {t('grid.emptyText', { term: searchTerm.trim() })}
           </p>
         </div>
       ) : (

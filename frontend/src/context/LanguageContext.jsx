@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import extraTranslations from './translationsExtra';
 
 // Görev 41: Çoklu dil desteği (TR/EN). Kütüphanesiz, ThemeContext deseniyle.
 const STORAGE_KEY = 'crypto-tracker-lang';
@@ -11,11 +12,11 @@ const translations = {
     'nav.compare': 'Karşılaştır',
     'nav.converter': 'Dönüştürücü',
     'nav.feedback': 'Geri Bildirim',
-    'nav.bots': '🤖 Botlarım',
-    'nav.watchlist': '🌟 Favorilerim 🌟',
+    'nav.bots': 'Botlarım',
+    'nav.watchlist': 'Favorilerim',
     'nav.portfolio': 'Portföyüm',
-    'nav.dashboard': 'Dashboard',
-    'nav.admin': 'Admin Paneli',
+    'nav.dashboard': 'Genel Bakış',
+    'nav.admin': 'Bot ve Portföy İzleme',
     'nav.signin': 'Giriş Yap',
     'nav.signup': 'Kayıt Ol',
     'nav.logout': 'Çıkış Yap',
@@ -198,7 +199,7 @@ const translations = {
     'bot.riskTriggered': 'tetiklendi',
     // Dashboard
     'dashboard.unauthorized': 'Yetkisiz Erişim!',
-    'dashboard.adminPanel': 'Admin Paneli',
+    'dashboard.adminPanel': 'Genel Bakış',
     'dashboard.reports': '📊 Sistem Özet Raporları',
     'dashboard.totalUsers': 'Toplam Kullanıcı',
     'dashboard.activeCoins': 'Aktif Kripto Paralar',
@@ -252,11 +253,11 @@ const translations = {
     'nav.compare': 'Compare',
     'nav.converter': 'Converter',
     'nav.feedback': 'Feedback',
-    'nav.bots': '🤖 My Bots',
-    'nav.watchlist': '🌟 Watchlist 🌟',
+    'nav.bots': 'My Bots',
+    'nav.watchlist': 'My Watchlist',
     'nav.portfolio': 'My Portfolio',
-    'nav.dashboard': 'Dashboard',
-    'nav.admin': 'Admin Panel',
+    'nav.dashboard': 'Overview',
+    'nav.admin': 'Bot & Portfolio Monitoring',
     'nav.signin': 'Sign In',
     'nav.signup': 'Sign Up',
     'nav.logout': 'Log Out',
@@ -439,7 +440,7 @@ const translations = {
     'bot.riskTriggered': 'triggered',
     // Dashboard
     'dashboard.unauthorized': 'Unauthorized Access!',
-    'dashboard.adminPanel': 'Admin Panel',
+    'dashboard.adminPanel': 'Overview',
     'dashboard.reports': '📊 System Summary Reports',
     'dashboard.totalUsers': 'Total Users',
     'dashboard.activeCoins': 'Active Cryptocurrencies',
@@ -498,14 +499,23 @@ export function LanguageProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, lang);
+    // Sayfa dili de değişsin: büyük harfe çevrilen İngilizce yazılar "İ" ile çıkmasın.
+    document.documentElement.lang = lang;
   }, [lang]);
 
   // Çeviri anahtarını mevcut dile çevirir; bulunamazsa anahtarı döndürür.
-  const t = (key) => translations[lang]?.[key] ?? key;
+  // {ad} biçimindeki yerler params ile doldurulur: t('x', { count: 3 }).
+  const t = (key, params) => {
+    const text = translations[lang]?.[key] ?? extraTranslations[lang]?.[key] ?? key;
+    if (!params) return text;
+    return text.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match));
+  };
   const toggleLang = () => setLang((l) => (l === 'tr' ? 'en' : 'tr'));
+  // Tarih ve sayı biçimi için: 23.11.2026 ya da 11/23/2026
+  const locale = lang === 'en' ? 'en-US' : 'tr-TR';
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, toggleLang, t }}>
+    <LanguageContext.Provider value={{ lang, setLang, toggleLang, t, locale }}>
       {children}
     </LanguageContext.Provider>
   );

@@ -118,16 +118,16 @@ export default function Home() {
 
             <div style={styles.band}>
                 <div style={styles.bandItem}>
-                    <span style={styles.bandLabel}>Takip Edilen Kripto</span>
-                    <span style={styles.bandValue}>{stats.total} Adet</span>
+                    <span style={styles.bandLabel}>{t('home.band.tracked')}</span>
+                    <span style={styles.bandValue}>{t('home.band.trackedCount', { count: stats.total })}</span>
                 </div>
                 <div style={styles.bandItem}>
-                    <span style={styles.bandLabel}>En Değerli Varlık</span>
+                    <span style={styles.bandLabel}>{t('home.band.mostValuable')}</span>
                     <span style={styles.bandValue}>{stats.highestSymbol} ({formatPrice(stats.highestPrice)})</span>
                 </div>
                 <div style={styles.bandItem}>
-                    <span style={styles.bandLabel}>Piyasa Durumu</span>
-                    <span style={{ ...styles.bandValue, color: '#00b4d8' }}>Canlı Akış Aktif</span>
+                    <span style={styles.bandLabel}>{t('home.band.marketStatus')}</span>
+                    <span style={{ ...styles.bandValue, color: '#00b4d8' }}>{t('home.band.liveFeed')}</span>
                 </div>
             </div>
 

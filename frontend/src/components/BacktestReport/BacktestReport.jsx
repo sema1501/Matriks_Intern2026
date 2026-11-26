@@ -78,31 +78,31 @@ const toDateInput = (date) => {
     return `${year}-${month}-${day}`;
 };
 
-const formatDateTime = (value) => {
+const formatDateTime = (value, locale = 'tr-TR') => {
     if (!value) return '-';
-    return new Intl.DateTimeFormat('tr-TR', {
+    return new Intl.DateTimeFormat(locale, {
         dateStyle: 'short',
         timeStyle: 'short'
     }).format(new Date(value));
 };
 
-const formatNumber = (value, digits = 2) => {
+const formatNumber = (value, digits = 2, locale = 'tr-TR') => {
     const number = Number(value);
     if (!Number.isFinite(number)) return '-';
-    return number.toLocaleString('tr-TR', {
+    return number.toLocaleString(locale, {
         minimumFractionDigits: 0,
         maximumFractionDigits: digits
     });
 };
 
-const getErrorMessage = (error) => {
+const getErrorMessage = (error, fallback) => {
     const data = error?.response?.data;
     if (typeof data === 'string') return data;
-    return data?.message || data?.error || error?.message || 'Backtest çalıştırılırken bir hata oluştu.';
+    return data?.message || data?.error || error?.message || fallback;
 };
 
 export default function BacktestReport({ bot, onClose }) {
-    const { t } = useLanguage();
+    const { t, locale } = useLanguage();
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const [startDate, setStartDate] = useState(() => {
@@ -129,7 +129,7 @@ export default function BacktestReport({ bot, onClose }) {
         setCandles([]);
 
         if (!startDate || !endDate) {
-            setError('Başlangıç ve bitiş tarihini seçin.');
+            setError(t('backtest.selectDates'));
             return;
         }
 
@@ -137,7 +137,7 @@ export default function BacktestReport({ bot, onClose }) {
         const end = new Date(`${endDate}T23:59:59`);
 
         if (start >= end) {
-            setError('Başlangıç tarihi bitiş tarihinden önce olmalıdır.');
+            setError(t('backtest.rangeInvalid'));
             return;
         }
 
@@ -159,7 +159,7 @@ export default function BacktestReport({ bot, onClose }) {
             setCandles(historicalCandles);
         } catch (err) {
             console.error('Backtest çalıştırılamadı:', err);
-            setError(getErrorMessage(err));
+            setError(getErrorMessage(err, t('backtest.runError')));
         } finally {
             setLoading(false);
         }
@@ -248,20 +248,20 @@ export default function BacktestReport({ bot, onClose }) {
             >
                 <div className="backtest-header">
                     <div>
-                        <p className="backtest-eyebrow">Geçmiş strateji simülasyonu</p>
-                        <h2 id="backtest-title">{bot.symbol} Backtest Raporu</h2>
+                        <p className="backtest-eyebrow">{t('backtest.eyebrow')}</p>
+                        <h2 id="backtest-title">{t('backtest.title', { symbol: bot.symbol })}</h2>
                         <p>
                             {bot.strategy === 1
-                                ? `EMA${bot.shortEmaPeriod} ↑ EMA${bot.longEmaPeriod} AL · EMA${bot.shortEmaPeriod} ↓ EMA${bot.longEmaPeriod} SAT · Miktar ${bot.tradeQuantity}`
-                                : `RSI ≤ ${bot.buyRsiThreshold} AL · RSI ≥ ${bot.sellRsiThreshold} SAT · Miktar ${bot.tradeQuantity}`}
+                                ? `EMA${bot.shortEmaPeriod} ↑ EMA${bot.longEmaPeriod} ${t('signal.buy')} · EMA${bot.shortEmaPeriod} ↓ EMA${bot.longEmaPeriod} ${t('signal.sell')} · ${t('bot.amount')} ${bot.tradeQuantity}`
+                                : `RSI ≤ ${bot.buyRsiThreshold} ${t('signal.buy')} · RSI ≥ ${bot.sellRsiThreshold} ${t('signal.sell')} · ${t('bot.amount')} ${bot.tradeQuantity}`}
                         </p>
                     </div>
-                    <button className="backtest-close" type="button" onClick={onClose} aria-label="Kapat">×</button>
+                    <button className="backtest-close" type="button" onClick={onClose} aria-label={t('common.close')}>×</button>
                 </div>
 
                 <div className="backtest-controls">
                     <label>
-                        Başlangıç
+                        {t('common.startDate')}
                         <input
                             type="date"
                             value={startDate}
@@ -270,7 +270,7 @@ export default function BacktestReport({ bot, onClose }) {
                         />
                     </label>
                     <label>
-                        Bitiş
+                        {t('common.endDate')}
                         <input
                             type="date"
                             value={endDate}
@@ -280,7 +280,7 @@ export default function BacktestReport({ bot, onClose }) {
                         />
                     </label>
                     <button type="button" onClick={handleRunBacktest} disabled={loading}>
-                        {loading ? 'Hesaplanıyor...' : 'Backtest Çalıştır'}
+                        {loading ? t('backtest.running') : t('backtest.run')}
                     </button>
                 </div>
 
@@ -288,24 +288,24 @@ export default function BacktestReport({ bot, onClose }) {
 
                 {!result && !loading && !error && (
                     <div className="backtest-placeholder">
-                        Tarih aralığını seçip backtest'i çalıştırın. Gerçek/Testnet emri gönderilmez.
+                        {t('backtest.placeholder')}
                     </div>
                 )}
 
                 {loading && (
-                    <div className="backtest-placeholder">Geçmiş veriler analiz ediliyor...</div>
+                    <div className="backtest-placeholder">{t('backtest.analyzing')}</div>
                 )}
 
                 {result && (
                     <>
                         <div className="backtest-summary-grid">
-                            <div><span>Toplam Sinyal</span><strong>{result.summary?.totalSignals ?? 0}</strong></div>
-                            <div><span>AL / SAT</span><strong>{result.summary?.buySignals ?? 0} / {result.summary?.sellSignals ?? 0}</strong></div>
-                            <div><span>Tamamlanan İşlem</span><strong>{result.summary?.completedTrades ?? 0}</strong></div>
+                            <div><span>{t('backtest.totalSignals')}</span><strong>{result.summary?.totalSignals ?? 0}</strong></div>
+                            <div><span>{t('signal.buy')} / {t('signal.sell')}</span><strong>{result.summary?.buySignals ?? 0} / {result.summary?.sellSignals ?? 0}</strong></div>
+                            <div><span>{t('backtest.completedTrades')}</span><strong>{result.summary?.completedTrades ?? 0}</strong></div>
                             <div>
-                                <span>Net Kâr / Zarar</span>
+                                <span>{t('backtest.netPnl')}</span>
                                 <strong className={Number(result.summary?.netProfitLoss) >= 0 ? 'positive' : 'negative'}>
-                                    {formatNumber(result.summary?.netProfitLoss, 6)} USDT
+                                    {formatNumber(result.summary?.netProfitLoss, 6, locale)} USDT
                                 </strong>
                             </div>
                         </div>
@@ -313,38 +313,38 @@ export default function BacktestReport({ bot, onClose }) {
                         {candles.length > 0 ? (
                             <div className="backtest-chart-card">
                                 <div className="backtest-chart-legend">
-                                    <span><i className="buy-dot" /> Yeşil ok: Alış</span>
-                                    <span><i className="sell-dot" /> Kırmızı ok: Satış</span>
-                                    <span>Alt panel: RSI (14)</span>
+                                    <span><i className="buy-dot" /> {t('backtest.legend.buy')}</span>
+                                    <span><i className="sell-dot" /> {t('backtest.legend.sell')}</span>
+                                    <span>{t('backtest.legend.rsi')}</span>
                                 </div>
                                 <div ref={chartContainerRef} className="backtest-chart" />
                             </div>
                         ) : (
-                            <div className="backtest-empty">Grafik için geçmiş mum verisi alınamadı.</div>
+                            <div className="backtest-empty">{t('backtest.noCandles')}</div>
                         )}
 
                         <div className="backtest-table-card">
                             <div className="backtest-table-heading">
                                 <div>
-                                    <h3>Sinyal Detayları</h3>
-                                    <p>Grafikteki sinyallerle aynı kayıtlar, kronolojik sırada.</p>
+                                    <h3>{t('backtest.signalDetails')}</h3>
+                                    <p>{t('backtest.signalDetailsHint')}</p>
                                 </div>
-                                <span>{sortedSignals.length} sinyal</span>
+                                <span>{t('backtest.signalCount', { count: sortedSignals.length })}</span>
                             </div>
 
                             {sortedSignals.length === 0 ? (
                                 <div className="backtest-empty">
-                                    Bu tarih aralığında bot stratejisi herhangi bir AL/SAT sinyali üretmedi.
+                                    {t('backtest.noSignals')}
                                 </div>
                             ) : (
                                 <div className="backtest-table-scroll">
                                     <table className="backtest-table">
                                         <thead>
                                             <tr>
-                                                <th>Tarih</th>
-                                                <th>Alış / Satış</th>
-                                                <th>Fiyat</th>
-                                                <th>RSI Değeri</th>
+                                                <th>{t('dashboard.date')}</th>
+                                                <th>{t('backtest.col.side')}</th>
+                                                <th>{t('signal.price')}</th>
+                                                <th>{t('backtest.col.rsi')}</th>
                                                 <th>{t('bot.reasonColumn')}</th>
                                             </tr>
                                         </thead>
@@ -354,14 +354,14 @@ export default function BacktestReport({ bot, onClose }) {
                                                 const reason = normalizeReason(signal.reason);
                                                 return (
                                                     <tr key={`${signal.timestamp}-${index}`}>
-                                                        <td>{formatDateTime(signal.timestamp)}</td>
+                                                        <td>{formatDateTime(signal.timestamp, locale)}</td>
                                                         <td>
                                                             <span className={`backtest-signal-badge ${isBuy ? 'buy' : 'sell'}`}>
-                                                                {isBuy ? '↑ ALIŞ' : '↓ SATIŞ'}
+                                                                {isBuy ? `↑ ${t('backtest.side.buy')}` : `↓ ${t('backtest.side.sell')}`}
                                                             </span>
                                                         </td>
-                                                        <td>{formatNumber(signal.price, 8)} USDT</td>
-                                                        <td>{signal.rsi == null ? '-' : formatNumber(signal.rsi, 2)}</td>
+                                                        <td>{formatNumber(signal.price, 8, locale)} USDT</td>
+                                                        <td>{signal.rsi == null ? '-' : formatNumber(signal.rsi, 2, locale)}</td>
                                                         <td>
                                                             <span className={`backtest-reason-badge ${reason}`}>
                                                                 {t(reasonLabelKey(reason))}

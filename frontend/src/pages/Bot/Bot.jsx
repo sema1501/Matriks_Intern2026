@@ -17,7 +17,7 @@ const STRATEGY_RSI = 0;
 const STRATEGY_EMA = 1;
 
 export default function Bot() {
-    const { t } = useLanguage();
+    const { t, locale } = useLanguage();
     const [bots, setBots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -43,7 +43,7 @@ export default function Bot() {
             setBots(response?.data || []);
         } catch (err) {
             console.error("Botlar yüklenemedi:", err);
-            setError("Bot verileri çekilirken bir sorun oluştu.");
+            setError(t('bot.loadError'));
         } finally {
             setLoading(false);
         }
@@ -60,22 +60,22 @@ export default function Bot() {
         // Doğrulama stratejiye göre değişir.
         if (strategy === STRATEGY_RSI) {
             if (Number(buyRsiThreshold) >= Number(sellRsiThreshold)) {
-                setFormError("AL eşiği (Buy RSI), SAT eşiğinden (Sell RSI) küçük olmalıdır!");
+                setFormError(t('bot.rsiOrderInvalid'));
                 return;
             }
         } else {
             if (Number(shortEmaPeriod) >= Number(longEmaPeriod)) {
-                setFormError("Kısa EMA periyodu, uzun EMA periyodundan küçük olmalıdır!");
+                setFormError(t('bot.emaOrderInvalid'));
                 return;
             }
             if (Number(shortEmaPeriod) < 1 || Number(longEmaPeriod) < 2) {
-                setFormError("EMA periyotları geçerli bir değer olmalıdır.");
+                setFormError(t('bot.emaInvalid'));
                 return;
             }
         }
 
         if (Number(tradeQuantity) <= 0) {
-            setFormError("İşlem miktarı 0'dan büyük olmalıdır.");
+            setFormError(t('bot.quantityInvalid'));
             return;
         }
 
@@ -115,7 +115,7 @@ export default function Bot() {
             fetchBots();
         } catch (err) {
             console.error("Bot oluşturulamadı:", err);
-            setFormError(err.response?.data?.error || err.response?.data?.message || "Bot oluşturulurken bir hata oluştu.");
+            setFormError(err.response?.data?.error || err.response?.data?.message || t('bot.createError'));
         } finally {
             setSubmitting(false);
         }
@@ -129,13 +129,13 @@ export default function Bot() {
             ));
         } catch (err) {
             console.error("Bot durumu değiştirilemedi:", err);
-            alert("Bot durumu değiştirilirken hata oluştu.");
+            alert(t('bot.toggleError'));
         }
     };
 
     // BOT SILME / KALDIRMA FONKSIYONU
     const handleDeleteBot = async (id) => {
-        if (!window.confirm("Bu botu kaldırmak istediğinize emin misiniz?")) return;
+        if (!window.confirm(t('bot.removeConfirm'))) return;
 
         try {
             await deleteBot(id);
@@ -143,7 +143,7 @@ export default function Bot() {
             setBots(prevBots => prevBots.filter(bot => bot.id !== id));
         } catch (err) {
             console.error("Bot silinemedi:", err);
-            alert("Bot kaldırılırken bir hata oluştu.");
+            alert(t('bot.removeError'));
         }
     };
 
@@ -151,7 +151,7 @@ export default function Bot() {
         <div style={styles.container}>
             <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>{t('bot.title')}</h2>
             <p style={{ color: '#888', marginBottom: '24px', fontSize: '14px' }}>
-                RSI eşiği veya EMA kesişimi stratejisiyle otomatik sinyal üreten sanal botlarınızı buradan kurabilir ve yönetebilirsiniz.
+                {t('bot.subtitle')}
             </p>
 
             {/* BOT KURULUM FORMU */}
@@ -164,7 +164,7 @@ export default function Bot() {
 
                 <form onSubmit={handleCreateBot} style={styles.formGrid}>
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Sembol Seçin</label>
+                        <label style={styles.label}>{t('bot.selectSymbol')}</label>
                         <select
                             value={symbol}
                             onChange={(e) => setSymbol(e.target.value)}
@@ -179,14 +179,14 @@ export default function Bot() {
                     </div>
 
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>Strateji</label>
+                        <label style={styles.label}>{t('bot.strategy')}</label>
                         <select
                             value={strategy}
                             onChange={(e) => setStrategy(Number(e.target.value))}
                             style={styles.select}
                         >
-                            <option value={STRATEGY_RSI} style={styles.option}>RSI Eşiği</option>
-                            <option value={STRATEGY_EMA} style={styles.option}>EMA Kesişimi</option>
+                            <option value={STRATEGY_RSI} style={styles.option}>{t('bot.strategy.rsi')}</option>
+                            <option value={STRATEGY_EMA} style={styles.option}>{t('bot.strategy.ema')}</option>
                         </select>
                     </div>
 
@@ -194,7 +194,7 @@ export default function Bot() {
                     {strategy === STRATEGY_RSI && (
                         <>
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>AL RSI Eşiği (Varsayılan: 30)</label>
+                                <label style={styles.label}>{t('bot.buyRsi')}</label>
                                 <input
                                     type="number"
                                     value={buyRsiThreshold}
@@ -207,7 +207,7 @@ export default function Bot() {
                             </div>
 
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>SAT RSI Eşiği (Varsayılan: 70)</label>
+                                <label style={styles.label}>{t('bot.sellRsi')}</label>
                                 <input
                                     type="number"
                                     value={sellRsiThreshold}
@@ -224,7 +224,7 @@ export default function Bot() {
                     {strategy === STRATEGY_EMA && (
                         <>
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>Kısa EMA Periyodu (Varsayılan: 12)</label>
+                                <label style={styles.label}>{t('bot.shortEmaPeriod')}</label>
                                 <input
                                     type="number"
                                     value={shortEmaPeriod}
@@ -237,7 +237,7 @@ export default function Bot() {
                             </div>
 
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>Uzun EMA Periyodu (Varsayılan: 26)</label>
+                                <label style={styles.label}>{t('bot.longEmaPeriod')}</label>
                                 <input
                                     type="number"
                                     value={longEmaPeriod}
@@ -252,7 +252,7 @@ export default function Bot() {
                     )}
 
                     <div style={styles.formGroup}>
-                        <label style={styles.label}>İşlem Miktarı (Quantity)</label>
+                        <label style={styles.label}>{t('bot.quantity')}</label>
                         <input
                             type="number"
                             step="any"
@@ -294,7 +294,7 @@ export default function Bot() {
 
                     <div style={{ gridColumn: '1 / -1', marginTop: '12px' }}>
                         <button type="submit" disabled={submitting} style={styles.submitBtn}>
-                            {submitting ? 'Bot Kuruluyor...' : '🤖 Botu Oluştur ve Başlat'}
+                            {submitting ? t('bot.creating') : `🤖 ${t('bot.create')}`}
                         </button>
                     </div>
                 </form>
@@ -309,16 +309,16 @@ export default function Bot() {
                 ) : error ? (
                     <p style={{ color: '#ef233c' }}>{error}</p>
                 ) : bots.length === 0 ? (
-                    <p style={{ color: '#888' }}>Henüz kurulmuş bir botunuz bulunmamaktadır.</p>
+                    <p style={{ color: '#888' }}>{t('bot.empty')}</p>
                 ) : (
                     <div style={styles.tableContainer}>
                         <table style={styles.table}>
                             <thead>
                                 <tr style={styles.thRow}>
                                     <th style={styles.th}>{t('bot.symbol')}</th>
-                                    <th style={styles.th}>Strateji</th>
-                                    <th style={styles.th}>Parametre 1</th>
-                                    <th style={styles.th}>Parametre 2</th>
+                                    <th style={styles.th}>{t('bot.strategy')}</th>
+                                    <th style={styles.th}>{t('bot.param1')}</th>
+                                    <th style={styles.th}>{t('bot.param2')}</th>
                                     <th style={styles.th}>{t('bot.amount')}</th>
                                     <th style={styles.th}>{t('bot.riskLimits')}</th>
                                     <th style={styles.th}>{t('bot.status')}</th>
@@ -330,19 +330,19 @@ export default function Bot() {
                                     <tr key={bot.id} style={styles.tr}>
                                         <td style={{ ...styles.td, fontWeight: 'bold' }}>{bot.symbol}</td>
                                         <td style={styles.td}>
-                                            {bot.strategy === STRATEGY_EMA ? 'EMA Kesişimi' : 'RSI Eşiği'}
+                                            {bot.strategy === STRATEGY_EMA ? t('bot.strategy.ema') : t('bot.strategy.rsi')}
                                         </td>
                                         <td style={{ ...styles.td, color: '#00b4d8' }}>
                                             {bot.strategy === STRATEGY_EMA
-                                                ? `Kısa EMA: ${bot.shortEmaPeriod}`
-                                                : `AL ≤ ${bot.buyRsiThreshold}`}
+                                                ? `${t('bot.shortEma')}: ${bot.shortEmaPeriod}`
+                                                : `${t('signal.buy')} ≤ ${bot.buyRsiThreshold}`}
                                         </td>
                                         <td style={{ ...styles.td, color: '#ef233c' }}>
                                             {bot.strategy === STRATEGY_EMA
-                                                ? `Uzun EMA: ${bot.longEmaPeriod}`
-                                                : `SAT ≥ ${bot.sellRsiThreshold}`}
+                                                ? `${t('bot.longEma')}: ${bot.longEmaPeriod}`
+                                                : `${t('signal.sell')} ≥ ${bot.sellRsiThreshold}`}
                                         </td>
-                                        <td style={styles.td}>{bot.tradeQuantity}</td>
+                                        <td style={styles.td}>{Number(bot.tradeQuantity).toLocaleString(locale, { maximumFractionDigits: 8 })}</td>
                                         <td style={styles.td}>
                                             {bot.stopLossPercent == null && bot.takeProfitPercent == null ? (
                                                 <span style={{ color: '#888' }}>{t('bot.noRiskLimits')}</span>
@@ -366,7 +366,7 @@ export default function Bot() {
                                                 backgroundColor: bot.isActive ? 'rgba(0, 180, 216, 0.15)' : 'rgba(255, 255, 255, 0.1)',
                                                 color: bot.isActive ? '#00b4d8' : '#888'
                                             }}>
-                                                {bot.isActive ? '● Aktif' : '○ Pasif'}
+                                                {bot.isActive ? `● ${t('common.active')}` : `○ ${t('common.passive')}`}
                                             </span>
                                         </td>
                                         <td style={{ ...styles.td, display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -384,7 +384,7 @@ export default function Bot() {
                                                 onClick={() => setBacktestBot(bot)}
                                                 style={styles.backtestBtn}
                                             >
-                                                Backtest
+                                                {t('bot.backtest')}
                                             </button>
 
                                             {/* KALDIR BUTONU */}
@@ -392,7 +392,7 @@ export default function Bot() {
                                                 onClick={() => handleDeleteBot(bot.id)}
                                                 style={styles.deleteBtn}
                                             >
-                                                Kaldır
+                                                {t('bot.remove')}
                                             </button>
                                         </td>
                                     </tr>

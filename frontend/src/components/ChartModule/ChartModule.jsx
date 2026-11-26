@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import { init, dispose } from 'klinecharts';
 import { getKlines, subscribeKline } from '../../services/binanceService';
+import { useLanguage } from '../../context/LanguageContext';
 
 const ChartModule = ({ 
     symbol = 'BTCUSDT',
@@ -8,6 +9,7 @@ const ChartModule = ({
     isRsiActive,
     emaPeriod 
 }) => {
+    const { t } = useLanguage();
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const drawingOverlayIdRef = useRef(null);
@@ -32,10 +34,10 @@ const ChartModule = ({
     const [trendLineCount, setTrendLineCount] = useState(0);
 
     const intervals = [
-        { label: '1 Saat', value: '1h', binanceInterval: '1m', limit: 60 },
-        { label: '1 Gün', value: '1d', binanceInterval: '15m', limit: 96 },
-        { label: '1 Hafta', value: '1w', binanceInterval: '1h', limit: 168 },
-        { label: '1 Ay', value: '1M', binanceInterval: '4h', limit: 180 }
+        { label: t('chart.range.1h'), value: '1h', binanceInterval: '1m', limit: 60 },
+        { label: t('chart.range.1d'), value: '1d', binanceInterval: '15m', limit: 96 },
+        { label: t('chart.range.1w'), value: '1w', binanceInterval: '1h', limit: 168 },
+        { label: t('chart.range.1M'), value: '1M', binanceInterval: '4h', limit: 180 }
     ];
 
     const getPrecisionByPrice = (price) => {
@@ -210,10 +212,10 @@ const ChartModule = ({
                         }
                     });
                 } else {
-                    setError('Binance borsasından geçmiş veri alınamadı.');
+                    setError('chart.noHistory');
                 }
             } catch (err) {
-                setError(err.message || 'Grafik yüklenirken hata oluştu.');
+                setError(err.message || 'chart.loadError');
             } finally {
                 setLoading(false);
             }
@@ -572,7 +574,7 @@ const ChartModule = ({
                     onClick={toggleChartType}
                     style={themeStyles.toggleBtn}
                 >
-                    Görünüm: {chartType === 'candle_solid' ? 'Mum' : 'OHLC Bar'}
+                    {t('chart.view')}: {chartType === 'candle_solid' ? t('chart.candle') : 'OHLC Bar'}
                 </button>
             </div>
 
@@ -594,37 +596,37 @@ const ChartModule = ({
                         onClick={toggleTrendLineDrawing}
                         style={themeStyles.button(isDrawingTrendLine)}
                     >
-                        {isDrawingTrendLine ? 'Trend Çizgisi İptal' : 'Trend Çizgisi Çiz'}
+                        {isDrawingTrendLine ? t('chart.trendCancel') : t('chart.trendDraw')}
                     </button>
                     <button
                         onClick={deleteLastTrendLine}
                         style={themeStyles.button(false)}
                     >
-                        Son Çizgiyi Sil
+                        {t('chart.deleteLast')}
                     </button>
                     <button
                         onClick={clearAllTrendLines}
                         style={themeStyles.button(false)}
                     >
-                        Tüm Çizgileri Temizle
+                        {t('chart.clearAll')}
                     </button>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'flex-start' : 'flex-end' }}>
                     <div style={{ color: isDarkMode ? '#CBD5E1' : '#475569', fontSize: isMobile ? '12px' : '14px' }}>
-                        {trendLineCount} trend çizgisi kayıtlı
+                        {t('chart.trendCount', { count: trendLineCount })}
                     </div>
                 </div>
             </div>
 
             {error && (
                 <div style={{ color: '#FF5252', padding: '10px', marginBottom: '10px', backgroundColor: 'rgba(255, 82, 82, 0.1)', borderRadius: '4px', textAlign: 'center' }}>
-                    {error}
+                    {t(error)}
                 </div>
             )}
 
             {loading && (
                 <div style={{ position: 'absolute', top: isMobile ? '110px' : '70px', left: '30px', color: '#AAA', fontSize: '14px', zIndex: 10 }}>
-                    Güncelleniyor...
+                    {t('chart.updating')}
                 </div>
             )}
 
@@ -671,10 +673,10 @@ const ChartModule = ({
                     }}
                 >
                     {[
-                        { label: 'Sağa Uzat', action: 'extendRight' },
-                        { label: 'Sola Uzat', action: 'extendLeft' },
-                        { label: 'Yükselen Trende Çevir', action: 'setUptrend' },
-                        { label: 'Düşen Trende Çevir', action: 'setDowntrend' }
+                        { label: t('chart.extendRight'), action: 'extendRight' },
+                        { label: t('chart.extendLeft'), action: 'extendLeft' },
+                        { label: t('chart.setUptrend'), action: 'setUptrend' },
+                        { label: t('chart.setDowntrend'), action: 'setDowntrend' }
                     ].map((item, index) => (
                         <button
                             key={index}

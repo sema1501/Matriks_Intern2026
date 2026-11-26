@@ -11,11 +11,11 @@ import IndicatorPanel from '../../components/IndicatorPanel/IndicatorPanel';
 import TradeForm from '../../components/TradeForm/TradeForm';
 import './CoinDetail.css';
 
-function getErrorMessage(err) {
+function getErrorMessage(err, t) {
     if (err.response?.status === 401 || err.response?.status === 403) {
-        return 'Bu işlem için giriş yapmanız gerekiyor.';
+        return t('coin.loginRequired');
     }
-    return err.response?.data?.error || err.response?.data?.message || 'Alarm oluşturulamadı.';
+    return err.response?.data?.error || err.response?.data?.message || t('coin.alarmCreateError');
 }
 
 export default function CoinDetail() {
@@ -64,18 +64,18 @@ export default function CoinDetail() {
         setAlertSuccess('');
 
         if (!user) {
-            setAlertError('Alarm kurmak için giriş yapmanız gerekiyor.');
+            setAlertError(t('coin.alarmLoginRequired'));
             return;
         }
 
         if (direction !== 'above' && direction !== 'below') {
-            setAlertError('Yön seçimi geçersiz.');
+            setAlertError(t('coin.directionInvalid'));
             return;
         }
 
         const interval = Number(alertInterval);
         if (![0, 1, 2].includes(interval)) {
-            setAlertError('Kontrol sıklığı geçersiz.');
+            setAlertError(t('coin.intervalInvalid'));
             return;
         }
 
@@ -84,7 +84,7 @@ export default function CoinDetail() {
         if (alertType === 'percent') {
             const threshold = Number(percentThreshold);
             if (!percentThreshold || !Number.isFinite(threshold) || threshold <= 0) {
-                setAlertError('Geçerli bir yüzde değeri girin (pozitif sayı).');
+                setAlertError(t('coin.percentInvalid'));
                 return;
             }
             payload = {
@@ -98,7 +98,7 @@ export default function CoinDetail() {
         } else {
             const price = Number(targetPrice);
             if (!targetPrice || !Number.isFinite(price) || price <= 0) {
-                setAlertError('Geçerli bir hedef fiyat girin (pozitif sayı).');
+                setAlertError(t('coin.targetInvalid'));
                 return;
             }
             payload = {
@@ -113,13 +113,13 @@ export default function CoinDetail() {
         setAlertLoading(true);
         try {
             await createAlert(payload);
-            setAlertSuccess('Alarm başarıyla oluşturuldu.');
+            setAlertSuccess(t('coin.alarmCreated'));
             setTargetPrice('');
             setPercentThreshold('');
             setAlertInterval(0);
             window.dispatchEvent(new Event('alerts-changed'));
         } catch (err) {
-            setAlertError(getErrorMessage(err));
+            setAlertError(getErrorMessage(err, t));
         } finally {
             setAlertLoading(false);
         }
@@ -129,8 +129,8 @@ export default function CoinDetail() {
         return (
             <div className="coin-detail-container">
                 <h1 className="coin-detail-title">{t('coin.notFound')}</h1>
-                <p style={{ marginTop: '15px', color: '#64748b' }}>"{symbol}" şu an takip ettiğimiz coinler arasında yer almıyor.</p>
-                <button className="btn-back" onClick={() => navigate('/')} style={{ marginTop: '20px' }}>Listeye Dön</button>
+                <p style={{ marginTop: '15px', color: '#64748b' }}>{t('coin.notTracked', { symbol })}</p>
+                <button className="btn-back" onClick={() => navigate('/')} style={{ marginTop: '20px' }}>{t('coin.backToList')}</button>
             </div>
         );
     }
@@ -159,29 +159,29 @@ export default function CoinDetail() {
                         {coinData ? (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                 <div className="stat-box" style={{ padding: '12px' }}>
-                                    <span className="stat-label" style={{ fontSize: '11px' }}>Anlık Fiyat</span>
+                                    <span className="stat-label" style={{ fontSize: '11px' }}>{t('card.currentPrice')}</span>
                                     <span className="stat-value" style={{ fontSize: '16px' }}>{formatPrice(coinData.currentPrice)}</span>
                                 </div>
 
                                 <div className="stat-box" style={{ padding: '12px' }}>
-                                    <span className="stat-label" style={{ fontSize: '11px' }}>24S Değişim</span>
+                                    <span className="stat-label" style={{ fontSize: '11px' }}>{t('coin.change24h')}</span>
                                     <span className={`stat-value ${isPositive ? 'positive' : 'negative'}`} style={{ fontSize: '16px' }}>
                                         {isPositive ? '+' : ''}{change24h.toFixed(2)}%
                                     </span>
                                 </div>
 
                                 <div className="stat-box" style={{ padding: '12px' }}>
-                                    <span className="stat-label" style={{ fontSize: '11px' }}>24S Yüksek</span>
+                                    <span className="stat-label" style={{ fontSize: '11px' }}>{t('coin.high24h')}</span>
                                     <span className="stat-value" style={{ fontSize: '16px' }}>{formatPrice(coinData.high24h)}</span>
                                 </div>
 
                                 <div className="stat-box" style={{ padding: '12px' }}>
-                                    <span className="stat-label" style={{ fontSize: '11px' }}>24S Düşük</span>
+                                    <span className="stat-label" style={{ fontSize: '11px' }}>{t('coin.low24h')}</span>
                                     <span className="stat-value" style={{ fontSize: '16px' }}>{formatPrice(coinData.low24h)}</span>
                                 </div>
                             </div>
                         ) : (
-                            <p style={{ color: '#64748b' }}>Canlı piyasa verisi bekleniyor...</p>
+                            <p style={{ color: '#64748b' }}>{t('coin.waitingData')}</p>
                         )}
                     </div>
 
@@ -268,7 +268,7 @@ export default function CoinDetail() {
                                 </select>
                             </div>
                             <div className="alarm-field" style={{ margin: 0 }}>
-                                <label htmlFor="alertInterval" style={{ fontSize: '12px', marginBottom: '4px' }}>Kontrol Sıklığı</label>
+                                <label htmlFor="alertInterval" style={{ fontSize: '12px', marginBottom: '4px' }}>{t('coin.interval')}</label>
                                 <select
                                     id="alertInterval"
                                     value={alertInterval}
@@ -287,7 +287,7 @@ export default function CoinDetail() {
                                 disabled={!user || alertLoading}
                                 style={{ width: '100%', marginTop: '5px' }}
                             >
-                                {alertLoading ? 'Kaydediliyor...' : 'Alarm Kur'}
+                                {alertLoading ? t('common.saving') : t('coin.createAlarm')}
                             </button>
                         </form>
                     </section>
@@ -295,7 +295,7 @@ export default function CoinDetail() {
                     {!isMobile && (
                         <div style={{ alignSelf: 'flex-start' }}>
                             <button className="btn-back" onClick={() => navigate('/')} style={{ margin: 0 }}>
-                                Listeye Dön
+                                {t('coin.backToList')}
                             </button>
                         </div>
                     )}
@@ -333,7 +333,7 @@ export default function CoinDetail() {
                 {isMobile && (
                     <div style={{ width: '100%', marginTop: '10px' }}>
                         <button className="btn-back" onClick={() => navigate('/')} style={{ margin: '0 auto', display: 'block', width: '100%' }}>
-                            Listeye Dön
+                            {t('coin.backToList')}
                         </button>
                     </div>
                 )}
