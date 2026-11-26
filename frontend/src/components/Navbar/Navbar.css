@@ -90,13 +90,14 @@
   background: rgba(2, 6, 23, 0.55);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
   z-index: 50;
 }
 
 .side-menu__overlay.is-open {
   opacity: 1;
   pointer-events: auto;
+  backdrop-filter: blur(2px);
 }
 
 .side-menu {
@@ -114,7 +115,7 @@
   box-shadow: var(--shadow-md);
   transform: translateX(-100%);
   visibility: hidden;
-  transition: transform 0.25s ease, visibility 0.25s;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.35s;
   z-index: 60;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   user-select: none;
@@ -285,10 +286,45 @@
   color: var(--text-primary);
 }
 
+/* Menü açılırken linkler sırayla, hafifçe kayarak gelir. */
+.side-menu .side-menu__group,
+.side-menu .side-menu__footer {
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.side-menu.is-open .side-menu__group,
+.side-menu.is-open .side-menu__footer {
+  opacity: 1;
+  transform: none;
+}
+
+.side-menu.is-open .side-menu__group:nth-child(1) { transition-delay: 0.08s; }
+.side-menu.is-open .side-menu__group:nth-child(2) { transition-delay: 0.14s; }
+.side-menu.is-open .side-menu__group:nth-child(3) { transition-delay: 0.2s; }
+.side-menu.is-open .side-menu__footer { transition-delay: 0.24s; }
+
+.navbar__menu-button span {
+  transition: transform 0.2s ease;
+}
+
+.navbar__menu-button:hover span:nth-child(1) { transform: translateX(2px); }
+.navbar__menu-button:hover span:nth-child(3) { transform: translateX(-2px); }
+
 @media (prefers-reduced-motion: reduce) {
   .side-menu,
-  .side-menu__overlay {
+  .side-menu__overlay,
+  .side-menu .side-menu__group,
+  .side-menu .side-menu__footer,
+  .navbar__menu-button span {
     transition: none;
+  }
+
+  .side-menu .side-menu__group,
+  .side-menu .side-menu__footer {
+    opacity: 1;
+    transform: none;
   }
 }
 
