@@ -14,6 +14,8 @@ const extraTranslations = {
     'search.placeholder': 'Coin ara: BTC, Ethereum...',
     'search.label': 'Coin ara',
     'search.noResults': 'Eşleşen coin yok',
+    'search.recent': 'Son aramalar',
+    'search.clearRecent': 'Temizle',
     // Ortak
     'common.active': 'Aktif',
     'common.passive': 'Pasif',
@@ -336,6 +338,8 @@ const extraTranslations = {
     'search.placeholder': 'Search coins: BTC, Ethereum...',
     'search.label': 'Search coins',
     'search.noResults': 'No matching coin',
+    'search.recent': 'Recent searches',
+    'search.clearRecent': 'Clear',
     'common.active': 'Active',
     'common.passive': 'Inactive',
     'common.refresh': 'Refresh',

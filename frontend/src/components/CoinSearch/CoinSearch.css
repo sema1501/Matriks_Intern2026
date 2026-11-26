@@ -23,7 +23,15 @@
   color: var(--text-primary);
   font: inherit;
   font-size: 0.92rem;
+  caret-color: var(--accent-color);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Tarayıcının kendi arama süslerini gizle, çubuk sade kalsın. */
+.coin-search__input::-webkit-search-decoration,
+.coin-search__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .coin-search__input::placeholder {
@@ -36,21 +44,53 @@
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.coin-search__list {
+.coin-search__panel {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  margin: 0;
   padding: 6px;
-  list-style: none;
   border: 1px solid var(--border-color);
   border-radius: 14px;
   background: var(--surface-strong);
   box-shadow: var(--shadow-md);
   z-index: 30;
+}
+
+.coin-search__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   max-height: 360px;
   overflow-y: auto;
+}
+
+.coin-search__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.coin-search__heading button {
+  border: 0;
+  background: transparent;
+  color: var(--accent-color);
+  font: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.coin-search__recent-icon {
+  margin-left: auto;
+  color: var(--text-muted);
 }
 
 .coin-search__option {
