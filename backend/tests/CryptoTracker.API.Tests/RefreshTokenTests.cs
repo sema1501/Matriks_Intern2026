@@ -292,70 +292,7 @@ public class RefreshTokenTests
 
     // ---------------- HTTP uçları ----------------
 
-    [Fact]
-    public async Task RefreshEndpoint_ReturnsNewTokens_AndReuseReturns401()
-    {
-        // Tolerans penceresi kapalı: tekrar kullanım hemen saldırı sayılır.
-        using var factory = new RefreshTokenApiFactory(reuseGraceSeconds: 0);
-        await factory.SeedUserAsync();
-        var client = factory.CreateClient();
-
-        var login = await LoginAsync(client);
-
-        var refresh = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = login.RefreshToken });
-        Assert.Equal(HttpStatusCode.OK, refresh.StatusCode);
-        var rotated = (await refresh.Content.ReadFromJsonAsync<AuthResponse>())!;
-        Assert.NotEqual(login.RefreshToken, rotated.RefreshToken);
-
-        // Yeni access token korumalı uçta çalışıyor.
-        var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/Auth/me");
-        meRequest.Headers.Authorization = new("Bearer", rotated.Token);
-        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(meRequest)).StatusCode);
-
-        var reuse = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = login.RefreshToken });
-        Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
-
-        // Yeniden kullanım tespit edildiği için rotation'la gelen token da artık geçersiz.
-        var afterReuse = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = rotated.RefreshToken });
-        Assert.Equal(HttpStatusCode.Unauthorized, afterReuse.StatusCode);
-    }
-
-    [Fact]
-    public async Task RefreshEndpoint_SecondTabInsideGraceWindow_Gets401WithCode_AndStaysLoggedIn()
-    {
-        using var factory = new RefreshTokenApiFactory();
-        await factory.SeedUserAsync();
-        var client = factory.CreateClient();
-        var login = await LoginAsync(client);
-
-        var first = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = login.RefreshToken });
-        var rotated = (await first.Content.ReadFromJsonAsync<AuthResponse>())!;
-
-        // İkinci sekme aynı anda eski token'la geliyor.
-        var second = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = login.RefreshToken });
-        Assert.Equal(HttpStatusCode.Unauthorized, second.StatusCode);
-        var body = await second.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-        Assert.Equal(RefreshTokenAlreadyRotatedException.ErrorCode, body!["code"]);
-
-        // İlk sekmenin aldığı token hâlâ geçerli.
-        var again = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = rotated.RefreshToken });
-        Assert.Equal(HttpStatusCode.OK, again.StatusCode);
-    }
-
-    [Fact]
-    public async Task LogoutEndpoint_WorksWithoutAccessToken_AndTokenStopsWorking()
-    {
-        using var factory = new RefreshTokenApiFactory();
-        await factory.SeedUserAsync();
-        var client = factory.CreateClient();
-        var login = await LoginAsync(client);
-
-        var logout = await client.PostAsJsonAsync("/api/Auth/logout", new { refreshToken = login.RefreshToken });
-        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
-
-        var refresh = await client.PostAsJsonAsync("/api/Auth/refresh", new { refreshToken = login.RefreshToken });
-        Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
-    }
+    // Çerezli HTTP davranışı RefreshTokenCookieTests içinde.
 
     [Fact]
     public async Task RefreshEndpoint_IsRateLimited()
@@ -373,13 +310,6 @@ public class RefreshTokenTests
     }
 
     // ---------------- Yardımcılar ----------------
-
-    private static async Task<AuthResponse> LoginAsync(HttpClient client)
-    {
-        var response = await client.PostAsJsonAsync("/api/Auth/login", new { usernameOrEmail = "sefa", password = Password });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
-    }
 
     private static AppDbContext CreateDb() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
@@ -427,7 +357,7 @@ public class RefreshTokenTests
     }
 }
 
-public class RefreshTokenApiFactory(int? reuseGraceSeconds = null) : WebApplicationFactory<Program>
+public class RefreshTokenApiFactory(int? reuseGraceSeconds = null, bool? secureCookie = false) : WebApplicationFactory<Program>
 {
     private readonly string _dbName = Guid.NewGuid().ToString();
 
@@ -436,6 +366,9 @@ public class RefreshTokenApiFactory(int? reuseGraceSeconds = null) : WebApplicat
         builder.UseEnvironment("Testing");
         if (reuseGraceSeconds is not null)
             builder.UseSetting("Jwt:RefreshReuseGraceSeconds", reuseGraceSeconds.Value.ToString());
+        // Testler http üzerinden çalışıyor; null verilirse varsayılan davranış denenir.
+        if (secureCookie is not null)
+            builder.UseSetting("Auth:RefreshCookieSecure", secureCookie.Value.ToString());
         builder.ConfigureServices(services =>
         {
             services.AddDbContext<AppDbContext>(options =>

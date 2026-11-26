@@ -106,7 +106,7 @@ Windows PowerShell'de tek sefer çalıştırmak için: `$env:CI="true"; npm test
 
 Frontend testleri ağ çağrılarını mock'lar, backend'in açık olması gerekmez. Test dosyaları
 test ettikleri dosyanın yanında `*.test.js` / `*.test.jsx` adıyla durur:
-- `services/apiService.test.js`: 401 gelince refresh, aynı anda gelen 401'lerde tek refresh, refresh başarısız olursa çıkış
+- `services/apiService.test.js`: 401 gelince cookie ile refresh, aynı anda gelen 401'lerde tek refresh, iki sekmede tek refresh, refresh başarısız olursa çıkış
 - `utils/botSignalReason.test.jsx`: Strateji / Stop-loss / Take-profit etiketleri (TR/EN)
 - `components/PortfolioHistoryChart/PortfolioHistoryChart.test.jsx`: yükleniyor, hata, boş, tek kayıt ve grafik durumları
 - `context/RealtimeContext.test.jsx`: bağlantı kopunca polling'e geçiş, geri gelince polling'in durması, çıkışta bağlantının kapanması
@@ -148,13 +148,24 @@ Kayıt/giriş (JWT), **e-posta doğrulama zorunluluğu** (doğrulanmamış hesap
 yapamaz), şifremi unuttum/sıfırlama (bağlantı e-postayla gönderilir), profil
 görüntüleme/düzenleme, **profil fotoğrafı** (en fazla ~3 MB), şifre değiştirme,
 e-posta bildirimi açma/kapama, rol yönetimi (Admin/SuperAdmin/User).
-**Oturum yenileme:** 15 dakikalık access token + 7 günlük refresh token. Access token
-dolunca frontend oturumu fark ettirmeden yeniler (her yenilemede yeni refresh token
-verilir, eskisi iptal edilir). Kullanılmış bir refresh token tekrar gelirse kullanıcının
-tüm oturumları kapatılır. Tek istisna: iki sekme aynı anda yenileme yaparsa, yeni
-dönüştürülmüş token ilk 10 saniye içinde tekrar geldiğinde yalnızca 401 döner, oturumlar
-kapanmaz; frontend bu durumda diğer sekmenin aldığı yeni token'ı kullanır
-(`Jwt:RefreshReuseGraceSeconds`). Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
+**Oturum yenileme:** 15 dakikalık access token + 7 günlük refresh token. Refresh token
+`HttpOnly` cookie'de durur (`SameSite=Strict`, `Path=/api/Auth`), yanıt gövdesinde ve
+`localStorage`'da yoktur. Access token dolunca frontend oturumu fark ettirmeden yeniler
+(her yenilemede yeni refresh token verilir, eskisi iptal edilir). Sayfa açılırken access
+token yoksa ama bu tarayıcıda oturum açılmışsa önce sessizce yenileme denenir.
+
+- **XSS:** Sayfaya kötü bir script girse de `HttpOnly` cookie'yi okuyamaz, 7 günlük token çalınamaz.
+- **CSRF:** Cookie kendiliğinden gittiği için `refresh` ve `logout` yalnızca izinli `Origin`
+  (`Cors:AllowedOrigins`) ve `X-Requested-With: XMLHttpRequest` başlığıyla çalışır, aksi halde 403 döner.
+- **`Auth:RefreshCookieSecure`:** Cookie'nin yalnızca HTTPS ile gitmesini sağlar. Ayar verilmezse
+  açıktır, üretimde unutulsa bile token http üzerinden gitmesin diye. `dotnet run` için `launchSettings.json` kapatır.
+- **Sekmeler:** Cookie tüm sekmelerde ortak olduğu için yenileme Web Locks kilidinden geçer: bir sekme
+  yeniler, diğeri kilit açılınca yeni access token'ı `localStorage`'dan okur. SignalR da aynı kilidi kullanır.
+
+Kullanılmış bir refresh token tekrar gelirse kullanıcının tüm oturumları kapatılır. Tek istisna:
+Web Locks olmayan bir tarayıcıda iki sekme aynı anda yenileme yaparsa, yeni dönüştürülmüş token ilk
+10 saniye içinde tekrar geldiğinde yalnızca 401 döner, oturumlar kapanmaz; frontend bu durumda diğer
+sekmenin aldığı yeni token'ı kullanır (`Jwt:RefreshReuseGraceSeconds`). Çıkış cookie'yi de siler. Çıkış, şifre değiştirme ve şifre sıfırlama refresh token'ları
 iptal eder. Refresh token veritabanında yalnızca SHA-256 hash'i olarak saklanır.
 `RefreshTokenCleanupService` günde bir süresi dolmuş token'ları ve 30 günden eski iptal
 edilmiş token'ları siler (`RefreshTokenCleanup` ayarları).
