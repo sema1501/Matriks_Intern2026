@@ -16,7 +16,7 @@
     margin: auto 0;
     border: 1px solid var(--border-color, rgba(148, 163, 184, 0.24));
     border-radius: 18px;
-    background: var(--bg-primary, #0f172a);
+    background: var(--surface-strong, #0f172a);
     color: var(--text-primary, #f8fafc);
     box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
     overflow: hidden;
@@ -50,10 +50,10 @@
     padding: 9px 11px;
     border: 1px solid var(--border-color, #334155);
     border-radius: 8px;
-    background: var(--bg-secondary, #111827);
+    background: var(--surface-soft, #111827);
     color: var(--text-primary, #f8fafc);
-    color-scheme: dark;
 }
+[data-theme='dark'] .backtest-controls input { color-scheme: dark; }
 .backtest-controls button {
     padding: 10px 18px;
     border: 0;
@@ -80,6 +80,15 @@
 .backtest-summary-grid strong { font-size: 18px; }
 .backtest-summary-grid .positive { color: #16a34a; }
 .backtest-summary-grid .negative { color: #dc2626; }
+
+.backtest-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 12px; }
+.backtest-summary-grid .backtest-metric-label { display: flex; align-items: center; gap: 6px; }
+.backtest-summary-grid .backtest-metric-info { margin: 0; cursor: help; font-size: 13px; }
+.backtest-metric-note { display: block; margin-top: 6px; color: var(--text-secondary, #94a3b8); font-size: 11px; }
+.backtest-buyhold-badge { display: inline-block; margin-left: 8px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; vertical-align: middle; }
+.backtest-buyhold-badge.positive { background: rgba(22, 163, 74, .14); color: #22c55e; }
+.backtest-buyhold-badge.negative { background: rgba(220, 38, 38, .14); color: #ef4444; }
+.backtest-equity { padding: 0 14px 14px; }
 
 .backtest-chart-card, .backtest-table-card { margin: 20px 26px; border: 1px solid var(--border-color, rgba(148, 163, 184, .18)); border-radius: 12px; overflow: hidden; background: rgba(148, 163, 184, .035); }
 .backtest-chart-legend { display: flex; flex-wrap: wrap; gap: 18px; padding: 12px 14px; color: var(--text-secondary, #94a3b8); font-size: 12px; border-bottom: 1px solid var(--border-color, rgba(148, 163, 184, .14)); }
@@ -110,6 +119,7 @@
     .backtest-controls { padding: 14px 18px; }
     .backtest-controls label, .backtest-controls input, .backtest-controls button { width: 100%; }
     .backtest-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px 18px 0; }
+    .backtest-metric-grid { padding-top: 12px; }
     .backtest-chart-card, .backtest-table-card { margin: 16px 18px; }
     .backtest-chart { height: 470px; }
 }
