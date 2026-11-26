@@ -12,6 +12,8 @@ jest.mock('../ConnectionStatus/ConnectionStatus', () => () => null);
 jest.mock('../RealtimeStatus/RealtimeStatus', () => () => null);
 jest.mock('../ThemeToggle/ThemeToggle', () => () => null);
 jest.mock('../CurrencyToggle/CurrencyToggle', () => () => null);
+jest.mock('../NotificationBell/NotificationBell', () => () => null);
+jest.mock('../UserMenu/UserMenu', () => () => null);
 
 let switchLang;
 function LangSwitch() {

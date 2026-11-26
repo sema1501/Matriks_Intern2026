@@ -8,6 +8,8 @@ import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import CurrencyToggle from '../CurrencyToggle/CurrencyToggle';
 import Logo from '../Logo/Logo';
 import CoinSearch from '../CoinSearch/CoinSearch';
+import NotificationBell from '../NotificationBell/NotificationBell';
+import UserMenu from '../UserMenu/UserMenu';
 import './Navbar.css';
 
 // #109: Uzun link sırası soldan açılan menüye taşındı.
@@ -118,6 +120,8 @@ export default function Navbar() {
                     <RealtimeStatus />
                     <CurrencyToggle />
                     <ThemeToggle />
+                    <NotificationBell />
+                    <UserMenu />
                 </div>
             </nav>
 
