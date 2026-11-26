@@ -10,6 +10,7 @@ import Logo from '../Logo/Logo';
 import CoinSearch from '../CoinSearch/CoinSearch';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import UserMenu from '../UserMenu/UserMenu';
+import NavIcon from './NavIcon';
 import './Navbar.css';
 
 // #109: Uzun link sırası soldan açılan menüye taşındı.
@@ -60,28 +61,28 @@ export default function Navbar() {
             key: 'market',
             title: t('nav.group.market'),
             links: [
-                { to: '/', label: t('nav.home'), end: true },
-                { to: '/leaderboard', label: t('nav.leaderboard') },
-                { to: '/compare', label: t('nav.compare') },
-                { to: '/converter', label: t('nav.converter') },
+                { to: '/', label: t('nav.home'), icon: 'home', end: true },
+                { to: '/leaderboard', label: t('nav.leaderboard'), icon: 'leaderboard' },
+                { to: '/compare', label: t('nav.compare'), icon: 'compare' },
+                { to: '/converter', label: t('nav.converter'), icon: 'converter' },
             ],
         },
         user && {
             key: 'account',
             title: t('nav.group.account'),
             links: [
-                { to: '/profile', label: t('nav.profile') },
-                { to: '/portfolio', label: t('nav.portfolio') },
-                { to: '/watchlist', label: t('nav.watchlist') },
-                { to: '/bot', label: t('nav.bots') },
+                { to: '/profile', label: t('nav.profile'), icon: 'profile' },
+                { to: '/portfolio', label: t('nav.portfolio'), icon: 'portfolio' },
+                { to: '/watchlist', label: t('nav.watchlist'), icon: 'watchlist' },
+                { to: '/bot', label: t('nav.bots'), icon: 'bots' },
             ],
         },
         user && isAdmin && {
             key: 'admin',
             title: t('nav.group.admin'),
             links: [
-                { to: '/dashboard', label: t('nav.dashboard') },
-                { to: '/admin/bots', label: t('nav.admin') },
+                { to: '/dashboard', label: t('nav.dashboard'), icon: 'dashboard' },
+                { to: '/admin/bots', label: t('nav.admin'), icon: 'monitoring' },
             ],
         },
     ].filter(Boolean);
@@ -168,6 +169,7 @@ export default function Navbar() {
                                 {group.links.map((link) => (
                                     <li key={link.to}>
                                         <NavLink to={link.to} end={link.end} className={linkClass}>
+                                            <NavIcon name={link.icon} />
                                             {link.label}
                                         </NavLink>
                                     </li>
@@ -179,10 +181,12 @@ export default function Navbar() {
 
                 <div className="side-menu__footer">
                     <NavLink to="/feedback" className={linkClass}>
+                        <NavIcon name="feedback" />
                         {t('nav.feedback')}
                     </NavLink>
                     {user ? (
                         <button type="button" className="side-menu__logout" onClick={() => { closeMenu(); logoutUser(); }}>
+                            <NavIcon name="logout" />
                             {t('nav.logout')}
                         </button>
                     ) : (

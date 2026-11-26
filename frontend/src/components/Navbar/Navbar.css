@@ -196,7 +196,9 @@
 }
 
 .side-menu__link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
   border-left: 3px solid transparent;
@@ -225,7 +227,25 @@
   border-top: 1px solid var(--border-color);
 }
 
+.side-menu__icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+
+.side-menu__link:hover .side-menu__icon,
+.side-menu__link.is-active .side-menu__icon {
+  color: var(--accent-color);
+}
+
+.side-menu__logout .side-menu__icon {
+  color: inherit;
+}
+
 .side-menu__logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 10px;
