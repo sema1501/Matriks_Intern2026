@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { usePollingFallback, useRealtimeEvent } from '../../context/RealtimeContext';
 import { getAlerts, getAlertSignals } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 import './AlertMonitor.css';
 
 const TOAST_DURATION_MS = 8000;
@@ -19,13 +20,17 @@ function showBrowserNotification(title, body) {
   return false;
 }
 
-function formatTriggeredAt(value) {
+function formatTriggeredAt(value, locale) {
   if (!value) return '';
-  return new Date(value).toLocaleString('tr-TR');
+  return new Date(value).toLocaleString(locale);
 }
 
-function signalMessage(symbol, price, triggeredAt) {
-  return `${symbol} sinyal: $${Number(price).toLocaleString()} (${formatTriggeredAt(triggeredAt)})`;
+function signalMessage(t, locale, symbol, price, triggeredAt) {
+  return t('alert.signalMessage', {
+    symbol,
+    price: Number(price).toLocaleString(locale),
+    time: formatTriggeredAt(triggeredAt, locale),
+  });
 }
 
 /**
@@ -35,6 +40,7 @@ function signalMessage(symbol, price, triggeredAt) {
  */
 export default function AlertMonitor() {
   const { user } = useAuth();
+  const { t, locale } = useLanguage();
   const [toasts, setToasts] = useState([]);
   const knownSignalIdsRef = useRef(new Set());
   const knownCountsRef = useRef(new Map());
@@ -62,14 +68,16 @@ export default function AlertMonitor() {
 
     fresh.forEach((signal) => {
       const message = signalMessage(
+        t,
+        locale,
         symbol,
         signal.priceAtTrigger ?? signal.PriceAtTrigger,
         signal.triggeredAt ?? signal.TriggeredAt
       );
       addToast(message);
-      showBrowserNotification('Fiyat Alarmı Sinyali', message);
+      showBrowserNotification(t('alert.notificationTitle'), message);
     });
-  }, [addToast]);
+  }, [addToast, t, locale]);
 
   const pollSignals = useCallback(async () => {
     if (!user || pollingRef.current) return;
@@ -156,9 +164,9 @@ export default function AlertMonitor() {
     // Sayaç da artırılır ki sonraki polling bu sinyal için tekrar istek atmasın.
     knownCountsRef.current.set(event.alertId, (knownCountsRef.current.get(event.alertId) ?? 0) + 1);
 
-    const message = signalMessage(event.symbol, event.priceAtTrigger, event.triggeredAt);
+    const message = signalMessage(t, locale, event.symbol, event.priceAtTrigger, event.triggeredAt);
     addToast(message);
-    showBrowserNotification('Fiyat Alarmı Sinyali', message);
+    showBrowserNotification(t('alert.notificationTitle'), message);
   });
 
   if (!toasts.length) return null;

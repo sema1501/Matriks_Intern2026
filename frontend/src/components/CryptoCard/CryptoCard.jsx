@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useWatchlist } from '../../context/WatchlistContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useLanguage } from '../../context/LanguageContext';
 import './CryptoCard.css';
 
 function getNumberValue(source, keys) {
@@ -71,6 +72,7 @@ export default function CryptoCard({ meta, priceData }) {
   const { user }                      = useAuth();
   const { isFavorite, toggleFavorite } = useWatchlist();
   const { formatPrice }                = useCurrency();
+  const { t }                          = useLanguage();
   const [flashClass,  setFlashClass]  = useState('');
   const [starLoading, setStarLoading] = useState(false);
   const previousPriceRef = useRef(null);
@@ -171,7 +173,7 @@ export default function CryptoCard({ meta, priceData }) {
           className={`crypto-card__star ${
             isFavorite(shortSymbol) ? 'crypto-card__star--active' : ''
           }`}
-          aria-label={isFavorite(shortSymbol) ? 'Favoriden çıkar' : 'Favoriye ekle'}
+          aria-label={isFavorite(shortSymbol) ? t('card.removeFavorite') : t('card.addFavorite')}
           disabled={starLoading}
           onClick={async (e) => {
             e.stopPropagation();
@@ -186,14 +188,14 @@ export default function CryptoCard({ meta, priceData }) {
       </div>
 
       <div className="crypto-card__price-area">
-        <span className="crypto-card__label">Anlık Fiyat</span>
+        <span className="crypto-card__label">{t('card.currentPrice')}</span>
         <strong className="crypto-card__price">{formatPrice(currentPrice)}</strong>
       </div>
 
       <div className="crypto-card__footer">
         <div>
-          <span className="crypto-card__footer-title">24s Değişim</span>
-          <span className="crypto-card__footer-subtitle">Canlı Binance verisi</span>
+          <span className="crypto-card__footer-title">{t('card.change24h')}</span>
+          <span className="crypto-card__footer-subtitle">{t('card.liveBinance')}</span>
         </div>
 
         <span

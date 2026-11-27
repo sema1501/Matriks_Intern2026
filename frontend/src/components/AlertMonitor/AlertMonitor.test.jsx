@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { getAlerts, getAlertSignals } from '../../services/apiService';
 import AlertMonitor from './AlertMonitor';
+import { LanguageProvider } from '../../context/LanguageContext';
 
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 1 } }) }));
 jest.mock('../../services/apiService', () => ({ getAlerts: jest.fn(), getAlertSignals: jest.fn() }));
@@ -32,7 +33,7 @@ beforeEach(() => {
 });
 
 test('anlık gelen sinyal bir kez gösterilir, aynı sinyal polling ile gelince tekrar gösterilmez', async () => {
-  render(<AlertMonitor />);
+  render(<LanguageProvider><AlertMonitor /></LanguageProvider>);
   await act(async () => {});
 
   act(() => mockRealtimeHandler(event(5)));
@@ -46,7 +47,7 @@ test('anlık gelen sinyal bir kez gösterilir, aynı sinyal polling ile gelince 
 });
 
 test('polling ile önce gelen sinyal, sonra SignalR ile gelirse tekrar gösterilmez', async () => {
-  render(<AlertMonitor />);
+  render(<LanguageProvider><AlertMonitor /></LanguageProvider>);
   await act(async () => {});
 
   getAlerts.mockResolvedValue(alertWithCount(1));
@@ -60,7 +61,7 @@ test('polling ile önce gelen sinyal, sonra SignalR ile gelirse tekrar gösteril
 });
 
 test('farklı sinyaller ayrı ayrı gösterilir', async () => {
-  render(<AlertMonitor />);
+  render(<LanguageProvider><AlertMonitor /></LanguageProvider>);
   await act(async () => {});
 
   act(() => mockRealtimeHandler(event(7)));

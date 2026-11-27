@@ -19,35 +19,35 @@ const inputStyle = { width: '100%', padding: '0.5rem', marginTop: '0.25rem' };
 const sectionStyle = { maxWidth: '560px', marginBottom: '2rem' };
 const ALERT_POLL_MS = 45_000;
 
-function formatDate(dateStr) {
+function formatDate(dateStr, locale) {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('tr-TR', {
+  return new Date(dateStr).toLocaleDateString(locale, {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 }
 
-function formatDateTime(dateStr) {
-  if (!dateStr) return 'Henüz sinyal yok';
-  return new Date(dateStr).toLocaleString('tr-TR');
+function formatDateTime(dateStr, t, locale) {
+  if (!dateStr) return t('profile.noSignalYet');
+  return new Date(dateStr).toLocaleString(locale);
 }
 
-function getErrorMessage(err) {
-  return err.response?.data?.error || err.response?.data?.message || 'Bir hata oluştu.';
+function getErrorMessage(err, t) {
+  return err.response?.data?.error || err.response?.data?.message || t('common.error');
 }
 
-function formatDirection(direction) {
-  if (direction === 0 || direction === '0') return 'Üstüne çıkınca';
-  if (direction === 1 || direction === '1') return 'Altına düşünce';
+function formatDirection(direction, t) {
+  if (direction === 0 || direction === '0') return t('profile.direction.above');
+  if (direction === 1 || direction === '1') return t('profile.direction.below');
   const d = String(direction || '').toLowerCase();
-  if (d === 'above') return 'Üstüne çıkınca';
-  if (d === 'below') return 'Altına düşünce';
+  if (d === 'above') return t('profile.direction.above');
+  if (d === 'below') return t('profile.direction.below');
   return direction || '—';
 }
 
-function formatInterval(interval) {
-  if (interval === 0 || interval === '0') return 'Dakikalık';
-  if (interval === 1 || interval === '1') return 'Saatlik';
-  if (interval === 2 || interval === '2') return 'Günlük';
+function formatInterval(interval, t) {
+  if (interval === 0 || interval === '0') return t('coin.minutely');
+  if (interval === 1 || interval === '1') return t('coin.hourly');
+  if (interval === 2 || interval === '2') return t('coin.daily');
   return '—';
 }
 
@@ -57,7 +57,7 @@ function getAlertField(alert, camel, pascal) {
 
 export default function Profile() {
   const { user: authUser, loading: authLoading, setUser } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   const [profile, setProfile]       = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -93,7 +93,7 @@ export default function Profile() {
         setProfile(res.data);
         setProfileForm({ username: res.data.username, email: res.data.email });
       })
-      .catch(err => setProfileError(getErrorMessage(err)))
+      .catch(err => setProfileError(getErrorMessage(err, t)))
       .finally(() => setLoading(false));
   }, [authUser, authLoading]);
 
@@ -107,9 +107,9 @@ export default function Profile() {
       .then(res => setAlerts(Array.isArray(res.data) ? res.data : []))
       .catch(err => {
         if (err.response?.status === 401 || err.response?.status === 403) {
-          setAlertsError('Alarmları görüntülemek için giriş yapmanız gerekiyor.');
+          setAlertsError(t('profile.alertsLoginRequired'));
         } else if (!silent) {
-          setAlertsError('Alarmlar yüklenemedi. Backend erişilebilir değil olabilir.');
+          setAlertsError(t('profile.alertsLoadError'));
         }
       })
       .finally(() => {
@@ -143,9 +143,9 @@ export default function Profile() {
         setExpandedSignalAlertId(null);
       }
       window.dispatchEvent(new Event('alerts-changed'));
-      setAlertsActionMessage('Alarm silindi.');
+      setAlertsActionMessage(t('profile.alertDeleted'));
     } catch (err) {
-      setAlertsError(getErrorMessage(err));
+      setAlertsError(getErrorMessage(err, t));
     } finally {
       setDeletingId(null);
     }
@@ -162,9 +162,9 @@ export default function Profile() {
       const res = await toggleAlert(id, nextActive);
       setAlerts(prev => prev.map(a => (getAlertField(a, 'id', 'Id') === id ? res.data : a)));
       window.dispatchEvent(new Event('alerts-changed'));
-      setAlertsActionMessage(nextActive ? 'Alarm aktifleştirildi.' : 'Alarm pasifleştirildi.');
+      setAlertsActionMessage(nextActive ? t('profile.alertActivated') : t('profile.alertDeactivated'));
     } catch (err) {
-      setAlertsError(getErrorMessage(err));
+      setAlertsError(getErrorMessage(err, t));
     } finally {
       setTogglingId(null);
     }
@@ -184,7 +184,7 @@ export default function Profile() {
       const res = await getAlertSignals(alertId);
       setSignalsByAlertId(prev => ({ ...prev, [alertId]: res.data }));
     } catch (err) {
-      setSignalsError(getErrorMessage(err));
+      setSignalsError(getErrorMessage(err, t));
     } finally {
       setSignalsLoadingId(null);
     }
@@ -198,7 +198,7 @@ export default function Profile() {
       const res = await setEmailNotifications(next);
       setProfile(res.data);
     } catch (err) {
-      setNotifError(getErrorMessage(err));
+      setNotifError(getErrorMessage(err, t));
     } finally {
       setNotifLoading(false);
     }
@@ -210,11 +210,11 @@ export default function Profile() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setAvatarError('Lütfen bir görsel dosyası seçin.');
+      setAvatarError(t('profile.avatarNotImage'));
       return;
     }
     if (file.size > 3 * 1024 * 1024) {
-      setAvatarError("Fotoğraf 3MB'dan küçük olmalıdır.");
+      setAvatarError(t('profile.avatarTooLarge'));
       return;
     }
 
@@ -228,13 +228,13 @@ export default function Profile() {
         setProfile(res.data);
         setUser(res.data);
       } catch (err) {
-        setAvatarError(getErrorMessage(err));
+        setAvatarError(getErrorMessage(err, t));
       } finally {
         setAvatarLoading(false);
       }
     };
     reader.onerror = () => {
-      setAvatarError('Dosya okunamadı.');
+      setAvatarError(t('profile.avatarReadError'));
       setAvatarLoading(false);
     };
     reader.readAsDataURL(file);
@@ -260,9 +260,9 @@ export default function Profile() {
       });
       setProfile(res.data);
       setUser(res.data);
-      setProfileSuccess('Profil başarıyla güncellendi.');
+      setProfileSuccess(t('profile.updated'));
     } catch (err) {
-      setProfileError(getErrorMessage(err));
+      setProfileError(getErrorMessage(err, t));
     } finally {
       setProfileLoading(false);
     }
@@ -274,7 +274,7 @@ export default function Profile() {
     setPasswordSuccess('');
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('Yeni şifreler eşleşmiyor.');
+      setPasswordError(t('profile.passwordMismatch'));
       return;
     }
 
@@ -288,7 +288,7 @@ export default function Profile() {
       endSession('auth.passwordChangedRelogin');
       return;
     } catch (err) {
-      setPasswordError(getErrorMessage(err));
+      setPasswordError(getErrorMessage(err, t));
     } finally {
       setPasswordLoading(false);
     }
@@ -299,11 +299,11 @@ export default function Profile() {
   }
 
   if (!authUser) {
-    return <p>Giriş yapmanız gerekiyor.</p>;
+    return <p>{t('profile.loginRequired')}</p>;
   }
 
   if (!profile) {
-    return <p style={{ color: 'red' }}>{profileError || 'Profil bilgisi alınamadı.'}</p>;
+    return <p style={{ color: 'red' }}>{profileError || t('profile.loadError')}</p>;
   }
 
   return (
@@ -320,7 +320,7 @@ export default function Profile() {
             <p><strong>{t('profile.username')}:</strong> {profile.username}</p>
             <p><strong>{t('profile.email')}:</strong> {profile.email}</p>
             <p><strong>{t('profile.roles')}:</strong> {profile.roles?.join(', ') || '—'}</p>
-            <p><strong>{t('profile.memberSince')}:</strong> {formatDate(profile.createdAt)}</p>
+            <p><strong>{t('profile.memberSince')}:</strong> {formatDate(profile.createdAt, locale)}</p>
           </div>
 
           {/* Sağ: avatar + fotoğraf yükle */}
@@ -328,7 +328,7 @@ export default function Profile() {
             {profile.avatarUrl ? (
               <img
                 src={profile.avatarUrl}
-                alt="Profil fotoğrafı"
+                alt={t('profile.photoAlt')}
                 style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color, #e2e8f0)' }}
               />
             ) : (
@@ -338,7 +338,7 @@ export default function Profile() {
                   background: '#cbd5e1', color: '#fff', display: 'flex',
                   alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 600,
                 }}
-                aria-label="Varsayılan profil fotoğrafı"
+                aria-label={t('profile.defaultPhotoAlt')}
               >
                 {profile.username?.[0]?.toUpperCase() || '?'}
               </div>
@@ -370,7 +370,7 @@ export default function Profile() {
           {notifLoading && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>{t('common.loading')}</span>}
         </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)', marginTop: '0.25rem' }}>
-          Kapalıysa alarm veya bot sinyali tetiklendiğinde e-posta gönderilmez.
+          {t('profile.emailHint')}
         </p>
         {notifError && <p style={{ color: 'red' }}>{notifError}</p>}
       </section>
@@ -381,7 +381,7 @@ export default function Profile() {
         {profileSuccess && <p style={{ color: 'green' }}>{profileSuccess}</p>}
         <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label htmlFor="username">Kullanıcı Adı</label>
+            <label htmlFor="username">{t('profile.username')}</label>
             <br />
             <input
               id="username"
@@ -418,7 +418,7 @@ export default function Profile() {
         {alertsError && <p style={{ color: 'red' }}>{alertsError}</p>}
         {alertsActionMessage && <p style={{ color: 'green' }}>{alertsActionMessage}</p>}
         {!alertsLoading && !alertsError && alerts.length === 0 && (
-          <p>Henüz alarm kurmadınız. Bir coin detay sayfasından alarm oluşturabilirsiniz.</p>
+          <p>{t('profile.noAlerts')}</p>
         )}
         {!alertsLoading && alerts.length > 0 && (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -458,23 +458,23 @@ export default function Profile() {
                       <strong>{symbol}</strong>
                       {!active && (
                         <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
-                          (Pasif)
+                          ({t('profile.passive')})
                         </span>
                       )}
                       <br />
                       <span style={{ fontSize: '0.9rem', color: 'var(--text-muted, #64748b)' }}>
                         {isPercent
-                          ? `Hedef: %${Number(percentThreshold)} ${direction === 0 || direction === '0' ? 'yükseliş' : 'düşüş'}` +
-                            (referencePrice != null ? ` (referans: $${Number(referencePrice).toLocaleString()})` : '')
-                          : `Hedef: $${Number(targetPrice).toLocaleString()} — ${formatDirection(direction)}`}
+                          ? `${t('profile.target')}: %${Number(percentThreshold)} ${direction === 0 || direction === '0' ? t('profile.rise') : t('profile.fall')}` +
+                            (referencePrice != null ? ` (${t('profile.reference')}: $${Number(referencePrice).toLocaleString(locale)})` : '')
+                          : `${t('profile.target')}: $${Number(targetPrice).toLocaleString(locale)} — ${formatDirection(direction, t)}`}
                       </span>
                       <br />
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
-                        {t('profile.interval')}: {formatInterval(interval)} · {t('profile.status')}: {active ? t('profile.active') : t('profile.passive')}
+                        {t('profile.interval')}: {formatInterval(interval, t)} · {t('profile.status')}: {active ? t('profile.active') : t('profile.passive')}
                       </span>
                       <br />
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
-                        Sinyal: {signalCount} · Son: {formatDateTime(lastTriggeredAt)}
+                        {t('profile.signal')}: {signalCount} · {t('profile.last')}: {formatDateTime(lastTriggeredAt, t, locale)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flexShrink: 0 }}>
@@ -491,7 +491,7 @@ export default function Profile() {
                         onClick={() => handleToggleSignals(id)}
                         style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
                       >
-                        {expandedSignalAlertId === id ? 'Sinyalleri Gizle' : 'Sinyal Geçmişi'}
+                        {expandedSignalAlertId === id ? t('profile.hideSignals') : t('profile.signalHistory')}
                       </button>
                       <button
                         type="button"
@@ -499,7 +499,7 @@ export default function Profile() {
                         disabled={deletingId === id}
                         style={{ padding: '0.4rem 0.8rem', cursor: 'pointer' }}
                       >
-                        {deletingId === id ? 'Siliniyor...' : 'Sil'}
+                        {deletingId === id ? t('common.deleting') : t('common.delete')}
                       </button>
                     </div>
                   </div>
@@ -512,13 +512,13 @@ export default function Profile() {
                       )}
                       {!signalsLoadingId && !signalsError && signals.length === 0 && (
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-muted, #64748b)' }}>
-                          {active ? 'Henüz sinyal yok.' : 'Alarm pasif. Aktifleştirince izleme yeniden başlar.'}
+                          {active ? t('profile.noSignalsYet') : t('profile.alertPassiveHint')}
                         </p>
                       )}
                       {!signalsLoadingId && signals.length > 0 && (
                         <>
                           <p style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-                            Toplam: {signalsPayload?.totalCount ?? signalsPayload?.TotalCount ?? signals.length}
+                            {t('profile.total')}: {signalsPayload?.totalCount ?? signalsPayload?.TotalCount ?? signals.length}
                           </p>
                           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                             {signals.map((signal) => {
@@ -527,7 +527,7 @@ export default function Profile() {
                               const at = signal.triggeredAt ?? signal.TriggeredAt;
                               return (
                                 <li key={signalId} style={{ fontSize: '0.85rem' }}>
-                                  ${price.toLocaleString()} — {formatDateTime(at)}
+                                  ${price.toLocaleString(locale)} — {formatDateTime(at, t, locale)}
                                 </li>
                               );
                             })}
@@ -549,7 +549,7 @@ export default function Profile() {
         {passwordSuccess && <p style={{ color: 'green' }}>{passwordSuccess}</p>}
         <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label htmlFor="currentPassword">Mevcut Şifre</label>
+            <label htmlFor="currentPassword">{t('profile.currentPassword')}</label>
             <br />
             <input
               id="currentPassword"
@@ -562,7 +562,7 @@ export default function Profile() {
             />
           </div>
           <div>
-            <label htmlFor="newPassword">Yeni Şifre</label>
+            <label htmlFor="newPassword">{t('profile.newPassword')}</label>
             <br />
             <input
               id="newPassword"
@@ -575,7 +575,7 @@ export default function Profile() {
             />
           </div>
           <div>
-            <label htmlFor="confirmPassword">Yeni Şifre Tekrar</label>
+            <label htmlFor="confirmPassword">{t('profile.confirmPassword')}</label>
             <br />
             <input
               id="confirmPassword"
@@ -588,7 +588,7 @@ export default function Profile() {
             />
           </div>
           <button type="submit" disabled={passwordLoading} style={{ padding: '0.6rem', cursor: 'pointer' }}>
-            {passwordLoading ? 'Değiştiriliyor...' : 'Şifreyi Değiştir'}
+            {passwordLoading ? t('profile.changing') : t('profile.changePasswordButton')}
           </button>
         </form>
       </section>

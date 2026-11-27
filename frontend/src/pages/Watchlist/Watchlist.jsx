@@ -31,7 +31,7 @@ export default function Watchlist() {
         <div>
           <h1 className="watchlist-page__title">{t('watchlist.title')}</h1>
           <p className="watchlist-page__subtitle">
-            Takip ettiğin {watchlist.length} coin
+            {t('watchlist.count', { count: watchlist.length })}
           </p>
         </div>
       </div>

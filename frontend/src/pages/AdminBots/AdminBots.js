@@ -5,9 +5,11 @@ import {
     getOvertradingBots,
     killAdminBot
 } from '../../services/apiService';
+import { useLanguage } from '../../context/LanguageContext';
 import './AdminBots.css';
 
 function AdminBots() {
+    const { t, locale } = useLanguage();
     const [bots, setBots] = useState([]);
     const [portfolios, setPortfolios] = useState([]);
     const [overtradingBots, setOvertradingBots] = useState([]);
@@ -34,14 +36,14 @@ function AdminBots() {
             setOvertradingBots(overtradingResponse.data);
         } catch (err) {
             if (err.response?.status === 403) {
-                setError('Bu sayfaya yalnızca Admin veya SuperAdmin erişebilir.');
+                setError(t('adminBots.forbidden'));
             } else {
-                setError('Admin verileri alınırken bir hata oluştu.');
+                setError(t('adminBots.loadError'));
             }
         } finally {
             if (showLoader) setLoading(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         loadAdminData();
@@ -51,7 +53,7 @@ function AdminBots() {
 
     const handleKillBot = async (bot) => {
         const approved = window.confirm(
-            `${bot.username} kullanıcısının ${bot.symbol} botunu zorla durdurmak istiyor musunuz?`
+            t('adminBots.killConfirm', { username: bot.username, symbol: bot.symbol })
         );
         if (!approved) return;
 
@@ -59,10 +61,10 @@ function AdminBots() {
             setKillingBotId(bot.id);
             setMessage('');
             await killAdminBot(bot.id);
-            setMessage(`${bot.symbol} botu başarıyla durduruldu.`);
+            setMessage(t('adminBots.killSuccess', { symbol: bot.symbol }));
             await loadAdminData(false);
         } catch (err) {
-            setMessage(err.response?.data?.message || 'Bot durdurulurken bir hata oluştu.');
+            setMessage(err.response?.data?.message || t('adminBots.killError'));
         } finally {
             setKillingBotId(null);
         }
@@ -97,23 +99,30 @@ function AdminBots() {
         });
     }, [portfolios, normalizedSearch]);
 
-    if (loading) return <div className="admin-bots-page">Veriler yükleniyor...</div>;
+    const strategyLabel = (strategy) => {
+        const key = String(strategy).toLowerCase();
+        if (key === 'rsi' || key === '0' || key === 'rsithreshold') return t('bot.strategy.rsi');
+        if (key === 'ema' || key === '1' || key === 'emacrossover') return t('bot.strategy.ema');
+        return strategy;
+    };
+
+    if (loading) return <div className="admin-bots-page">{t('adminBots.loading')}</div>;
     if (error) return <div className="admin-bots-page admin-error">{error}</div>;
 
     return (
         <div className="admin-bots-page">
             <div className="admin-page-header">
                 <div>
-                    <h1>Bot ve Portföy Gözetimi</h1>
-                    <p>Aktif botları izleyin, aşırı işlem riskini görün ve gerektiğinde botu anında durdurun.</p>
+                    <h1>{t('nav.admin')}</h1>
+                    <p>{t('adminBots.subtitle')}</p>
                 </div>
                 <div className="admin-filters">
-                    <input type="search" placeholder="Kullanıcı, sembol veya strateji ara..." value={search} onChange={(e) => setSearch(e.target.value)} />
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="all">Tüm botlar</option>
-                        <option value="active">Aktif botlar</option>
-                        <option value="inactive">Pasif botlar</option>
-                        <option value="risky">Aşırı işlem riski</option>
+                    <input type="search" placeholder={t('adminBots.searchPlaceholder')} aria-label={t('adminBots.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
+                    <select aria-label={t('adminBots.filterLabel')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <option value="all">{t('adminBots.filter.all')}</option>
+                        <option value="active">{t('adminBots.filter.active')}</option>
+                        <option value="inactive">{t('adminBots.filter.inactive')}</option>
+                        <option value="risky">{t('adminBots.filter.risky')}</option>
                     </select>
                 </div>
             </div>
@@ -122,25 +131,25 @@ function AdminBots() {
 
             <section className={`admin-risk-summary ${overtradingBots.length > 0 ? 'has-risk' : ''}`}>
                 <div>
-                    <strong>Aşırı İşlem Tespiti</strong>
-                    <span>Son 15 dakikada 5 veya daha fazla onaylı işlem yapan aktif botlar riskli kabul edilir.</span>
+                    <strong>{t('adminBots.risk.title')}</strong>
+                    <span>{t('adminBots.risk.description')}</span>
                 </div>
-                <div className="admin-risk-count">{overtradingBots.length} riskli bot</div>
+                <div className="admin-risk-count">{t('adminBots.risk.count', { count: overtradingBots.length })}</div>
             </section>
 
             <section className="admin-section">
-                <h2>Botlar ({filteredBots.length})</h2>
+                <h2>{t('adminBots.bots', { count: filteredBots.length })}</h2>
                 <div className="admin-table-wrapper">
                     <table className="admin-table">
-                        <thead><tr><th>Kullanıcı</th><th>Sembol</th><th>Strateji</th><th>RSI Al / Sat</th><th>İşlem Miktarı</th><th>Son 15 dk</th><th>Durum</th><th>Admin İşlemi</th></tr></thead>
+                        <thead><tr><th>{t('adminBots.col.user')}</th><th>{t('bot.symbol')}</th><th>{t('bot.strategy')}</th><th>{t('adminBots.col.rsi')}</th><th>{t('bot.quantity')}</th><th>{t('adminBots.col.last15')}</th><th>{t('bot.status')}</th><th>{t('adminBots.col.adminAction')}</th></tr></thead>
                         <tbody>
-                            {filteredBots.length === 0 ? <tr><td colSpan="8" className="admin-empty">Gösterilecek bot bulunamadı.</td></tr> : filteredBots.map((bot) => (
+                            {filteredBots.length === 0 ? <tr><td colSpan="8" className="admin-empty">{t('adminBots.noBots')}</td></tr> : filteredBots.map((bot) => (
                                 <tr key={bot.id} className={bot.isOvertrading ? 'admin-risk-row' : ''}>
-                                    <td>{bot.username}</td><td>{bot.symbol}</td><td>{bot.strategy}</td>
+                                    <td>{bot.username}</td><td>{bot.symbol}</td><td>{strategyLabel(bot.strategy)}</td>
                                     <td>{bot.buyRsiThreshold} / {bot.sellRsiThreshold}</td><td>{bot.tradeQuantity}</td>
-                                    <td><span className={`admin-trade-count ${bot.isOvertrading ? 'danger' : ''}`}>{bot.recentTradeCount} işlem</span>{bot.isOvertrading && <span className="admin-risk-badge">Aşırı işlem</span>}</td>
-                                    <td><span className={`admin-status ${bot.isActive ? 'active' : 'inactive'}`}>{bot.isActive ? 'Aktif' : 'Pasif'}</span></td>
-                                    <td><button className="admin-kill-button" disabled={!bot.isActive || killingBotId === bot.id} onClick={() => handleKillBot(bot)}>{killingBotId === bot.id ? 'Durduruluyor...' : bot.isActive ? 'Zorla Durdur' : 'Durduruldu'}</button></td>
+                                    <td><span className={`admin-trade-count ${bot.isOvertrading ? 'danger' : ''}`}>{t('adminBots.tradeCount', { count: bot.recentTradeCount })}</span>{bot.isOvertrading && <span className="admin-risk-badge">{t('adminBots.overtrading')}</span>}</td>
+                                    <td><span className={`admin-status ${bot.isActive ? 'active' : 'inactive'}`}>{bot.isActive ? t('common.active') : t('common.passive')}</span></td>
+                                    <td><button className="admin-kill-button" disabled={!bot.isActive || killingBotId === bot.id} onClick={() => handleKillBot(bot)}>{killingBotId === bot.id ? t('adminBots.killing') : bot.isActive ? t('adminBots.kill') : t('adminBots.killed')}</button></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -149,9 +158,9 @@ function AdminBots() {
             </section>
 
             <section className="admin-section">
-                <h2>Portföyler ({filteredPortfolios.length})</h2>
-                <div className="admin-table-wrapper"><table className="admin-table"><thead><tr><th>Kullanıcı</th><th>Sanal Bakiye</th><th>Varlık Sayısı</th><th>Holding Özeti</th></tr></thead><tbody>
-                    {filteredPortfolios.length === 0 ? <tr><td colSpan="4" className="admin-empty">Gösterilecek portföy bulunamadı.</td></tr> : filteredPortfolios.map((p) => <tr key={p.userId}><td>{p.username}</td><td>{Number(p.virtualBalance).toFixed(2)} USD</td><td>{p.holdings.length}</td><td>{p.holdings.length === 0 ? 'Varlık yok' : p.holdings.map((h) => `${h.symbol}: ${h.quantity}`).join(', ')}</td></tr>)}
+                <h2>{t('adminBots.portfolios', { count: filteredPortfolios.length })}</h2>
+                <div className="admin-table-wrapper"><table className="admin-table"><thead><tr><th>{t('adminBots.col.user')}</th><th>{t('adminBots.col.balance')}</th><th>{t('adminBots.col.assetCount')}</th><th>{t('adminBots.col.holdings')}</th></tr></thead><tbody>
+                    {filteredPortfolios.length === 0 ? <tr><td colSpan="4" className="admin-empty">{t('adminBots.noPortfolios')}</td></tr> : filteredPortfolios.map((p) => <tr key={p.userId}><td>{p.username}</td><td>{Number(p.virtualBalance).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</td><td>{p.holdings.length}</td><td>{p.holdings.length === 0 ? t('adminBots.noAssets') : p.holdings.map((h) => `${h.symbol}: ${h.quantity}`).join(', ')}</td></tr>)}
                 </tbody></table></div>
             </section>
         </div>

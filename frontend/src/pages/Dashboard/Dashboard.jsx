@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getAllUsers, assignRole, removeRole, getRoles, getFeedbacks, getAuditLog } from '../../services/apiService';
+import './Dashboard.css';
 
 function parseApiUtcDate(value) {
   if (!value) return null;
@@ -10,10 +11,10 @@ function parseApiUtcDate(value) {
   return new Date(hasTimezone ? text : `${text}Z`);
 }
 
-function formatAuditDate(value) {
+function formatAuditDate(value, locale) {
   const date = parseApiUtcDate(value);
   if (!date || Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('tr-TR');
+  return date.toLocaleString(locale);
 }
 
 function localDateStartUtcIso(dateStr) {
@@ -26,14 +27,14 @@ function localDateEndUtcIso(dateStr) {
   return new Date(`${dateStr}T23:59:59.999`).toISOString();
 }
 
-const AUDIT_ACTION_LABELS = {
-  BotForceStopped: 'Bot zorla durduruldu',
-  BotFlagged: 'Bot işaretlendi'
+const AUDIT_ACTION_KEYS = {
+  BotForceStopped: 'dashboard.audit.botForceStopped',
+  BotFlagged: 'dashboard.audit.botFlagged'
 };
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [rolesList, setRolesList] = useState([]);
@@ -66,7 +67,7 @@ export default function Dashboard() {
 
   const fetchAuditLogs = () => {
     if (auditFrom && auditTo && auditFrom > auditTo) {
-      setAuditError('Başlangıç tarihi bitiş tarihinden sonra olamaz.');
+      setAuditError(t('dashboard.audit.rangeInvalid'));
       setAuditLogs([]);
       return;
     }
@@ -80,7 +81,7 @@ export default function Dashboard() {
       .then(res => setAuditLogs(res.data || []))
       .catch(err => {
         console.error("Denetim günlüğü çekilemedi:", err);
-        setAuditError(err.response?.data?.error || "Denetim günlüğü yüklenemedi.");
+        setAuditError(err.response?.data?.error || t('dashboard.audit.loadError'));
         setAuditLogs([]);
       })
       .finally(() => setAuditLoading(false));
@@ -123,62 +124,72 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>{t('common.loading')}</div>;
+    return <div className="admin-dashboard__center">{t('common.loading')}</div>;
   }
 
   if (!user || !user.roles || (!user.roles.includes('Admin') && !user.roles.includes('SuperAdmin'))) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8f9fa' }}>
-        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ color: '#dc3545', margin: '0 0 10px 0' }}>{t('dashboard.unauthorized')}</h2>
-          <p style={{ color: '#6c757d', margin: 0 }}>Bu sayfayı görüntülemek için Admin veya SuperAdmin yetkisine sahip olmalısınız.</p>
+      <div className="admin-dashboard__center">
+        <div className="admin-dashboard__unauthorized">
+          <h2>{t('dashboard.unauthorized')}</h2>
+          <p>{t('dashboard.unauthorizedHint')}</p>
         </div>
       </div>
     );
   }
 
-  const getTabStyle = (tabName) => ({
-    padding: '10px 0',
-    cursor: 'pointer',
-    fontWeight: activeTab === tabName ? 'bold' : 'normal',
-    color: activeTab === tabName ? '#0066cc' : '#555'
-  });
+  const tabs = [
+    { key: 'summary', label: `📊 ${t('dashboard.tab.summary')}` },
+    { key: 'crypto', label: `🪙 ${t('dashboard.tab.crypto')}`, disabled: true },
+    { key: 'users', label: `👤 ${t('dashboard.tab.users')}` },
+    { key: 'feedback', label: `💬 ${t('dashboard.tab.feedback')}` },
+    { key: 'audit', label: `📋 ${t('dashboard.tab.audit')}` },
+    { key: 'settings', label: `⚙️ ${t('dashboard.tab.settings')}`, disabled: true },
+  ];
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 60px)', fontFamily: 'sans-serif' }}>
+    <div className="admin-dashboard">
       {/* Sol Menü (Sidebar) */}
-      <div style={{ width: '240px', backgroundColor: '#f4f4f4', padding: '20px', borderRight: '1px solid #ddd' }}>
-        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>{t('dashboard.adminPanel')}</h3>
-        <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
-          <li style={getTabStyle('summary')} onClick={() => setActiveTab('summary')}>📊 Özet Raporlar</li>
-          <li style={{ padding: '10px 0', color: '#555', cursor: 'not-allowed', opacity: 0.5 }}>🪙 Kripto Varlıklar</li>
-          <li style={getTabStyle('users')} onClick={() => setActiveTab('users')}>👤 Kullanıcı Yönetimi</li>
-          <li style={getTabStyle('feedback')} onClick={() => setActiveTab('feedback')}>💬 Geri Bildirimler</li>
-          <li style={getTabStyle('audit')} onClick={() => setActiveTab('audit')}>📋 Denetim Günlüğü</li>
-          <li style={{ padding: '10px 0', color: '#555', cursor: 'not-allowed', opacity: 0.5 }}>⚙️ Ayarlar</li>
+      <aside className="admin-dashboard__sidebar">
+        <h3>{t('dashboard.adminPanel')}</h3>
+        <ul>
+          {tabs.map((tab) => (
+            <li key={tab.key}>
+              <button
+                type="button"
+                className={`admin-dashboard__tab${activeTab === tab.key ? ' is-active' : ''}`}
+                onClick={() => setActiveTab(tab.key)}
+                disabled={tab.disabled}
+                aria-current={activeTab === tab.key ? 'page' : undefined}
+                title={tab.disabled ? t('dashboard.tab.soon') : undefined}
+              >
+                {tab.label}
+              </button>
+            </li>
+          ))}
         </ul>
-      </div>
+      </aside>
 
       {/* Sağ İçerik Alanı (Main Content) */}
-      <div style={{ flex: 1, padding: '30px', backgroundColor: '#fff' }}>
+      <div className="admin-dashboard__content">
       {activeTab === 'summary' && (
       <div>
-      <h2 style={{ marginTop: 0 }}>{t('dashboard.reports')}</h2>
-      <p style={{ color: '#666' }}>CryptoTracker sistemindeki anlık veriler ve yönetim araçları.</p>
+      <h2>{t('dashboard.reports')}</h2>
+      <p className="admin-dashboard__muted">{t('dashboard.reportsSubtitle')}</p>
 
       {/* Örnek Bilgi Kartları */}
-      <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
-        <div style={{ flex: 1, padding: '20px', backgroundColor: '#e6f2ff', borderRadius: '8px', border: '1px solid #b3d7ff' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#004085' }}>{t('dashboard.totalUsers')}</h4>
-          <span style={{ fontSize: '24px', fontWeight: 'bold' }}>1,240</span>
+      <div className="admin-dashboard__cards">
+        <div className="admin-dashboard__card admin-dashboard__card--blue">
+          <h4>{t('dashboard.totalUsers')}</h4>
+          <span>1,240</span>
         </div>
-        <div style={{ flex: 1, padding: '20px', backgroundColor: '#d4edda', borderRadius: '8px', border: '1px solid #c3e6cb' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>{t('dashboard.activeCoins')}</h4>
-          <span style={{ fontSize: '24px', fontWeight: 'bold' }}>85</span>
+        <div className="admin-dashboard__card admin-dashboard__card--green">
+          <h4>{t('dashboard.activeCoins')}</h4>
+          <span>85</span>
         </div>
-        <div style={{ flex: 1, padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', border: '1px solid #ffeeba' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>{t('dashboard.dailyVolume')}</h4>
-          <span style={{ fontSize: '24px', fontWeight: 'bold' }}>$45,210</span>
+        <div className="admin-dashboard__card admin-dashboard__card--amber">
+          <h4>{t('dashboard.dailyVolume')}</h4>
+          <span>$45,210</span>
         </div>
       </div>
     </div>
@@ -186,22 +197,22 @@ export default function Dashboard() {
 
  {activeTab === 'users' && (
           <div>
-            <h2 style={{ marginTop: 0 }}>{t('dashboard.userMgmt')}</h2>
-            <p style={{ color: '#666' }}>Sistemdeki kullanıcıları arayın, filtreleyin ve rollerini yönetin.</p>
+            <h2>{t('dashboard.userMgmt')}</h2>
+            <p className="admin-dashboard__muted">{t('dashboard.usersSubtitle')}</p>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+            <div className="admin-dashboard__filters">
               <input
                 type="text"
                 placeholder={t('dashboard.searchUser')}
+                aria-label={t('dashboard.searchUser')}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ padding: '8px', width: '250px', border: '1px solid #ccc', borderRadius: '4px' }}
             />
 
             <select
+                aria-label={t('dashboard.allRoles')}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                style={{ padding: '8px', width: '150px', border: '1px solid #ccc', borderRadius: '4px' }}
               >
-                <option value="">Tüm Roller</option>
+                <option value="">{t('dashboard.allRoles')}</option>
                 {rolesList.map(r => (
                   <option key={r.id || r.roleId} value={r.name || r.roleName}>
                     {r.name || r.roleName}
@@ -210,30 +221,40 @@ export default function Dashboard() {
               </select>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+            <table className="admin-dashboard__table">
               <thead>
-                <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                  <th style={{ padding: '12px', color: '#495057' }}>Kullanıcı Adı</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>E-Posta</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>Rol Atama</th>
+                <tr>
+                  <th>{t('profile.username')}</th>
+                  <th>{t('dashboard.email')}</th>
+                  <th>{t('dashboard.roleAssign')}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.map(u => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '12px' }}>{u.username}</td>
-                    <td style={{ padding: '12px' }}>{u.email}</td>
-                    <td style={{ padding: '12px' }}>
+                  <tr key={u.id}>
+                    <td>{u.username}</td>
+                    <td>{u.email}</td>
+                    <td>
 
                       {u.roles?.map(role => (
-                        <span key={role} style={{ marginRight: '5px', background: '#eee', padding: '2px 6px', borderRadius: '4px' }}>
+                        <span key={role} className="admin-dashboard__role">
                           {role}
-                          <button onClick={() => handleRoleAction(u.id, role, 'remove')} style={{ marginLeft: '5px', cursor: 'pointer', border: 'none', background: 'transparent' }}>x</button>
+                          <button
+                            type="button"
+                            onClick={() => handleRoleAction(u.id, role, 'remove')}
+                            aria-label={t('dashboard.removeRole', { role })}
+                          >
+                            ×
+                          </button>
                         </span>
                       ))}
 
-                      <select onChange={(e) => { if(e.target.value) handleRoleAction(u.id, e.target.value, 'add'); e.target.value = ''; }} style={{ marginLeft: '10px', padding: '2px' }}>
-                        <option value="">+ Rol Ekle</option>
+                      <select
+                        className="admin-dashboard__role-add"
+                        aria-label={t('dashboard.addRole')}
+                        onChange={(e) => { if(e.target.value) handleRoleAction(u.id, e.target.value, 'add'); e.target.value = ''; }}
+                      >
+                        <option value="">+ {t('dashboard.addRole')}</option>
                         {rolesList.map(r => (
                           <option key={r.id || r.roleId} value={r.name || r.roleName}>
                             {r.name || r.roleName}
@@ -251,71 +272,70 @@ export default function Dashboard() {
 
         {activeTab === 'feedback' && (
           <div>
-            <h2 style={{ marginTop: 0 }}>{t('dashboard.feedbacks')}</h2>
-            <p style={{ color: '#666' }}>Kullanıcılardan gelen geri bildirim, şikayet ve öneriler.</p>
+            <h2>{t('dashboard.feedbacks')}</h2>
+            <p className="admin-dashboard__muted">{t('dashboard.feedbackSubtitle')}</p>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+            <table className="admin-dashboard__table">
               <thead>
-                <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                  <th style={{ padding: '12px', color: '#495057' }}>ID</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.message')}</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.score')}</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>{t('profile.username')}</th>
-                  <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.date')}</th>
+                <tr>
+                  <th>ID</th>
+                  <th>{t('dashboard.message')}</th>
+                  <th>{t('dashboard.score')}</th>
+                  <th>{t('profile.username')}</th>
+                  <th>{t('dashboard.date')}</th>
                 </tr>
               </thead>
               <tbody>
                 {feedbacks.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '12px' }}>{item.id}</td>
-                    <td style={{ padding: '12px' }}>{item.message}</td>
-                    <td style={{ padding: '12px' }}>{item.rating ?? '-'}</td>
-                    <td style={{ padding: '12px' }}>{item.userId ?? t('dashboard.guest')}</td>
-                    <td style={{ padding: '12px' }}>{new Date(item.createdAt).toLocaleString('tr-TR')}</td>
+                  <tr key={item.id}>
+                    <td>{item.id}</td>
+                    <td>{item.message}</td>
+                    <td>{item.rating ?? '-'}</td>
+                    <td>{item.userId ?? t('dashboard.guest')}</td>
+                    <td>{new Date(item.createdAt).toLocaleString(locale)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
             {feedbacks.length === 0 && (
-              <p style={{ marginTop: '20px', color: '#666' }}>{t('dashboard.noFeedback')}</p>
+              <p className="admin-dashboard__muted">{t('dashboard.noFeedback')}</p>
             )}
           </div>
         )}
 
         {activeTab === 'audit' && (
           <div>
-            <h2 style={{ marginTop: 0 }}>{t('dashboard.auditLog')}</h2>
-            <p style={{ color: '#666' }}>Hangi yöneticinin hangi bot üzerinde ne zaman işlem yaptığını görüntüleyin. Kayıtlar varsayılan olarak en yeniden eskiye sıralanır.</p>
+            <h2>{t('dashboard.auditLog')}</h2>
+            <p className="admin-dashboard__muted">{t('dashboard.auditSubtitle')}</p>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ color: '#555' }}>
-                Başlangıç
+            <div className="admin-dashboard__filters">
+              <label>
+                {t('common.startDate')}
                 <input
                   type="date"
                   value={auditFrom}
                   onChange={(e) => setAuditFrom(e.target.value)}
-                  style={{ marginLeft: '8px', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                 />
               </label>
-              <label style={{ color: '#555' }}>
-                Bitiş
+              <label>
+                {t('common.endDate')}
                 <input
                   type="date"
                   value={auditTo}
                   onChange={(e) => setAuditTo(e.target.value)}
-                  style={{ marginLeft: '8px', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                 />
               </label>
               <button
                 type="button"
+                className="admin-dashboard__button admin-dashboard__button--primary"
                 onClick={fetchAuditLogs}
-                style={{ padding: '8px 14px', cursor: 'pointer', border: '1px solid #0066cc', background: '#0066cc', color: '#fff', borderRadius: '4px' }}
               >
-                Filtrele
+                {t('common.filter')}
               </button>
               <button
                 type="button"
+                className="admin-dashboard__button"
                 onClick={() => {
                   setAuditFrom('');
                   setAuditTo('');
@@ -324,47 +344,46 @@ export default function Dashboard() {
                   getAuditLog()
                     .then(res => setAuditLogs(res.data || []))
                     .catch(err => {
-                      setAuditError(err.response?.data?.error || "Denetim günlüğü yüklenemedi.");
+                      setAuditError(err.response?.data?.error || t('dashboard.audit.loadError'));
                       setAuditLogs([]);
                     })
                     .finally(() => setAuditLoading(false));
                 }}
-                style={{ padding: '8px 14px', cursor: 'pointer', border: '1px solid #ccc', background: '#fff', borderRadius: '4px' }}
               >
-                Temizle
+                {t('common.clear')}
               </button>
             </div>
 
             {auditLoading && (
-              <p style={{ color: '#666' }}>Denetim kayıtları yükleniyor...</p>
+              <p className="admin-dashboard__muted">{t('dashboard.audit.loading')}</p>
             )}
 
             {auditError && (
-              <p style={{ color: '#dc3545' }}>{auditError}</p>
+              <p className="admin-dashboard__error">{auditError}</p>
             )}
 
             {!auditLoading && !auditError && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+              <table className="admin-dashboard__table">
                 <thead>
-                  <tr style={{ backgroundColor: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.admin')}</th>
-                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.action')}</th>
-                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.target')}</th>
-                    <th style={{ padding: '12px', color: '#495057' }}>{t('dashboard.detail')}</th>
-                    <th style={{ padding: '12px', color: '#495057' }}>Tarih / Saat</th>
+                  <tr>
+                    <th>{t('dashboard.admin')}</th>
+                    <th>{t('dashboard.action')}</th>
+                    <th>{t('dashboard.target')}</th>
+                    <th>{t('dashboard.detail')}</th>
+                    <th>{t('dashboard.dateTime')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {auditLogs.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '12px' }}>{item.actorUsername || `Kullanıcı #${item.actorUserId}`}</td>
-                      <td style={{ padding: '12px' }}>
-                        {AUDIT_ACTION_LABELS[item.action] || item.action}
-                        <div style={{ fontSize: '12px', color: '#888' }}>{item.action}</div>
+                    <tr key={item.id}>
+                      <td>{item.actorUsername || t('dashboard.audit.userFallback', { id: item.actorUserId })}</td>
+                      <td>
+                        {AUDIT_ACTION_KEYS[item.action] ? t(AUDIT_ACTION_KEYS[item.action]) : item.action}
+                        <div className="admin-dashboard__code">{item.action}</div>
                       </td>
-                      <td style={{ padding: '12px' }}>Bot #{item.targetId}</td>
-                      <td style={{ padding: '12px', color: '#555' }}>{item.details || '-'}</td>
-                      <td style={{ padding: '12px' }}>{formatAuditDate(item.createdAt)}</td>
+                      <td>Bot #{item.targetId}</td>
+                      <td className="admin-dashboard__muted">{item.details || '-'}</td>
+                      <td>{formatAuditDate(item.createdAt, locale)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -372,7 +391,7 @@ export default function Dashboard() {
             )}
 
             {!auditLoading && !auditError && auditLogs.length === 0 && (
-              <p style={{ marginTop: '20px', color: '#666' }}>Seçilen aralıkta denetim kaydı bulunmuyor.</p>
+              <p className="admin-dashboard__muted">{t('dashboard.audit.empty')}</p>
             )}
           </div>
         )}

@@ -111,7 +111,7 @@ export default function SignUp() {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h2 className="auth-title">Kayıt Ol</h2>
+                <h2 className="auth-title">{t('nav.signup')}</h2>
 
                 {errors.global && (
                     <div className="auth-error-alert">{errors.global}</div>
@@ -201,7 +201,7 @@ export default function SignUp() {
 
                 <div className="auth-footer-links">
                     <span>
-                        Zaten hesabın var mı? <Link to="/signin" className="auth-link">Giriş Yap</Link>
+                        {t('auth.haveAccount')} <Link to="/signin" className="auth-link">{t('nav.signin')}</Link>
                     </span>
                 </div>
             </div>

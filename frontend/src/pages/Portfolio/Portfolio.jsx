@@ -6,6 +6,7 @@ import PortfolioHistoryChart from '../../components/PortfolioHistoryChart/Portfo
 import './Portfolio.css';
 
 const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: prices prop'u eklendi
+  const { t } = useLanguage();
   const [performance, setPerformance] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +24,7 @@ const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: 
     fetchPerformance();
   }, []);
 
-  if (loading) return <div className="portfolio-loading">Bot performans verileri yükleniyor...</div>;
+  if (loading) return <div className="portfolio-loading">{t('botPerf.loading')}</div>;
   
   if (!performance) return null;
 
@@ -55,29 +56,29 @@ const BotPerformanceSummary = ({ totalPortfolioProfit, prices }) => { // YENİ: 
 
   return (
     <div className="portfolio-section" style={{ borderLeft: '4px solid #3b82f6' }}>
-      <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Bot Performansı</h2>
+      <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>{t('botPerf.title')}</h2>
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '0.95rem' }}>
         
-        <div><strong>Toplam Sinyal:</strong> {total}</div>
+        <div><strong>{t('backtest.totalSignals')}:</strong> {total}</div>
         
         <div className="text-green">
-          <strong>Başarı Oranı:</strong> %{approvedRate} <span style={{fontSize: '0.8rem'}}>({performance.approvedSignals})</span>
+          <strong>{t('botPerf.successRate')}:</strong> %{approvedRate} <span style={{fontSize: '0.8rem'}}>({performance.approvedSignals})</span>
         </div>
         
         <div className="text-red">
-          <strong>Reddedilme Oranı:</strong> %{rejectedRate} <span style={{fontSize: '0.8rem'}}>({performance.rejectedSignals})</span>
+          <strong>{t('botPerf.rejectRate')}:</strong> %{rejectedRate} <span style={{fontSize: '0.8rem'}}>({performance.rejectedSignals})</span>
         </div>
         
         <div style={{ color: '#9ca3af' }}>
-          <strong>Süresi Geçme Oranı:</strong> %{expiredRate} <span style={{fontSize: '0.8rem'}}>({performance.expiredSignals})</span>
+          <strong>{t('botPerf.expireRate')}:</strong> %{expiredRate} <span style={{fontSize: '0.8rem'}}>({performance.expiredSignals})</span>
         </div>
 
         <div className="text-red">
-          <strong>Başarısız:</strong> %{failedRate} <span style={{fontSize: '0.8rem'}}>({failedCount})</span>
+          <strong>{t('signal.status.failed')}:</strong> %{failedRate} <span style={{fontSize: '0.8rem'}}>({failedCount})</span>
         </div>
         
         <div className={realTimeBotPnL > 0 ? 'text-green' : realTimeBotPnL < 0 ? 'text-red' : ''} style={{ fontWeight: 'bold', borderLeft: '2px solid #4b5563', paddingLeft: '10px' }}>
-          <strong>Genel Portföye Etkisi:</strong> ${realTimeBotPnL.toFixed(2)} 
+          <strong>{t('botPerf.impact')}:</strong> ${realTimeBotPnL.toFixed(2)} 
           <span style={{ fontSize: '0.85rem', marginLeft: '5px' }}>
             ({realTimeBotPnL > 0 ? '+' : ''}%{impactPercentage})
           </span>
@@ -277,7 +278,7 @@ const Portfolio = () => {
                 background: `conic-gradient(${pieGradient})`,
                 flexShrink: 0,
               }}
-              aria-label="Portföy dağılım pasta grafiği"
+              aria-label={t('portfolio.pieLabel')}
             />
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {distribution.map((d) => (
@@ -350,7 +351,7 @@ const Portfolio = () => {
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <input
             type="text"
-            placeholder="Sembol (örn. BTCUSDT)"
+            placeholder={t('portfolio.symbolPlaceholder')}
             value={txSymbol}
             onChange={(e) => { setTxPage(1); setTxSymbol(e.target.value); }}
             style={{ padding: '0.4rem', flex: '1 1 200px' }}

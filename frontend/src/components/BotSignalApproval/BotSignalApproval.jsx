@@ -7,17 +7,11 @@ import './BotSignalApproval.css';
 
 const POLL_INTERVAL_MS = 15000;
 
-const STATUS_LABELS = {
-  pending: 'Bekleyen',
-  approved: 'Otomatik Onaylandı',
-  rejected: 'Reddedildi',
-  expired: 'Süresi Doldu',
-  failed: 'Başarısız',
-};
+const STATUSES = ['pending', 'approved', 'rejected', 'expired', 'failed'];
 
 const normalizeStatus = (status) => {
   if (typeof status === 'string') return status.toLowerCase();
-  return ['pending', 'approved', 'rejected', 'expired', 'failed'][Number(status)] || 'unknown';
+  return STATUSES[Number(status)] || 'unknown';
 };
 
 const normalizeSignalType = (type) => {
@@ -25,21 +19,25 @@ const normalizeSignalType = (type) => {
   return Number(type) === 1 ? 'sell' : 'buy';
 };
 
-const formatPrice = (value) =>
-  Number(value || 0).toLocaleString('tr-TR', {
+const formatPrice = (value, locale) =>
+  Number(value || 0).toLocaleString(locale, {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 8,
   });
 
-const formatDate = (value) => {
+const formatDate = (value, locale) => {
   if (!value) return '-';
-  return new Date(value).toLocaleString('tr-TR');
+  return new Date(value).toLocaleString(locale);
 };
 
 export default function BotSignalApproval({ bots = [] }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const statusLabel = useCallback(
+    (status) => (STATUSES.includes(status) ? t(`signal.status.${status}`) : status),
+    [t]
+  );
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -73,19 +71,19 @@ export default function BotSignalApproval({ bots = [] }) {
 
       setMessage({
         type: status === 'failed' ? 'error' : riskExit ? 'warning' : 'info',
-        text: `${riskText}Yeni otomatik bot sinyali: ${type === 'buy' ? 'AL' : 'SAT'} ${symbol} (${STATUS_LABELS[status] || status})`,
+        text: `${riskText}${t('signal.newSignal', { type: t(`signal.${type}`), symbol, status: statusLabel(status) })}`,
       });
 
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(riskExit ? `${t(reasonLabelKey(newest.reason))} ${t('bot.riskTriggered')}` : 'Bot sinyali', {
-          body: `${symbol || 'Coin'} için ${type === 'buy' ? 'AL' : 'SAT'} otomatik işlendi.`,
+        new Notification(riskExit ? `${t(reasonLabelKey(newest.reason))} ${t('bot.riskTriggered')}` : t('signal.notificationTitle'), {
+          body: t('signal.notificationBody', { symbol: symbol || 'Coin', type: t(`signal.${type}`) }),
         });
       }
     }
 
     knownIds.current = new Set(nextSignals.map((signal) => signal.id));
     initialized.current = true;
-  }, [botMap, t]);
+  }, [botMap, t, statusLabel]);
 
   const fetchSignals = useCallback(async ({ silent = false } = {}) => {
     if (!bots.length) {
@@ -109,12 +107,12 @@ export default function BotSignalApproval({ bots = [] }) {
     } catch (error) {
       console.error('Bot sinyalleri yüklenemedi:', error);
       if (!silent) {
-        setMessage({ type: 'error', text: 'Bot sinyalleri yüklenemedi.' });
+        setMessage({ type: 'error', text: t('signal.loadError') });
       }
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [bots, notifyNewSignals]);
+  }, [bots, notifyNewSignals, t]);
 
   useEffect(() => {
     fetchSignals();
@@ -137,7 +135,7 @@ export default function BotSignalApproval({ bots = [] }) {
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) {
-      setMessage({ type: 'error', text: 'Tarayıcınız bildirimleri desteklemiyor.' });
+      setMessage({ type: 'error', text: t('signal.notSupported') });
       return;
     }
 
@@ -146,8 +144,8 @@ export default function BotSignalApproval({ bots = [] }) {
       type: permission === 'granted' ? 'success' : 'error',
       text:
         permission === 'granted'
-          ? 'Tarayıcı bildirimleri açıldı.'
-          : 'Bildirim izni verilmedi.',
+          ? t('signal.permissionGranted')
+          : t('signal.permissionDenied'),
     });
   };
 
@@ -155,18 +153,16 @@ export default function BotSignalApproval({ bots = [] }) {
     <section className="bot-signal-card" aria-labelledby="bot-signal-title">
       <div className="bot-signal-header">
         <div>
-          <h3 id="bot-signal-title">Bot Sinyal Geçmişi</h3>
-          <p>
-            Bot sinyalleri otomatik olarak sanal portföyde çalıştırılır. Manuel onay gerekmez.
-          </p>
+          <h3 id="bot-signal-title">{t('signal.title')}</h3>
+          <p>{t('signal.subtitle')}</p>
         </div>
         <div className="bot-signal-header-actions">
-          <span className="bot-signal-count">{recentSignals.length} kayıt</span>
+          <span className="bot-signal-count">{t('signal.count', { count: recentSignals.length })}</span>
           <button type="button" className="bot-signal-secondary" onClick={requestNotificationPermission}>
-            Bildirimleri Aç
+            {t('signal.enableNotifications')}
           </button>
           <button type="button" className="bot-signal-secondary" onClick={() => fetchSignals()}>
-            Yenile
+            {t('common.refresh')}
           </button>
         </div>
       </div>
@@ -174,15 +170,15 @@ export default function BotSignalApproval({ bots = [] }) {
       {message && (
         <div className={`bot-signal-message bot-signal-message--${message.type}`} role="status">
           {message.text}
-          <button type="button" onClick={() => setMessage(null)} aria-label="Mesajı kapat">×</button>
+          <button type="button" onClick={() => setMessage(null)} aria-label={t('common.closeMessage')}>×</button>
         </div>
       )}
 
       {loading ? (
-        <div className="bot-signal-empty">Sinyaller yükleniyor...</div>
+        <div className="bot-signal-empty">{t('signal.loading')}</div>
       ) : recentSignals.length === 0 ? (
         <div className="bot-signal-empty">
-          Henüz bot sinyali yok. Sistem arka planda otomatik işlem yapar.
+          {t('signal.empty')}
         </div>
       ) : (
         <div className="bot-signal-list">
@@ -196,14 +192,14 @@ export default function BotSignalApproval({ bots = [] }) {
               <article key={signal.id} className={`bot-signal-item bot-signal-item--${type}`}>
                 <div className="bot-signal-main">
                   <span className={`bot-signal-type bot-signal-type--${type}`}>
-                    {isBuy ? 'AL' : 'SAT'}
+                    {isBuy ? t('signal.buy') : t('signal.sell')}
                   </span>
                   <div>
                     <strong>{bot?.symbol || `Bot #${signal.botId}`}</strong>
                     <div className="bot-signal-meta">
-                      RSI: {Number(signal.rsiValueAtSignal).toFixed(2)} · Fiyat: {formatPrice(signal.priceAtSignal)}
+                      RSI: {Number(signal.rsiValueAtSignal).toFixed(2)} · {t('signal.price')}: {formatPrice(signal.priceAtSignal, locale)}
                     </div>
-                    <div className="bot-signal-date">{formatDate(signal.createdAt)}</div>
+                    <div className="bot-signal-date">{formatDate(signal.createdAt, locale)}</div>
                   </div>
                 </div>
 
@@ -214,7 +210,7 @@ export default function BotSignalApproval({ bots = [] }) {
                     </span>
                   )}
                   <span className={`bot-signal-status bot-signal-status--${status}`}>
-                    {STATUS_LABELS[status] || status}
+                    {statusLabel(status)}
                   </span>
                 </div>
               </article>

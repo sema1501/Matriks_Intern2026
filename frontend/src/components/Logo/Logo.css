@@ -1,0 +1,81 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.logo__icon {
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px var(--logo-glow));
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.logo:hover .logo__icon,
+.logo:focus-visible .logo__icon {
+  filter: drop-shadow(0 0 10px var(--logo-glow));
+  transform: translateY(-1px);
+}
+
+.logo__text {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.logo__text-accent {
+  background: linear-gradient(90deg, var(--logo-start), var(--logo-end));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Hover animasyonu: çubuklar sırayla hafifçe uzar, çizgi baştan çizilir. */
+.logo__bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.logo__line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.logo:hover .logo__bar--1,
+.logo:focus-visible .logo__bar--1 { transform: scaleY(1.25); }
+.logo:hover .logo__bar--2,
+.logo:focus-visible .logo__bar--2 { transform: scaleY(1.15); transition-delay: 0.05s; }
+.logo:hover .logo__bar--3,
+.logo:focus-visible .logo__bar--3 { transform: scaleY(1.08); transition-delay: 0.1s; }
+
+.logo:hover .logo__line,
+.logo:focus-visible .logo__line {
+  animation: logo-line-draw 0.6s ease-out;
+}
+
+@keyframes logo-line-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo__icon,
+  .logo__bar {
+    transition: none;
+  }
+
+  .logo:hover .logo__icon,
+  .logo:hover .logo__bar,
+  .logo:focus-visible .logo__bar {
+    transform: none;
+  }
+
+  .logo:hover .logo__line,
+  .logo:focus-visible .logo__line {
+    animation: none;
+  }
+}
